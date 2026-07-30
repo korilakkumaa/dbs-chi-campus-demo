@@ -4,7 +4,11 @@
 
 ## 線上預覽
 
-部署後請開啟 GitHub repo 的 **Settings → Pages**，或看 Actions 產出的 Pages 網址。
+推上 `main` 並啟用 GitHub Actions Pages 後：
+
+**https://korilakkumaa.github.io/dbs-chi-campus-demo/**
+
+Repo：https://github.com/korilakkumaa/dbs-chi-campus-demo
 
 （本機預覽：`npm run build && npm run preview`）
 
