@@ -31,6 +31,8 @@ interface CampusContextValue {
   setSearchQuery: (q: string) => void
   filteredStudents: Student[]
   selectedStudents: Student[]
+  /** All students in classes the signed-in user can access (ignores class picker). */
+  accessibleStudents: Student[]
   assignClassToTeacher: (classId: string, teacherId: string | null) => void
   getClassName: (classId: string) => string
   getTeacherName: (teacherId: string | null) => string
@@ -244,6 +246,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       setSearchQuery,
       filteredStudents,
       selectedStudents,
+      accessibleStudents,
       assignClassToTeacher: (classId, teacherId) => {
         setClasses((prev) =>
           prev.map((c) => (c.id === classId ? { ...c, teacherId } : c)),
@@ -294,6 +297,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       searchQuery,
       filteredStudents,
       selectedStudents,
+      accessibleStudents,
       gradeDeadlines,
       relevantDeadlines,
       taughtGradeNumbers,

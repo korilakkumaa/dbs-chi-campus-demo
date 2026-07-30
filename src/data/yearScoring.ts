@@ -106,6 +106,16 @@ export function percentileRank(value: number, population: number[]): number {
   )
 }
 
+/** 1-based rank among population (1 = highest). Ties share the best place. */
+export function descendingRank(value: number, population: number[]): number {
+  if (population.length === 0) return 1
+  let better = 0
+  for (const v of population) {
+    if (v > value) better += 1
+  }
+  return better + 1
+}
+
 export type Quartile = 'q1' | 'q2' | 'q3' | 'q4'
 
 export function quartileFromPercentile(percentile: number): Quartile {

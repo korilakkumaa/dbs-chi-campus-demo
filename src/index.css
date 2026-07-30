@@ -735,14 +735,14 @@ code {
 .shell-chrome {
   display: grid;
   gap: 0.55rem;
-  position: sticky;
-  top: 0.85rem;
+  position: relative;
   z-index: 40;
 }
 
 .shell-chrome .top-nav {
-  position: relative;
-  top: auto;
+  position: sticky;
+  top: 0.85rem;
+  z-index: 40;
 }
 
 .shell-search-row {
@@ -1216,7 +1216,7 @@ code {
 }
 
 .individual-page {
-  width: min(1560px, 100%);
+  width: min(1840px, 100%);
 }
 
 .page-header {
@@ -2374,6 +2374,42 @@ tbody tr.table-row-link:focus-visible {
   background: var(--forest);
 }
 
+.class-snapshot {
+  position: relative;
+}
+
+.class-snapshot-link {
+  cursor: pointer;
+  transition:
+    border-color 0.18s var(--ease-out),
+    box-shadow 0.18s var(--ease-out),
+    transform 0.18s var(--ease-out);
+}
+
+.class-snapshot-link:hover {
+  border-color: rgba(184, 104, 42, 0.28);
+  box-shadow: 0 8px 24px rgba(40, 26, 14, 0.08);
+  transform: translateY(-1px);
+}
+
+.class-snapshot-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.class-snapshot-link .spark-row,
+.class-snapshot-link .spark {
+  position: relative;
+  z-index: 2;
+}
+
 .class-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -2492,7 +2528,7 @@ tbody tr.table-row-link:focus-visible {
 
 .individual-layout {
   display: grid;
-  grid-template-columns: 10rem minmax(16.5rem, 20rem) minmax(0, 1fr);
+  grid-template-columns: 10rem minmax(24rem, 30rem) minmax(0, 1fr);
   gap: 0.85rem;
   align-items: start;
   width: 100%;
@@ -2609,6 +2645,39 @@ tbody tr.table-row-link:focus-visible {
   margin-bottom: 0.75rem;
 }
 
+.roster-rail-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.roster-class-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--amber-deep);
+  background: rgba(184, 104, 42, 0.1);
+  border: 1px solid rgba(184, 104, 42, 0.35);
+  border-radius: var(--radius-control);
+  padding: 0.18rem 0.45rem;
+  cursor: pointer;
+}
+
+.roster-class-chip:hover {
+  background: rgba(184, 104, 42, 0.16);
+}
+
+.roster-class-chip span {
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+
 .roster-rail-head h2 {
   margin: 0;
 }
@@ -2633,8 +2702,8 @@ tbody tr.table-row-link:focus-visible {
 
 .roster-row {
   display: grid;
-  grid-template-columns: 1.35rem 2.6rem 2.15rem minmax(0, 1fr) 3.1rem 3.3rem;
-  gap: 0.3rem;
+  grid-template-columns: 1.35rem 2.8rem 2.2rem minmax(6rem, 1fr) 2.9rem 3.1rem;
+  gap: 0.35rem;
   align-items: center;
   width: 100%;
 }
@@ -2694,8 +2763,6 @@ tbody tr.table-row-link:focus-visible {
 .roster-col.name {
   font-weight: 500;
   font-size: var(--text-body);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2750,7 +2817,7 @@ tbody tr.table-row-link:focus-visible {
 }
 
 .student-file {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .file-head {
@@ -2856,11 +2923,69 @@ tbody tr.table-row-link:focus-visible {
   margin-bottom: 0;
   min-width: 0;
   max-width: 100%;
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 .file-section h3 {
+  position: relative;
+  z-index: 2;
   font-size: var(--text-heading);
-  margin-bottom: 0.45rem;
+  margin: 0;
+  padding: 0.15rem 0 0.2rem;
+  background: var(--paper);
+  scroll-margin-top: 4.5rem;
+}
+
+.file-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.year-grade-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.year-grade-btn {
+  font: inherit;
+  font-family: var(--font-input);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  background: rgba(255, 252, 248, 0.7);
+  border: 1px solid rgba(90, 60, 30, 0.16);
+  border-radius: var(--radius-control);
+  padding: 0.18rem 0.48rem;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease-out),
+    color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
+}
+
+.year-grade-btn:hover {
+  color: var(--amber-deep);
+  border-color: rgba(184, 104, 42, 0.4);
+  background: rgba(184, 104, 42, 0.08);
+}
+
+.year-grade-btn.selected {
+  color: #fff8ef;
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
+.year-grade-btn.selected:hover {
+  background: var(--amber-deep);
+  border-color: var(--amber-deep);
 }
 
 .file-section-lead {
@@ -2877,10 +3002,12 @@ tbody tr.table-row-link:focus-visible {
   align-items: stretch;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding-bottom: 0.25rem;
+  padding: 0.15rem 0 0.25rem;
   scrollbar-width: thin;
   max-width: 100%;
   min-width: 0;
+  position: relative;
+  z-index: 0;
 }
 
 .year-chart {
@@ -3074,6 +3201,50 @@ tbody tr.table-row-link:focus-visible {
   text-align: center;
 }
 
+.year-chart-summary-tipwrap {
+  position: relative;
+  border-radius: var(--radius-control);
+  cursor: default;
+  outline: none;
+}
+
+.year-chart-summary-tipwrap:hover,
+.year-chart-summary-tipwrap:focus-visible {
+  background: rgba(184, 104, 42, 0.06);
+}
+
+.year-chart-summary-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.28rem);
+  z-index: 8;
+  transform: translateX(-50%) translateY(0.12rem);
+  min-width: 6.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-control);
+  background: #2f2418;
+  color: #fff8ef;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s var(--ease-out),
+    transform 0.15s var(--ease-out);
+  box-shadow: 0 8px 20px rgba(40, 26, 14, 0.22);
+}
+
+.year-chart-summary-tipwrap:hover .year-chart-summary-tip,
+.year-chart-summary-tipwrap:focus-visible .year-chart-summary-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .year-chart-summary dt {
   font-size: 0.62rem;
   color: var(--ink-soft);
@@ -3093,6 +3264,7 @@ tbody tr.table-row-link:focus-visible {
 }
 
 .year-chart-top {
+  position: relative;
   margin: 0.15rem 0 0;
   text-align: center;
   font-family: var(--font-display);
@@ -3100,6 +3272,46 @@ tbody tr.table-row-link:focus-visible {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--year-tone);
+  cursor: default;
+  border-radius: var(--radius-control);
+  outline: none;
+}
+
+.year-chart-top:hover,
+.year-chart-top:focus-visible {
+  background: rgba(184, 104, 42, 0.06);
+}
+
+.year-chart-top-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.28rem);
+  z-index: 8;
+  transform: translateX(-50%) translateY(0.12rem);
+  min-width: 7rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-control);
+  background: #2f2418;
+  color: #fff8ef;
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s var(--ease-out),
+    transform 0.15s var(--ease-out);
+  box-shadow: 0 8px 20px rgba(40, 26, 14, 0.22);
+}
+
+.year-chart-top:hover .year-chart-top-tip,
+.year-chart-top:focus-visible .year-chart-top-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .file-strengths {
@@ -3345,7 +3557,7 @@ tbody tr.table-row-link:focus-visible {
 
 @media (max-width: 1280px) {
   .individual-layout {
-    grid-template-columns: 9.5rem minmax(15rem, 18.5rem) minmax(0, 1fr);
+    grid-template-columns: 9.5rem minmax(20rem, 24rem) minmax(0, 1fr);
   }
 }
 
@@ -3385,7 +3597,7 @@ tbody tr.table-row-link:focus-visible {
     gap: 0.75rem;
   }
 
-  .shell-chrome {
+  .shell-chrome .top-nav {
     top: 0.7rem;
   }
 

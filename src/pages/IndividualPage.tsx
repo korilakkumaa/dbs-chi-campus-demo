@@ -9,6 +9,7 @@ import {
   SEMESTER_LABELS,
   SUBJECT_MAX,
   buildScorePools,
+  descendingRank,
   lookupPercentile,
   percentileRank,
   quartileFromPercentile,
@@ -21,6 +22,8 @@ import type { Student, YearRecord } from '../types'
 
 type SortKey = 'className' | 'classNumber' | 'progress' | 'correctRate'
 type SortDir = 'asc' | 'desc'
+
+const ROSTER_GRADE_OPTIONS = [7, 8, 9, 10, 11, 12] as const
 
 function YearHistoryCharts({
   records,
@@ -41,10 +44,21 @@ function YearHistoryCharts({
         const firstTotal = semesterPoints(record.first)
         const secondTotal = semesterPoints(record.second)
         const total = yearPoints(record)
-        const yearPct = percentileRank(
-          total,
-          pools.sameYearTotal.get(String(record.grade)) ?? [],
-        )
+        const yearPool = pools.sameYearTotal.get(String(record.grade)) ?? []
+        const firstPool =
+          pools.sameYearSemester.get(`${record.grade}-first`) ?? []
+        const secondPool =
+          pools.sameYearSemester.get(`${record.grade}-second`) ?? []
+        const yearPct = percentileRank(total, yearPool)
+        const yearRank = descendingRank(total, yearPool)
+        const yearCohort = yearPool.length
+        const yearTop = Math.max(1, 100 - yearPct)
+        const firstPct = percentileRank(firstTotal, firstPool)
+        const firstRank = descendingRank(firstTotal, firstPool)
+        const firstTop = Math.max(1, 100 - firstPct)
+        const secondPct = percentileRank(secondTotal, secondPool)
+        const secondRank = descendingRank(secondTotal, secondPool)
+        const secondTop = Math.max(1, 100 - secondPct)
         const yearQuartile = quartileFromPercentile(yearPct)
 
         return (
@@ -103,21 +117,46 @@ function YearHistoryCharts({
             </div>
 
             <dl className="year-chart-summary">
-              <div>
+              <div
+                className="year-chart-summary-tipwrap"
+                tabIndex={0}
+                aria-label={`${SEMESTER_LABELS.first} ${firstTotal}%，Top ${firstTop}%，級名次 ${firstRank}/${firstPool.length}`}
+              >
                 <dt>{SEMESTER_LABELS.first}</dt>
                 <dd>{firstTotal}%</dd>
+                <span className="year-chart-summary-tip" role="tooltip">
+                  Top {firstTop}%
+                  <br />
+                  級名次：{firstRank}/{firstPool.length}
+                </span>
               </div>
-              <div>
+              <div
+                className="year-chart-summary-tipwrap"
+                tabIndex={0}
+                aria-label={`${SEMESTER_LABELS.second} ${secondTotal}%，Top ${secondTop}%，級名次 ${secondRank}/${secondPool.length}`}
+              >
                 <dt>{SEMESTER_LABELS.second}</dt>
                 <dd>{secondTotal}%</dd>
+                <span className="year-chart-summary-tip" role="tooltip">
+                  Top {secondTop}%
+                  <br />
+                  級名次：{secondRank}/{secondPool.length}
+                </span>
               </div>
               <div className="year-chart-summary-total">
                 <dt>學年總分</dt>
                 <dd>{total}%</dd>
               </div>
             </dl>
-            <p className="year-chart-top">
-              Top {Math.max(1, 100 - yearPct)}%
+            <p
+              className="year-chart-top"
+              tabIndex={0}
+              aria-label={`Top ${yearTop}%，全年級名次：${yearRank}/${yearCohort}`}
+            >
+              Top {yearTop}%
+              <span className="year-chart-top-tip" role="tooltip">
+                全年級名次：{yearRank}/{yearCohort}
+              </span>
             </p>
           </article>
         )
@@ -135,6 +174,40 @@ function StudentFileCard({
   students: Student[]
   getClassName: (classId: string) => string
 }) {
+  const availableGrades = useMemo(
+    () =>
+      [...new Set(student.yearHistory.map((r) => r.grade))].sort(
+        (a, b) => a - b,
+      ),
+    [student.yearHistory],
+  )
+
+  const [visibleGrades, setVisibleGrades] = useState<number[]>(() =>
+    [...new Set(student.yearHistory.map((r) => r.grade))].sort((a, b) => a - b),
+  )
+
+  useEffect(() => {
+    setVisibleGrades(
+      [...new Set(student.yearHistory.map((r) => r.grade))].sort(
+        (a, b) => a - b,
+      ),
+    )
+  }, [student.id, student.yearHistory])
+
+  const visibleRecords = useMemo(
+    () =>
+      student.yearHistory.filter((r) => visibleGrades.includes(r.grade)),
+    [student.yearHistory, visibleGrades],
+  )
+
+  const toggleGrade = (grade: number) => {
+    setVisibleGrades((prev) =>
+      prev.includes(grade)
+        ? prev.filter((g) => g !== grade)
+        : [...prev, grade].sort((a, b) => a - b),
+    )
+  }
+
   return (
     <GlassPanel className="student-file reveal-up delay-2">
       <div className="file-head">
@@ -169,35 +242,67 @@ function StudentFileCard({
       </dl>
 
       <section className="file-section">
-        <h3>近期成績</h3>
-        <YearHistoryCharts
-          records={student.yearHistory}
-          students={students}
-        />
+        <div className="file-section-head">
+          <h3>近期成績</h3>
+          {availableGrades.length > 0 && (
+            <div
+              className="year-grade-toggles"
+              role="group"
+              aria-label="顯示年級"
+            >
+              {availableGrades.map((grade) => {
+                const on = visibleGrades.includes(grade)
+                return (
+                  <button
+                    key={grade}
+                    type="button"
+                    className={`year-grade-btn${on ? ' selected' : ''}`}
+                    aria-pressed={on}
+                    onClick={() => toggleGrade(grade)}
+                  >
+                    {gradeLabel(grade)}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        {student.yearHistory.length === 0 ? (
+          <p className="empty-note">暫無歷年成績。</p>
+        ) : visibleRecords.length === 0 ? (
+          <p className="empty-note">請選擇要顯示的年級。</p>
+        ) : (
+          <YearHistoryCharts records={visibleRecords} students={students} />
+        )}
       </section>
     </GlassPanel>
   )
 }
 
 const SCORE_HELP =
-  '各年顯示上／下學期的 CA（最高 20%）、閱讀（最高 40%）、寫作（最高 45%）。柱長按該項滿分比例；游標移到柱上可看該分卷同年 Top XX%。學年總分以上學期 35%、下學期 65% 加權。'
+  '各年顯示上／下學期的 CA（最高 20%）、閱讀（最高 40%）、寫作（最高 45%）。柱長按該項滿分比例；游標移到柱上可看該分卷同年 Top XX%。學年 Top XX% 可看全年級名次（如 2/233）。學年總分以上學期 35%、下學期 65% 加權。'
 
 export function IndividualPage() {
   const [searchParams] = useSearchParams()
   const {
     filteredStudents,
-    selectedStudents,
+    accessibleStudents,
     searchQuery,
     getClassName,
     students,
     classes,
   } = useCampus()
-  const list = searchQuery.trim() ? filteredStudents : selectedStudents
+  // Roster uses accessible students + its own grade filter — not the nav class/grade picker.
+  const list = searchQuery.trim() ? filteredStudents : accessibleStudents
   const requestedId = searchParams.get('student')
+  const requestedClassId = searchParams.get('class')
   const [compareIds, setCompareIds] = useState<string[]>(
     requestedId ? [requestedId] : [],
   )
   const [rosterGrade, setRosterGrade] = useState<number | 'all'>('all')
+  const [rosterClassId, setRosterClassId] = useState<string | null>(
+    requestedClassId,
+  )
   const [sortKey, setSortKey] = useState<SortKey>('className')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [helpOpen, setHelpOpen] = useState(false)
@@ -209,6 +314,11 @@ export function IndividualPage() {
       prev.includes(requestedId) ? prev : [...prev, requestedId],
     )
   }, [requestedId])
+
+  useEffect(() => {
+    if (!requestedClassId) return
+    setRosterClassId(requestedClassId)
+  }, [requestedClassId])
 
   useEffect(() => {
     if (!helpOpen) return
@@ -235,38 +345,26 @@ export function IndividualPage() {
   }, [classes])
 
   const baseRoster = useMemo(() => {
-    if (list.length === 0) return [] as typeof list
+    let rows = list
+    if (rosterClassId) {
+      rows = rows.filter((s) => s.classId === rosterClassId)
+    }
     const requested = requestedId
       ? students.find((s) => s.id === requestedId)
       : null
-    if (requested && !list.some((s) => s.id === requested.id)) {
-      return [requested, ...list]
+    if (requested && !rows.some((s) => s.id === requested.id)) {
+      return [requested, ...rows]
     }
-    return list
-  }, [list, requestedId, students])
-
-  const availableGrades = useMemo(() => {
-    const grades = new Set<number>()
-    for (const s of baseRoster) {
-      const g = classGradeById.get(s.classId)
-      if (g != null) grades.add(g)
-    }
-    return [...grades].sort((a, b) => a - b)
-  }, [baseRoster, classGradeById])
-
-  useEffect(() => {
-    if (rosterGrade === 'all') return
-    if (!availableGrades.includes(rosterGrade)) {
-      setRosterGrade('all')
-    }
-  }, [availableGrades, rosterGrade])
+    return rows
+  }, [list, requestedId, students, rosterClassId])
 
   const gradeFiltered = useMemo(() => {
-    if (rosterGrade === 'all') return baseRoster
+    // Class deep-link already scopes the roster; grade filter applies when browsing all classes.
+    if (rosterClassId || rosterGrade === 'all') return baseRoster
     return baseRoster.filter(
       (s) => classGradeById.get(s.classId) === rosterGrade,
     )
-  }, [baseRoster, rosterGrade, classGradeById])
+  }, [baseRoster, rosterGrade, classGradeById, rosterClassId])
 
   const roster = useMemo(() => {
     const rows = [...gradeFiltered]
@@ -343,7 +441,7 @@ export function IndividualPage() {
             )}
           </div>
         </div>
-        <p>勾選名冊學生以對比檔案；可用年級篩選名冊。</p>
+        <p>勾選名冊學生以對比檔案；名冊年級篩選獨立於頂部班級選擇。</p>
       </header>
 
       <div className="individual-layout">
@@ -392,24 +490,38 @@ export function IndividualPage() {
         <GlassPanel className="roster-rail reveal-up delay-1">
           <div className="roster-rail-head">
             <h2>名冊</h2>
-            <label className="roster-grade-filter">
-              <span className="sr-only">年級</span>
-              <select
-                value={rosterGrade === 'all' ? 'all' : String(rosterGrade)}
-                onChange={(e) => {
-                  const v = e.target.value
-                  setRosterGrade(v === 'all' ? 'all' : Number(v))
-                }}
-                aria-label="篩選年級"
-              >
-                <option value="all">全部年級</option>
-                {availableGrades.map((g) => (
-                  <option key={g} value={g}>
-                    {gradeLabel(g)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="roster-rail-filters">
+              {rosterClassId && (
+                <button
+                  type="button"
+                  className="roster-class-chip"
+                  onClick={() => setRosterClassId(null)}
+                  title="清除班別篩選"
+                >
+                  {getClassName(rosterClassId)}
+                  <span aria-hidden>×</span>
+                </button>
+              )}
+              <label className="roster-grade-filter">
+                <span className="sr-only">年級</span>
+                <select
+                  value={rosterGrade === 'all' ? 'all' : String(rosterGrade)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setRosterClassId(null)
+                    setRosterGrade(v === 'all' ? 'all' : Number(v))
+                  }}
+                  aria-label="篩選年級"
+                >
+                  <option value="all">全部年級</option>
+                  {ROSTER_GRADE_OPTIONS.map((g) => (
+                    <option key={g} value={g}>
+                      {gradeLabel(g)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
           <div className="roster-table" role="table" aria-label="學生名冊">
             <div className="roster-row roster-row-head" role="row">

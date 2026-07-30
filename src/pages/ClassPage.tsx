@@ -11,6 +11,7 @@ export function ClassPage() {
     students,
     getClassName,
     getTeacherNamesForClass,
+    selectClasses,
   } = useCampus()
 
   const active =
@@ -22,11 +23,16 @@ export function ClassPage() {
     navigate(`/class/individual?student=${encodeURIComponent(studentId)}`)
   }
 
+  const openClassIndividual = (classId: string) => {
+    selectClasses([classId])
+    navigate(`/class/individual?class=${encodeURIComponent(classId)}`)
+  }
+
   return (
     <div className="page class-page">
       <header className="page-header reveal-up">
         <h1>班級</h1>
-        <p>並排檢視已選班級的概況。點擊成長條可開啟個人檔案。</p>
+        <p>並排檢視已選班級的概況。點擊班級卡片可開啟該班個人頁；點擊成長條可開啟該生檔案。</p>
       </header>
 
       <div className="class-grid">
@@ -38,8 +44,14 @@ export function ClassPage() {
           return (
             <GlassPanel
               key={cls.id}
-              className={`class-snapshot reveal-up delay-${Math.min(i + 1, 3)}`}
+              className={`class-snapshot class-snapshot-link reveal-up delay-${Math.min(i + 1, 3)}`}
             >
+              <button
+                type="button"
+                className="class-snapshot-hit"
+                onClick={() => openClassIndividual(cls.id)}
+                aria-label={`開啟 ${cls.name} 個人頁`}
+              />
               <div className="snapshot-head">
                 <h2>{cls.name}</h2>
                 <p>{cls.grade}</p>
@@ -74,12 +86,15 @@ export function ClassPage() {
                     style={{ height: `${Math.max(18, s.progress * 0.7)}%` }}
                     data-tip={`${s.name}：${s.progress}%`}
                     aria-label={`開啟 ${s.name} 的個人檔案，進度 ${s.progress}%`}
-                    onClick={() => openStudent(s.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openStudent(s.id)
+                    }}
                   />
                 ))}
               </div>
               <p className="snapshot-foot">
-                顯示{getClassName(cls.id)}的成長長條 · 點擊開啟個人頁
+                點擊卡片開啟{getClassName(cls.id)}個人頁 · 點擊長條開啟個人檔案
               </p>
             </GlassPanel>
           )
