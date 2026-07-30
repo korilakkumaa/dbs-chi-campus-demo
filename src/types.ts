@@ -25,8 +25,24 @@ export interface Student {
   readingScore: number
   correctRate: number
   recentScores: { label: string; score: number }[]
+  /** Academic history from G7 through current grade. */
+  yearHistory: YearRecord[]
   strengths: string[]
   notes: string
+}
+
+/** One school year’s summary for longitudinal tracking. */
+export interface SemesterScores {
+  daily: number
+  reading: number
+  writing: number
+}
+
+export interface YearRecord {
+  grade: number
+  className: string
+  first: SemesterScores
+  second: SemesterScores
 }
 
 /** Admin-assigned deadlines, unified per grade (7–12). */

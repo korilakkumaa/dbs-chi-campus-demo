@@ -1,6 +1,7 @@
-import type { GradeDeadline, SchoolClass, Student, User } from '../types'
+import type { GradeDeadline, SchoolClass, SemesterScores, Student, User, YearRecord } from '../types'
 import {
   classNameToId,
+  gradeNumberFromClassName,
   GRADE_LEVELS,
   gradeLabel,
   teacherWhitelist,
@@ -85,12 +86,62 @@ const lastNames = [
   '鄧', '曾', '黃', '楊', '謝',
 ]
 
+function pastClassLetter(seed: number, currentName: string): string {
+  const form = currentName.match(/^(\d+)([A-Z])$/i)
+  if (form) {
+    const letter = form[2].toUpperCase()
+    return letter === 'R' ? 'T' : letter
+  }
+  const letters = CLASS_LETTERS.filter((l) => l !== 'R')
+  return letters[seed % letters.length]
+}
+
+function classNameForPastGrade(
+  grade: number,
+  currentName: string,
+  seed: number,
+): string {
+  const currentGrade = gradeNumberFromClassName(currentName) ?? grade
+  if (grade === currentGrade) return currentName
+  const letter = pastClassLetter(seed, currentName)
+  const safeLetter = grade >= 10 && letter === 'R' ? 'J' : letter
+  return `${grade}${safeLetter}`
+}
+
+function makeSemesterScores(
+  seed: number,
+  grade: number,
+  term: 1 | 2,
+): SemesterScores {
+  const base = 48 + ((seed * 11 + grade * 7 + term * 19) % 40)
+  return {
+    daily: Math.min(99, Math.max(35, base + ((seed + term) % 9) - 3)),
+    reading: Math.min(99, Math.max(35, base + ((seed * 3 + grade) % 11) - 4)),
+    writing: Math.min(99, Math.max(35, base + ((seed * 5 + term * 7) % 13) - 5)),
+  }
+}
+
+function buildYearHistory(currentName: string, seed: number): YearRecord[] {
+  const currentGrade = gradeNumberFromClassName(currentName) ?? 7
+  const records: YearRecord[] = []
+  for (let grade = 7; grade <= currentGrade; grade++) {
+    records.push({
+      grade,
+      className: classNameForPastGrade(grade, currentName, seed),
+      first: makeSemesterScores(seed, grade, 1),
+      second: makeSemesterScores(seed, grade, 2),
+    })
+  }
+  return records
+}
+
 function makeStudent(
   id: string,
   name: string,
   classId: string,
   classNumber: number,
   seed: number,
+  className: string,
   overrides?: Partial<
     Pick<
       Student,
@@ -98,6 +149,7 @@ function makeStudent(
       | 'readingScore'
       | 'correctRate'
       | 'recentScores'
+      | 'yearHistory'
       | 'strengths'
       | 'notes'
       | 'name'
@@ -121,6 +173,7 @@ function makeStudent(
       { label: '期中試', score: 55 + ((seed * 11) % 40) },
       { label: '專題', score: 62 + ((seed * 13) % 33) },
     ],
+    yearHistory: buildYearHistory(className, seed),
     strengths:
       seed % 3 === 0
         ? ['閱讀流暢', '課堂討論']
@@ -247,7 +300,14 @@ export const students: Student[] = (() => {
     return Array.from({ length: count }, (_, i) => {
       const seed = classIndex * 30 + i + 1
       const name = `${lastNames[(seed * 3) % lastNames.length]}${firstNames[seed % firstNames.length]}`
-      return makeStudent(`s-${cls.id}-${i + 1}`, name, cls.id, i + 1, seed)
+      return makeStudent(
+        `s-${cls.id}-${i + 1}`,
+        name,
+        cls.id,
+        i + 1,
+        seed,
+        cls.name,
+      )
     })
   })
 

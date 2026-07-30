@@ -1215,14 +1215,83 @@ code {
   padding: 0.35rem 0.2rem 1rem;
 }
 
+.individual-page {
+  width: min(1560px, 100%);
+}
+
 .page-header {
-  margin-bottom: 1.15rem;
+  margin-bottom: 0.85rem;
+}
+
+.page-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.3rem;
 }
 
 .page-header h1 {
   font-size: var(--text-title);
-  margin-bottom: 0.3rem;
+  margin-bottom: 0;
   letter-spacing: 0.06em;
+}
+
+.page-help {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.page-help-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 60, 30, 0.28);
+  background: rgba(255, 252, 248, 0.65);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease-out),
+    color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
+}
+
+.page-help-btn:hover,
+.page-help-btn.open,
+.page-help-btn:focus-visible {
+  color: var(--amber-deep);
+  border-color: rgba(184, 104, 42, 0.55);
+  background: rgba(184, 104, 42, 0.1);
+  outline: none;
+}
+
+.page-help-panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 30;
+  width: min(22rem, 78vw);
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-control);
+  border: 1px solid rgba(48, 34, 22, 0.1);
+  background: rgba(255, 252, 248, 0.97);
+  box-shadow: 0 10px 28px rgba(40, 26, 14, 0.14);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.page-help-panel p {
+  margin: 0;
+  max-width: none;
+  color: inherit;
+  font-size: inherit;
 }
 
 .page-header p {
@@ -1339,6 +1408,10 @@ code {
   padding: 1.25rem 1.3rem;
 }
 
+.student-file {
+  padding: 0.85rem 0.95rem 0.95rem;
+}
+
 .band-panel h2,
 .table-panel h2,
 .teacher-roll h2 {
@@ -1398,6 +1471,10 @@ code {
 .roster-rail h2 {
   font-size: var(--text-heading);
   margin-bottom: 0.75rem;
+}
+
+.roster-rail-head h2 {
+  margin-bottom: 0;
 }
 
 .student-file .file-head h2 {
@@ -2413,12 +2490,138 @@ tbody tr.table-row-link:focus-visible {
   transform: translateX(-50%) translateY(0);
 }
 
-.individual-layout,
+.individual-layout {
+  display: grid;
+  grid-template-columns: 10rem minmax(16.5rem, 20rem) minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-layout {
   display: grid;
   grid-template-columns: 0.9fr 1.35fr;
   gap: 0.85rem;
   align-items: start;
+}
+
+.compare-tray {
+  min-width: 0;
+  padding: 1rem 0.95rem;
+}
+
+.compare-tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+
+.compare-tray-head h2 {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: 700;
+}
+
+.compare-tray-clear {
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.12rem 0.4rem;
+  cursor: pointer;
+}
+
+.compare-tray-clear:hover {
+  color: var(--ink);
+  background: rgba(90, 60, 30, 0.05);
+}
+
+.compare-tray-empty {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.compare-tray-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.compare-tray-item {
+  display: grid;
+  grid-template-columns: 2.4rem 1.6rem minmax(0, 1fr) auto;
+  gap: 0.25rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.3rem;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background 0.15s var(--ease-out);
+}
+
+.compare-tray-item:hover {
+  background: rgba(184, 104, 42, 0.08);
+  border-color: rgba(184, 104, 42, 0.18);
+}
+
+.compare-tray-class,
+.compare-tray-num {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.compare-tray-name {
+  font-size: var(--text-body);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-tray-remove {
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  padding: 0 0.15rem;
+}
+
+.roster-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.roster-rail-head h2 {
+  margin: 0;
+}
+
+.roster-grade-filter select {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: rgba(255, 252, 248, 0.7);
+  border: 1px solid rgba(90, 60, 30, 0.16);
+  border-radius: var(--radius-control);
+  padding: 0.22rem 0.45rem;
+  cursor: pointer;
 }
 
 .roster-table {
@@ -2430,14 +2633,14 @@ tbody tr.table-row-link:focus-visible {
 
 .roster-row {
   display: grid;
-  grid-template-columns: 4.6rem minmax(0, 1fr) 3.6rem 4rem;
-  gap: 0.4rem;
+  grid-template-columns: 1.35rem 2.6rem 2.15rem minmax(0, 1fr) 3.1rem 3.3rem;
+  gap: 0.3rem;
   align-items: center;
   width: 100%;
 }
 
 .roster-row-head {
-  padding: 0.2rem 0.4rem 0.45rem;
+  padding: 0.2rem 0.35rem 0.45rem;
   border-bottom: 1px solid rgba(90, 60, 30, 0.14);
   margin-bottom: 0.15rem;
   color: var(--ink-soft);
@@ -2457,6 +2660,18 @@ tbody tr.table-row-link:focus-visible {
   white-space: nowrap;
 }
 
+.roster-col.check {
+  display: flex;
+  justify-content: center;
+}
+
+.roster-col.check input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: #b8682a;
+  cursor: pointer;
+}
+
 .roster-col.metric {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -2467,7 +2682,8 @@ tbody tr.table-row-link:focus-visible {
   justify-content: flex-end;
 }
 
-.roster-col.id {
+.roster-col.class,
+.roster-col.number {
   font-size: var(--text-meta);
   font-weight: 600;
   color: var(--ink-soft);
@@ -2491,10 +2707,11 @@ tbody tr.table-row-link:focus-visible {
 .roster-item {
   width: 100%;
   text-align: left;
-  padding: 0.4rem;
+  padding: 0.4rem 0.35rem;
   border-radius: var(--radius-control);
   transition: background 0.18s var(--ease-out);
   border-bottom: 1px solid var(--line);
+  cursor: pointer;
 }
 
 .roster-item:hover,
@@ -2514,13 +2731,35 @@ tbody tr.table-row-link:focus-visible {
   color: var(--ink);
 }
 
+.student-file-stage {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.student-file-compare {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.roster-rail,
+.student-file {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.student-file {
+  overflow: hidden;
+}
+
 .file-head {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: flex-start;
-  margin-bottom: 1rem;
-  padding-bottom: 0.9rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -2529,15 +2768,15 @@ tbody tr.table-row-link:focus-visible {
 }
 
 .file-head h2 {
-  font-size: var(--text-title);
+  font-size: var(--text-heading);
   font-weight: 700;
 }
 
 .file-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem 1.25rem;
-  margin: 0.45rem 0 0;
+  gap: 0.35rem 1rem;
+  margin: 0.25rem 0 0;
 }
 
 .file-meta > div {
@@ -2570,7 +2809,7 @@ tbody tr.table-row-link:focus-visible {
 .file-score span {
   display: block;
   font-family: var(--font-display);
-  font-size: var(--text-num);
+  font-size: 1.55rem;
   font-weight: 700;
   color: var(--amber-deep);
   font-variant-numeric: tabular-nums;
@@ -2590,8 +2829,8 @@ tbody tr.table-row-link:focus-visible {
 .file-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem 1.25rem;
-  margin: 0 0 1.15rem;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.65rem;
 }
 
 .file-stats dt {
@@ -2614,12 +2853,253 @@ tbody tr.table-row-link:focus-visible {
 }
 
 .file-section {
-  margin-bottom: 1.15rem;
+  margin-bottom: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .file-section h3 {
   font-size: var(--text-heading);
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.45rem;
+}
+
+.file-section-lead {
+  margin: -0.25rem 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.year-charts {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  align-items: stretch;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.year-chart {
+  --year-tone: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  padding: 0.45rem 0.45rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(48, 34, 22, 0.07);
+  background: rgba(255, 252, 248, 0.45);
+  overflow: visible;
+}
+
+.year-chart-q1 {
+  --year-tone: #2f7a4f;
+}
+
+.year-chart-q2 {
+  --year-tone: #3a6f9b;
+}
+
+.year-chart-q3 {
+  --year-tone: #c49a28;
+}
+
+.year-chart-q4 {
+  --year-tone: #a8483a;
+}
+
+.year-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.year-chart-class {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: var(--font-input);
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.year-chart-grade {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(90, 60, 30, 0.45);
+}
+
+.year-chart-bars {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.year-semester-rule {
+  height: 1px;
+  margin: 0.35rem 0 0.45rem;
+  background: rgba(48, 34, 22, 0.12);
+}
+
+.year-hbar {
+  --bar-tone: var(--ink-soft);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.85rem minmax(1.4rem, 1fr) 1.85rem;
+  gap: 0.2rem;
+  align-items: center;
+  border-radius: var(--radius-control);
+  cursor: default;
+}
+
+.year-hbar:hover,
+.year-hbar:focus-visible {
+  background: rgba(184, 104, 42, 0.06);
+  outline: none;
+}
+
+.year-hbar-tip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.28rem);
+  z-index: 8;
+  transform: translateX(-50%) translateY(-0.12rem);
+  min-width: 5.5rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-control);
+  background: #2f2418;
+  color: #fff8ef;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s var(--ease-out),
+    transform 0.15s var(--ease-out);
+  box-shadow: 0 8px 20px rgba(40, 26, 14, 0.22);
+}
+
+.year-hbar:hover .year-hbar-tip,
+.year-hbar:focus-visible .year-hbar-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.year-hbar-q1 {
+  --bar-tone: #2f7a4f;
+}
+
+.year-hbar-q2 {
+  --bar-tone: #3a6f9b;
+}
+
+.year-hbar-q3 {
+  --bar-tone: #c49a28;
+}
+
+.year-hbar-q4 {
+  --bar-tone: #a8483a;
+}
+
+.year-hbar-label {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.year-hbar-track {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.year-hbar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bar-tone);
+  transform-origin: left center;
+  animation: year-hbar-in 0.4s var(--ease-out);
+}
+
+@keyframes year-hbar-in {
+  from {
+    transform: scaleX(0.15);
+    opacity: 0.45;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.year-hbar-score {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--bar-tone);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.year-chart-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0.15rem 0 0;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(48, 34, 22, 0.06);
+}
+
+.year-chart-summary div {
+  display: grid;
+  gap: 0.1rem;
+  text-align: center;
+}
+
+.year-chart-summary dt {
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+}
+
+.year-chart-summary dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.year-chart-summary-total dd {
+  color: var(--year-tone);
+}
+
+.year-chart-top {
+  margin: 0.15rem 0 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--year-tone);
 }
 
 .file-strengths {
@@ -2863,6 +3343,22 @@ tbody tr.table-row-link:focus-visible {
   animation: shake 0.38s var(--ease-out);
 }
 
+@media (max-width: 1280px) {
+  .individual-layout {
+    grid-template-columns: 9.5rem minmax(15rem, 18.5rem) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .individual-layout {
+    grid-template-columns: minmax(9rem, 11rem) minmax(0, 1fr);
+  }
+
+  .student-file-stage {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 920px) {
   .login-compose,
   .split-stage,
@@ -2870,6 +3366,10 @@ tbody tr.table-row-link:focus-visible {
   .admin-layout,
   .top-nav {
     grid-template-columns: 1fr;
+  }
+
+  .student-file-stage {
+    grid-column: auto;
   }
 
   .metric-row {
