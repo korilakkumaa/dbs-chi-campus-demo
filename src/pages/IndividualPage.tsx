@@ -279,8 +279,20 @@ function StudentFileCard({
   )
 }
 
-const SCORE_HELP =
-  '各年顯示上／下學期的 CA（最高 20%）、閱讀（最高 40%）、寫作（最高 45%）。柱長按該項滿分比例；游標移到柱上可看該分卷同年 Top XX%。學年 Top XX% 可看全年級名次（如 2/233）。學年總分以上學期 35%、下學期 65% 加權。'
+const SCORE_HELP_ITEMS = [
+  {
+    title: '計分結構',
+    body: '每學期由 CA（最高 20%）、閱讀（最高 40%）、寫作（最高 45%）組成，學期滿分 105%。學年總分＝上學期 × 35%＋下學期 × 65%。',
+  },
+  {
+    title: '閱讀圖表',
+    body: '柱長表示該項相對滿分的比例；右側數字為已計入的得分百分比。可用年級按鈕顯示或隱藏個別學年。',
+  },
+  {
+    title: '游標提示',
+    body: '移到分卷柱條可看同年 Top XX%。移到上／下學期總分可看 Top XX% 與級名次（如 2/233）。移到全年 Top XX% 可看全年級名次。',
+  },
+] as const
 
 export function IndividualPage() {
   const [searchParams] = useSearchParams()
@@ -436,7 +448,15 @@ export function IndividualPage() {
                 role="dialog"
                 aria-label="近期成績說明"
               >
-                <p>{SCORE_HELP}</p>
+                <p className="page-help-lead">近期成績怎麼看</p>
+                <ul className="page-help-list">
+                  {SCORE_HELP_ITEMS.map((item) => (
+                    <li key={item.title}>
+                      <strong>{item.title}</strong>
+                      <span>{item.body}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
