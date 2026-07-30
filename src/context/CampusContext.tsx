@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type Context,
   type ReactNode,
 } from 'react'
 import {
@@ -23,6 +24,7 @@ interface CampusContextValue {
   accessibleClasses: SchoolClass[]
   selectedClassIds: string[]
   toggleClass: (classId: string) => void
+  selectClasses: (classIds: string[]) => void
   selectAllAccessible: () => void
   clearSelection: () => void
   searchQuery: string
@@ -32,17 +34,30 @@ interface CampusContextValue {
   assignClassToTeacher: (classId: string, teacherId: string | null) => void
   getClassName: (classId: string) => string
   getTeacherName: (teacherId: string | null) => string
+  /** All teachers linked to a class (homeroom + co-teachers). */
+  getTeachersForClass: (classId: string) => User[]
+  getTeacherNamesForClass: (classId: string) => string
   gradeDeadlines: GradeDeadline[]
   updateGradeDeadline: (
     grade: number,
     patch: Partial<Omit<GradeDeadline, 'grade'>>,
+  ) => void
+  /** Publish current deadline drafts so teachers see them. */
+  submitGradeDeadlines: (
+    rows: Array<Omit<GradeDeadline, 'submitted'> & { submitted?: boolean }>,
   ) => void
   /** Deadlines for grades covered by currently selected classes. */
   relevantDeadlines: GradeDeadline[]
   taughtGradeNumbers: number[]
 }
 
-const CampusContext = createContext<CampusContextValue | null>(null)
+const globalKey = '__campusCampusContext'
+const CampusContext: Context<CampusContextValue | null> =
+  ((globalThis as Record<string, unknown>)[globalKey] as
+    | Context<CampusContextValue | null>
+    | undefined) ?? createContext<CampusContextValue | null>(null)
+;(globalThis as Record<string, unknown>)[globalKey] = CampusContext
+
 const SELECTED_CLASSES_KEY = 'campus-cms-selected-classes'
 
 function loadSelectedClassIds(userId: string): string[] | null {
@@ -179,11 +194,33 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     () =>
       gradeDeadlines.filter(
         (d) =>
+          d.submitted &&
           taughtGradeNumbers.includes(d.grade) &&
-          (d.readingDue || d.activityDue),
+          Boolean(d.activityDue && d.activityTitle.trim()),
       ),
     [gradeDeadlines, taughtGradeNumbers],
   )
+
+  const getTeachersForClass = (classId: string): User[] => {
+    const cls = classes.find((c) => c.id === classId)
+    const seen = new Set<string>()
+    const list: User[] = []
+    if (cls?.teacherId) {
+      const primary = teachers.find((t) => t.id === cls.teacherId)
+      if (primary) {
+        seen.add(primary.id)
+        list.push(primary)
+      }
+    }
+    for (const t of teachers) {
+      if (seen.has(t.id)) continue
+      if (t.classIds.includes(classId)) {
+        seen.add(t.id)
+        list.push(t)
+      }
+    }
+    return list
+  }
 
   const value = useMemo<CampusContextValue>(
     () => ({
@@ -199,6 +236,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
             : [...prev, classId],
         )
       },
+      selectClasses: (classIds) => setSelectedClassIds(classIds),
       selectAllAccessible: () =>
         setSelectedClassIds(accessibleClasses.map((c) => c.id)),
       clearSelection: () => setSelectedClassIds([]),
@@ -215,10 +253,33 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         classes.find((c) => c.id === classId)?.name ?? classId,
       getTeacherName: (teacherId) =>
         teachers.find((t) => t.id === teacherId)?.name ?? '未分派',
+      getTeachersForClass,
+      getTeacherNamesForClass: (classId) => {
+        const names = getTeachersForClass(classId).map((t) => t.name)
+        return names.length > 0 ? names.join('、') : '未分派'
+      },
       gradeDeadlines,
       updateGradeDeadline: (grade, patch) => {
         setGradeDeadlines((prev) =>
           prev.map((d) => (d.grade === grade ? { ...d, ...patch } : d)),
+        )
+      },
+      submitGradeDeadlines: (rows) => {
+        setGradeDeadlines((prev) =>
+          prev.map((d) => {
+            const row = rows.find((r) => r.grade === d.grade)
+            if (!row) return d
+            const hasContent = Boolean(
+              row.activityDue && row.activityTitle.trim(),
+            )
+            return {
+              grade: d.grade,
+              readingDue: '',
+              activityTitle: row.activityTitle,
+              activityDue: row.activityDue,
+              submitted: row.submitted ?? hasContent,
+            }
+          }),
         )
       },
       relevantDeadlines,

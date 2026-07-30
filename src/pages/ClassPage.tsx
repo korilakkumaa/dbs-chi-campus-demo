@@ -10,7 +10,7 @@ export function ClassPage() {
     accessibleClasses,
     students,
     getClassName,
-    getTeacherName,
+    getTeacherNamesForClass,
   } = useCampus()
 
   const active =
@@ -44,7 +44,9 @@ export function ClassPage() {
                 <h2>{cls.name}</h2>
                 <p>{cls.grade}</p>
               </div>
-              <p className="snapshot-teacher">{getTeacherName(cls.teacherId)}</p>
+              <p className="snapshot-teacher">
+                {getTeacherNamesForClass(cls.id)}
+              </p>
               <dl className="snapshot-stats">
                 <div>
                   <dt>人數</dt>

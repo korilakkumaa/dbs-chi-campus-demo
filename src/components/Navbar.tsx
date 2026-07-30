@@ -1,11 +1,15 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import {
+  gradeLabel,
+  gradeNumberFromClassName,
+} from '../data/teacherWhitelist'
+import {
   useEffect,
+  useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
 } from 'react'
 import crest from '../assets/dbs-crest.png'
 
@@ -29,187 +33,208 @@ function teacherDisplayName(name?: string, role?: string) {
   return name.endsWith('老師') ? name : `${name}老師`
 }
 
+function ClassSelectSwitch({
+  allSelected,
+  onChange,
+}: {
+  allSelected: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`class-select-switch${allSelected ? ' on' : ''}`}
+      role="switch"
+      aria-checked={allSelected}
+      aria-label={allSelected ? '清除全部班級' : '全選班級'}
+      title={allSelected ? '清除' : '全選'}
+      onClick={() => onChange(!allSelected)}
+    >
+      <span className="class-select-switch-label" aria-hidden>
+        全
+      </span>
+      <span className="class-select-switch-track" aria-hidden>
+        <span className="class-select-switch-thumb" />
+      </span>
+    </button>
+  )
+}
+
 function ClassButtons() {
-  const { accessibleClasses, selectedClassIds, toggleClass } = useCampus()
+  const { user } = useAuth()
+  const { accessibleClasses, selectedClassIds, toggleClass, selectClasses } =
+    useCampus()
+  const [expandedGrade, setExpandedGrade] = useState<number | null>(null)
+  const [panelGrade, setPanelGrade] = useState<number | null>(null)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const closeTimerRef = useRef<number | null>(null)
+
+  const grades = useMemo(() => {
+    const map = new Map<number, typeof accessibleClasses>()
+    for (const cls of accessibleClasses) {
+      const g = gradeNumberFromClassName(cls.name)
+      if (g == null) continue
+      const list = map.get(g)
+      if (list) list.push(cls)
+      else map.set(g, [cls])
+    }
+    return [...map.entries()].sort((a, b) => a[0] - b[0])
+  }, [accessibleClasses])
+
+  const panelClasses =
+    panelGrade == null
+      ? []
+      : (grades.find(([g]) => g === panelGrade)?.[1] ?? [])
+  const panelGradeLabel = panelGrade == null ? '' : gradeLabel(panelGrade)
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+
+  const openGradePanel = (grade: number, classIds: string[]) => {
+    clearCloseTimer()
+    setExpandedGrade(grade)
+    setPanelGrade(grade)
+    selectClasses(classIds)
+    window.requestAnimationFrame(() => setPanelOpen(true))
+  }
+
+  const closeGradePanel = () => {
+    setExpandedGrade(null)
+    setPanelOpen(false)
+    clearCloseTimer()
+    closeTimerRef.current = window.setTimeout(() => {
+      setPanelGrade(null)
+      closeTimerRef.current = null
+    }, 280)
+  }
+
+  useEffect(() => {
+    setExpandedGrade(null)
+    setPanelGrade(null)
+    setPanelOpen(false)
+    clearCloseTimer()
+  }, [user?.id])
+
+  useEffect(() => {
+    return () => clearCloseTimer()
+  }, [])
 
   if (accessibleClasses.length === 0) {
     return <p className="empty-note">尚未獲分配班級。</p>
   }
 
-  return (
-    <div className="class-buttons" role="group" aria-label="選擇班級">
-      {accessibleClasses.map((cls) => {
-        const on = selectedClassIds.includes(cls.id)
-        return (
-          <button
-            key={cls.id}
-            type="button"
-            className={`class-btn${on ? ' selected' : ''}`}
-            aria-pressed={on}
-            onClick={() => toggleClass(cls.id)}
-          >
-            <span>{cls.name}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function StudentSearch() {
-  const navigate = useNavigate()
-  const { searchQuery, setSearchQuery, filteredStudents, getClassName } =
-    useCampus()
-  const [activeIndex, setActiveIndex] = useState(0)
-  const searchRef = useRef<HTMLInputElement>(null)
-  const blockRef = useRef<HTMLDivElement>(null)
-
-  const q = searchQuery.trim()
-  const visibleResults = q ? filteredStudents.slice(0, 6) : []
-
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [searchQuery])
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!blockRef.current?.contains(e.target as Node) && searchQuery) {
-        setSearchQuery('')
-      }
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [searchQuery, setSearchQuery])
-
-  const openStudent = (studentId: string) => {
-    setSearchQuery('')
-    setActiveIndex(0)
-    navigate(`/class/individual?student=${encodeURIComponent(studentId)}`)
-  }
-
-  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (!q || visibleResults.length === 0) {
-      if (e.key === 'Escape' && searchQuery) {
-        e.preventDefault()
-        setSearchQuery('')
-      }
-      return
-    }
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActiveIndex((i) => (i + 1) % visibleResults.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex(
-        (i) => (i - 1 + visibleResults.length) % visibleResults.length,
-      )
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      const selected = visibleResults[activeIndex]
-      if (selected) openStudent(selected.id)
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      setSearchQuery('')
-    }
-  }
-
-  return (
-    <div
-      ref={blockRef}
-      className={`search-block nav-search${q ? ' has-query' : ''}`}
-    >
-      <label className="sr-only" htmlFor="student-search">
-        搜尋學生
-      </label>
-      <div className="search-field">
-        <svg
-          className="search-glyph"
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          aria-hidden
-        >
-          <circle
-            cx="10.5"
-            cy="10.5"
-            r="6.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
-          <path
-            d="M15.5 15.5 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        </svg>
-        <input
-          ref={searchRef}
-          id="student-search"
-          type="search"
-          role="combobox"
-          aria-expanded={Boolean(q)}
-          aria-controls="student-search-results"
-          aria-activedescendant={
-            q && visibleResults[activeIndex]
-              ? `search-option-${visibleResults[activeIndex].id}`
-              : undefined
-          }
-          aria-autocomplete="list"
-          placeholder="學生姓名、班別、學號"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={onSearchKeyDown}
-        />
-        {q && (
-          <button
-            type="button"
-            className="search-clear"
-            aria-label="清除搜尋"
-            onClick={() => {
-              setSearchQuery('')
-              searchRef.current?.focus()
-            }}
-          >
-            ×
-          </button>
-        )}
-      </div>
-      {q && (
-        <div
-          id="student-search-results"
-          className="search-results"
-          role="listbox"
-          aria-label="搜尋結果"
-        >
-          <p className="search-count">{filteredStudents.length} 項結果</p>
-          {visibleResults.length === 0 ? (
-            <p className="search-empty">沒有符合的學生</p>
-          ) : (
-            visibleResults.map((s, index) => (
+  /* Admin sees every class — collapse behind grade buttons first. */
+  if (user?.role === 'admin') {
+    return (
+      <div className="class-picker" role="group" aria-label="選擇班級">
+        <div className="class-buttons grade-buttons" role="group" aria-label="選擇級別">
+          {grades.map(([grade, classesInGrade]) => {
+            const expanded = expandedGrade === grade
+            const gradeIds = classesInGrade.map((c) => c.id)
+            const allSelected = gradeIds.every((id) =>
+              selectedClassIds.includes(id),
+            )
+            const anySelected = gradeIds.some((id) =>
+              selectedClassIds.includes(id),
+            )
+            return (
               <button
-                key={s.id}
-                id={`search-option-${s.id}`}
+                key={grade}
                 type="button"
-                className={`search-result${index === activeIndex ? ' active' : ''}`}
-                role="option"
-                aria-selected={index === activeIndex}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => openStudent(s.id)}
+                className={`class-btn grade-btn${expanded ? ' expanded' : ''}${allSelected ? ' selected' : anySelected ? ' partial' : ''}`}
+                aria-pressed={allSelected}
+                aria-expanded={expanded}
+                onClick={() => {
+                  if (expanded) {
+                    closeGradePanel()
+                    return
+                  }
+                  openGradePanel(grade, gradeIds)
+                }}
               >
-                <span className="search-result-name">{s.name}</span>
-                <span className="search-result-meta">
-                  {getClassName(s.classId)}
-                  {String(s.classNumber).padStart(2, '0')}
-                </span>
+                <span>{gradeLabel(grade)}</span>
               </button>
-            ))
-          )}
+            )
+          })}
         </div>
-      )}
+        <div
+          className={`class-picker-dropdown${panelOpen ? ' open' : ''}`}
+          aria-hidden={!panelOpen}
+        >
+          <div className="class-picker-dropdown-inner">
+            {panelClasses.length > 0 && (
+              <div className="class-buttons-bar">
+                <div
+                  className="class-buttons class-buttons-row"
+                  role="group"
+                  aria-label={`${panelGradeLabel} 班級`}
+                >
+                  {panelClasses.map((cls) => {
+                    const on = selectedClassIds.includes(cls.id)
+                    return (
+                      <button
+                        key={cls.id}
+                        type="button"
+                        className={`class-btn${on ? ' selected' : ''}`}
+                        aria-pressed={on}
+                        onClick={() => toggleClass(cls.id)}
+                      >
+                        <span>{cls.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <ClassSelectSwitch
+                  allSelected={panelClasses.every((c) =>
+                    selectedClassIds.includes(c.id),
+                  )}
+                  onChange={(next) =>
+                    selectClasses(
+                      next ? panelClasses.map((c) => c.id) : [],
+                    )
+                  }
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="class-buttons-bar">
+      <div className="class-buttons" role="group" aria-label="選擇班級">
+        {accessibleClasses.map((cls) => {
+          const on = selectedClassIds.includes(cls.id)
+          return (
+            <button
+              key={cls.id}
+              type="button"
+              className={`class-btn${on ? ' selected' : ''}`}
+              aria-pressed={on}
+              onClick={() => toggleClass(cls.id)}
+            >
+              <span>{cls.name}</span>
+            </button>
+          )
+        })}
+      </div>
+      <ClassSelectSwitch
+        allSelected={
+          accessibleClasses.length > 0 &&
+          accessibleClasses.every((c) => selectedClassIds.includes(c.id))
+        }
+        onChange={(next) =>
+          selectClasses(
+            next ? accessibleClasses.map((c) => c.id) : [],
+          )
+        }
+      />
     </div>
   )
 }
@@ -429,7 +454,6 @@ export function Navbar({
       </div>
 
       <div className="nav-user">
-        <StudentSearch />
         <ClassButtons />
         <button
           type="button"

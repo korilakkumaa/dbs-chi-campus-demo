@@ -35,4 +35,6 @@ export interface GradeDeadline {
   readingDue: string
   activityTitle: string
   activityDue: string
+  /** Confirmed by admin via submit tick; only then shown to teachers. */
+  submitted: boolean
 }

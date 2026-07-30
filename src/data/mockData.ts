@@ -6,12 +6,17 @@ import {
   teacherWhitelist,
 } from './teacherWhitelist'
 
-/** Form classes: grades 7–12 × D S G P M L A J T R, plus G7–G10 EC. */
+/** Form classes: grades 7–9 × D S G P M L A J T R; 10–12 without R; plus G7–G10 EC. */
 const CLASS_LETTERS = ['D', 'S', 'G', 'P', 'M', 'L', 'A', 'J', 'T', 'R'] as const
 const GRADES = [7, 8, 9, 10, 11, 12] as const
 
+function lettersForGrade(grade: number): readonly string[] {
+  if (grade >= 10) return CLASS_LETTERS.filter((letter) => letter !== 'R')
+  return CLASS_LETTERS
+}
+
 const formClasses: SchoolClass[] = GRADES.flatMap((grade) =>
-  CLASS_LETTERS.map((letter) => ({
+  lettersForGrade(grade).map((letter) => ({
     id: classNameToId(`${grade}${letter}`),
     name: `${grade}${letter}`,
     grade: gradeLabel(grade),
@@ -272,40 +277,35 @@ export function average(values: number[]): number {
 export const seedGradeDeadlines: GradeDeadline[] = GRADE_LEVELS.map((grade) => {
   const defaults: Record<number, Partial<GradeDeadline>> = {
     7: {
-      readingDue: '2026-09-18',
       activityTitle: '閱讀分享會',
       activityDue: '2026-09-25',
     },
     8: {
-      readingDue: '2026-09-20',
       activityTitle: '書展參觀',
       activityDue: '2026-10-02',
     },
     9: {
-      readingDue: '2026-09-22',
       activityTitle: '',
       activityDue: '',
     },
     10: {
-      readingDue: '2026-09-19',
       activityTitle: '文學講座',
       activityDue: '2026-09-28',
     },
     11: {
-      readingDue: '2026-09-26',
       activityTitle: '專題簡報',
       activityDue: '2026-10-08',
     },
     12: {
-      readingDue: '2026-09-15',
       activityTitle: '畢業文集',
       activityDue: '2026-09-30',
     },
   }
   return {
     grade,
-    readingDue: defaults[grade]?.readingDue ?? '',
+    readingDue: '',
     activityTitle: defaults[grade]?.activityTitle ?? '',
     activityDue: defaults[grade]?.activityDue ?? '',
+    submitted: Boolean(defaults[grade]?.activityDue),
   }
 })

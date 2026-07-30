@@ -3,6 +3,7 @@ import {
   useContext,
   useMemo,
   useState,
+  type Context,
   type ReactNode,
 } from 'react'
 import { users } from '../data/mockData'
@@ -14,7 +15,13 @@ interface AuthContextValue {
   logout: () => void
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+const globalKey = '__campusAuthContext'
+const AuthContext: Context<AuthContextValue | null> =
+  ((globalThis as Record<string, unknown>)[globalKey] as
+    | Context<AuthContextValue | null>
+    | undefined) ?? createContext<AuthContextValue | null>(null)
+;(globalThis as Record<string, unknown>)[globalKey] = AuthContext
+
 const STORAGE_KEY = 'campus-cms-user'
 
 function loadUser(): User | null {

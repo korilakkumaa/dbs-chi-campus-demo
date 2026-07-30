@@ -14,7 +14,7 @@ export function OverviewPage() {
     accessibleClasses,
     selectedStudents,
     selectedClassIds,
-    getTeacherName,
+    getTeacherNamesForClass,
     students,
     classes,
   } = useCampus()
@@ -41,7 +41,7 @@ export function OverviewPage() {
       const roster = students.filter((s) => s.classId === cls.id)
       return {
         cls,
-        teacher: getTeacherName(cls.teacherId),
+        teacher: getTeacherNamesForClass(cls.id),
         count: roster.length,
         progress: average(roster.map((s) => s.progress)),
         reading: average(roster.map((s) => s.readingScore)),
@@ -69,7 +69,7 @@ export function OverviewPage() {
       return cmp * factor
     })
     return rows
-  }, [scopeClasses, students, getTeacherName, sortKey, sortDir])
+  }, [scopeClasses, students, getTeacherNamesForClass, sortKey, sortDir])
 
   const onSort = (key: SortKey, nextDir: SortDir) => {
     setSortKey(key)
