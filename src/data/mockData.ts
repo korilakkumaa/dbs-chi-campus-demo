@@ -2,18 +2,18 @@ import type { GradeDeadline, SchoolClass, SemesterScores, Student, User, YearRec
 import {
   classNameToId,
   gradeNumberFromClassName,
+  FORM_CLASS_ORDER,
   GRADE_LEVELS,
   gradeLabel,
   teacherWhitelist,
 } from './teacherWhitelist'
 
-/** Form classes: grades 7–9 × D S G P M L A J T R; 10–12 without R; plus G7–G10 EC. */
-const CLASS_LETTERS = ['D', 'S', 'G', 'P', 'M', 'L', 'A', 'J', 'T', 'R'] as const
+/** Form classes: grades 7–9 × school letter order; 10–12 without R; plus G7–G10 EC. */
 const GRADES = [7, 8, 9, 10, 11, 12] as const
 
 function lettersForGrade(grade: number): readonly string[] {
-  if (grade >= 10) return CLASS_LETTERS.filter((letter) => letter !== 'R')
-  return CLASS_LETTERS
+  if (grade >= 10) return FORM_CLASS_ORDER.filter((letter) => letter !== 'R')
+  return FORM_CLASS_ORDER
 }
 
 const formClasses: SchoolClass[] = GRADES.flatMap((grade) =>

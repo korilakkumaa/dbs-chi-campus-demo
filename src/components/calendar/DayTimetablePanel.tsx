@@ -7,8 +7,8 @@ import {
 } from 'react'
 import { formatEventDateLabel } from '../../data/calendarEvents'
 import {
-  classHighlight,
   getDayTimetable,
+  lessonHighlight,
   weekdayLabel,
   type DayPeriod,
   type SchoolWeekday,
@@ -261,7 +261,7 @@ function PeriodRow({
     )
   }
 
-  const tone = classHighlight(period.group)
+  const tone = lessonHighlight(period.group, period.subject)
   const edgeClass = linked && linkedEdge ? ` linked-${linkedEdge}` : ''
   return (
     <li

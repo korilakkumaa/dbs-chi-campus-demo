@@ -1,9 +1,9 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { GlassPanel } from '../components/GlassPanel'
 import { useAuth } from '../context/AuthContext'
 import {
   TEACHER_WEEKLY_TIMETABLES,
-  classHighlight,
+  lessonHighlight,
   resolveTimetableTeacherId,
   weekdayLabel,
   type DayPeriod,
@@ -12,19 +12,72 @@ import {
 
 const WEEKDAYS: SchoolWeekday[] = [1, 2, 3, 4, 5]
 
-function periodLabel(p: DayPeriod): string {
-  if (p.type === 'break') return p.label ?? '休息'
-  if (p.type === 'free') return '空堂'
-  return [p.group, p.subject, p.room].filter(Boolean).join(' · ')
+/** Skip daily fixed bookends — same every day, just noise in a week grid. */
+function isBookendBreak(p: DayPeriod): boolean {
+  if (p.type !== 'break') return false
+  const label = p.label ?? ''
+  return label === '早會' || label === '放學'
+}
+
+type GridRow =
+  | { kind: 'slot'; start: string; end: string }
+  | { kind: 'break'; start: string; end: string; label: string }
+
+function buildRows(sample: DayPeriod[]): GridRow[] {
+  const rows: GridRow[] = []
+  for (const p of sample) {
+    if (isBookendBreak(p)) continue
+    if (p.type === 'break') {
+      rows.push({
+        kind: 'break',
+        start: p.start,
+        end: p.end,
+        label: p.label ?? '休息',
+      })
+      continue
+    }
+    rows.push({ kind: 'slot', start: p.start, end: p.end })
+  }
+  return rows
+}
+
+function findPeriod(
+  periods: DayPeriod[],
+  start: string,
+  end: string,
+): DayPeriod | undefined {
+  return periods.find((p) => p.start === start && p.end === end)
+}
+
+function shortGroup(group: string): string {
+  return group
+    .split(/,\s*/)
+    .map((g) => g.replace(/^G/, ''))
+    .join(' · ')
+}
+
+function SlotCell({ period }: { period: DayPeriod | undefined }) {
+  if (!period || period.type === 'break') {
+    return <span className="personal-tt-cell-mute">—</span>
+  }
+  if (period.type === 'free') {
+    return <span className="personal-tt-cell-free">空堂</span>
+  }
+  return (
+    <div className="personal-tt-cell-lesson">
+      <span className="personal-tt-cell-group">{shortGroup(period.group)}</span>
+      <span className="personal-tt-cell-meta">
+        {period.subject}
+        {period.room ? ` · ${period.room}` : ''}
+      </span>
+    </div>
+  )
 }
 
 export function PersonalTimetablePage() {
   const { user } = useAuth()
   const teacherId = resolveTimetableTeacherId(user?.id, user?.role)
   const entry = teacherId ? TEACHER_WEEKLY_TIMETABLES[teacherId] : null
-  const [day, setDay] = useState<SchoolWeekday>(1)
-
-  const periods = entry?.weekly[day] ?? []
 
   const lessonCount = useMemo(() => {
     if (!entry) return 0
@@ -32,6 +85,11 @@ export function PersonalTimetablePage() {
       (n, d) => n + entry.weekly[d].filter((p) => p.type === 'lesson').length,
       0,
     )
+  }, [entry])
+
+  const rows = useMemo(() => {
+    if (!entry) return []
+    return buildRows(entry.weekly[1])
   }, [entry])
 
   if (!entry || !teacherId) {
@@ -59,67 +117,87 @@ export function PersonalTimetablePage() {
       </header>
 
       <GlassPanel className="personal-tt reveal-up delay-1">
-        <div className="personal-tt-days" role="tablist" aria-label="星期">
-          {WEEKDAYS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              role="tab"
-              aria-selected={day === d}
-              className={`personal-tt-day${day === d ? ' active' : ''}`}
-              onClick={() => setDay(d)}
-            >
-              {weekdayLabel(d)}
-            </button>
-          ))}
-        </div>
+        <div className="personal-tt-wrap">
+          <table className="personal-tt-table">
+            <thead>
+              <tr>
+                <th scope="col" className="personal-tt-time-head">
+                  時間
+                </th>
+                {WEEKDAYS.map((d) => (
+                  <th key={d} scope="col">
+                    {weekdayLabel(d)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                if (row.kind === 'break') {
+                  return (
+                    <tr
+                      key={`break-${row.start}`}
+                      className="personal-tt-break-row"
+                    >
+                      <th scope="row" className="personal-tt-time-cell">
+                        <span className="personal-tt-time-start">{row.start}</span>
+                        <span className="personal-tt-time-end">{row.end}</span>
+                      </th>
+                      <td colSpan={5} className="personal-tt-break-cell">
+                        {row.label}
+                      </td>
+                    </tr>
+                  )
+                }
 
-        <ul className="day-tt-list personal-tt-list">
-          {periods.map((p, i) => {
-            if (p.type === 'lesson') {
-              const hl = classHighlight(p.group)
-              return (
-                <li
-                  key={`${p.start}-${i}`}
-                  className="day-tt-row lesson"
-                  style={
-                    {
-                      '--tt-accent': hl.accent,
-                      '--tt-soft': hl.soft,
-                      '--tt-text': hl.text,
-                    } as CSSProperties
-                  }
-                >
-                  <span className="day-tt-time">
-                    <span className="day-tt-time-start">{p.start}</span>
-                    <span className="day-tt-time-end">{p.end}</span>
-                  </span>
-                  <span className="day-tt-body">
-                    <span className="day-tt-group">{p.group}</span>
-                    <span className="day-tt-meta">
-                      {p.subject}
-                      {p.room ? ` · ${p.room}` : ''}
-                    </span>
-                  </span>
-                </li>
-              )
-            }
-            return (
-              <li
-                key={`${p.start}-${i}`}
-                className={`day-tt-row ${p.type}`}
-              >
-                <span className="day-tt-time">
-                  <span className="day-tt-time-start">{p.start}</span>
-                  <span className="day-tt-time-end">{p.end}</span>
-                </span>
-                <span className="day-tt-body">
-                  <span className="day-tt-break-label">{periodLabel(p)}</span>
-                </span>
-              </li>
-            )
-          })}
-        </ul>
+                return (
+                  <tr key={`slot-${row.start}`}>
+                    <th scope="row" className="personal-tt-time-cell">
+                      <span className="personal-tt-time-start">{row.start}</span>
+                      <span className="personal-tt-time-end">{row.end}</span>
+                    </th>
+                    {WEEKDAYS.map((d) => {
+                      const period = findPeriod(
+                        entry.weekly[d],
+                        row.start,
+                        row.end,
+                      )
+                      const isFree = period?.type === 'free'
+                      const isLesson = period?.type === 'lesson'
+                      const hl =
+                        isLesson && period.type === 'lesson'
+                          ? lessonHighlight(period.group, period.subject)
+                          : null
+                      return (
+                        <td
+                          key={d}
+                          className={
+                            isLesson
+                              ? 'personal-tt-td lesson'
+                              : isFree
+                                ? 'personal-tt-td free'
+                                : 'personal-tt-td'
+                          }
+                          style={
+                            hl
+                              ? ({
+                                  '--tt-accent': hl.accent,
+                                  '--tt-soft': hl.soft,
+                                  '--tt-text': hl.text,
+                                } as CSSProperties)
+                              : undefined
+                          }
+                        >
+                          <SlotCell period={period} />
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </GlassPanel>
     </div>
   )

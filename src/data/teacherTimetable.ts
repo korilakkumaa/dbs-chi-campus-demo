@@ -75,8 +75,72 @@ const FALLBACK_HIGHLIGHTS: ClassHighlight[] = [
   { accent: '#2f7a5c', soft: 'rgba(47, 122, 92, 0.22)', text: '#1e4a38' },
 ]
 
+/** Vivid swatches for grade × subject family (personal week grid). */
+const LESSON_KIND_HIGHLIGHTS: Record<string, ClassHighlight> = {
+  // G7
+  '7-CHIN': { accent: '#e03d2a', soft: 'rgba(224, 61, 42, 0.28)', text: '#6e1c14' },
+  '7-CHIS': { accent: '#c45c16', soft: 'rgba(196, 92, 22, 0.28)', text: '#6a2e0c' },
+  '7-PTH': { accent: '#d4890a', soft: 'rgba(212, 137, 10, 0.28)', text: '#6b4708' },
+  '7-EC': { accent: '#b45309', soft: 'rgba(180, 83, 9, 0.28)', text: '#6b3208' },
+  // G8
+  '8-CHIN': { accent: '#0d9488', soft: 'rgba(13, 148, 136, 0.28)', text: '#0f4a44' },
+  '8-CHIS': { accent: '#059669', soft: 'rgba(5, 150, 105, 0.28)', text: '#0a4a36' },
+  '8-PTH': { accent: '#16a34a', soft: 'rgba(22, 163, 74, 0.28)', text: '#14532d' },
+  '8-EC': { accent: '#65a30d', soft: 'rgba(101, 163, 13, 0.28)', text: '#3f6212' },
+  // G9
+  '9-CHIN': { accent: '#2563eb', soft: 'rgba(37, 99, 235, 0.28)', text: '#1e3a8a' },
+  '9-CHIS': { accent: '#4f46e5', soft: 'rgba(79, 70, 229, 0.28)', text: '#312e81' },
+  '9-PTH': { accent: '#7c3aed', soft: 'rgba(124, 58, 237, 0.28)', text: '#4c1d95' },
+  '9-EC': { accent: '#9333ea', soft: 'rgba(147, 51, 234, 0.28)', text: '#581c87' },
+  // G10
+  '10-CHIN': { accent: '#db2777', soft: 'rgba(219, 39, 119, 0.28)', text: '#9d174d' },
+  '10-CHIS': { accent: '#e11d48', soft: 'rgba(225, 29, 72, 0.28)', text: '#9f1239' },
+  '10-PTH': { accent: '#f43f5e', soft: 'rgba(244, 63, 94, 0.26)', text: '#9f1239' },
+  '10-EC': { accent: '#be185d', soft: 'rgba(190, 24, 93, 0.28)', text: '#9d174d' },
+  // G11
+  '11-CHIN': { accent: '#7c3aed', soft: 'rgba(124, 58, 237, 0.26)', text: '#4c1d95' },
+  '11-CHIS': { accent: '#6366f1', soft: 'rgba(99, 102, 241, 0.28)', text: '#3730a3' },
+  '11-PTH': { accent: '#8b5cf6', soft: 'rgba(139, 92, 246, 0.28)', text: '#5b21b6' },
+  '11-EC': { accent: '#a855f7', soft: 'rgba(168, 85, 247, 0.28)', text: '#6b21a8' },
+  // G12
+  '12-CHIN': { accent: '#0ea5e9', soft: 'rgba(14, 165, 233, 0.28)', text: '#075985' },
+  '12-CHIS': { accent: '#0284c7', soft: 'rgba(2, 132, 199, 0.28)', text: '#0c4a6e' },
+  '12-PTH': { accent: '#06b6d4', soft: 'rgba(6, 182, 212, 0.28)', text: '#155e75' },
+  '12-EC': { accent: '#0891b2', soft: 'rgba(8, 145, 178, 0.28)', text: '#155e75' },
+}
+
+const OTHER_LESSON_HIGHLIGHTS: ClassHighlight[] = [
+  { accent: '#ea580c', soft: 'rgba(234, 88, 12, 0.28)', text: '#9a3412' },
+  { accent: '#ca8a04', soft: 'rgba(202, 138, 4, 0.28)', text: '#854d0e' },
+  { accent: '#64748b', soft: 'rgba(100, 116, 139, 0.28)', text: '#334155' },
+  { accent: '#78716c', soft: 'rgba(120, 113, 108, 0.28)', text: '#44403c' },
+]
+
 function normalizeGroupKey(group: string) {
   return group.replace(/\s+/g, ' ').trim()
+}
+
+function subjectKind(subject: string): string {
+  const s = subject.trim().toUpperCase()
+  if (s.startsWith('CHIN')) return 'CHIN'
+  if (s === 'CHIS') return 'CHIS'
+  if (s === 'PTH') return 'PTH'
+  if (s === 'EC') return 'EC'
+  return 'OTHER'
+}
+
+function gradeFromGroup(group: string): number | null {
+  const first = group.split(/[,/]/)[0]?.trim() ?? ''
+  const m = first.match(/^(?:G)?(12|11|10|[789])/i)
+  return m ? Number(m[1]) : null
+}
+
+function hashKey(key: string): number {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
 }
 
 export function classHighlight(group: string): ClassHighlight {
@@ -86,11 +150,24 @@ export function classHighlight(group: string): ClassHighlight {
   const first = key.split(/[,/]/)[0]?.trim()
   if (first && CLASS_HIGHLIGHTS[first]) return CLASS_HIGHLIGHTS[first]
 
-  let hash = 0
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash * 31 + key.charCodeAt(i)) | 0
+  return FALLBACK_HIGHLIGHTS[hashKey(key) % FALLBACK_HIGHLIGHTS.length]
+}
+
+/**
+ * Highlight by grade × subject family (e.g. G7 中文、G7 中史、G12 中文).
+ * Shared by personal weekly grid and detailed-calendar day panel.
+ */
+export function lessonHighlight(group: string, subject: string): ClassHighlight {
+  const grade = gradeFromGroup(group)
+  const kind = subjectKind(subject)
+  if (grade != null && kind !== 'OTHER') {
+    const keyed = LESSON_KIND_HIGHLIGHTS[`${grade}-${kind}`]
+    if (keyed) return keyed
   }
-  return FALLBACK_HIGHLIGHTS[Math.abs(hash) % FALLBACK_HIGHLIGHTS.length]
+  const fallbackKey = `${grade ?? 'x'}-${kind}-${normalizeGroupKey(group)}`
+  return OTHER_LESSON_HIGHLIGHTS[
+    hashKey(fallbackKey) % OTHER_LESSON_HIGHLIGHTS.length
+  ]
 }
 
 /** teacherUserId → personal weekly timetable + academic year window */

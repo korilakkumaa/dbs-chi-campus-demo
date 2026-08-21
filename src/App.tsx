@@ -9,6 +9,7 @@ import { OverviewPage } from './pages/OverviewPage'
 import { CalendarPage } from './pages/CalendarPage'
 import { YearOverviewPage } from './pages/YearOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { ClassTimetablePage } from './pages/ClassTimetablePage'
 import { PersonalTimetablePage } from './pages/PersonalTimetablePage'
 import { ProgressPage } from './pages/ProgressPage'
 import { ReadingPage } from './pages/ReadingPage'
@@ -52,15 +53,7 @@ export default function App() {
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/calendar/year" element={<YearOverviewPage />} />
           <Route path="/timetable" element={<PersonalTimetablePage />} />
-          <Route
-            path="/timetable/class"
-            element={
-              <PlaceholderPage
-                title="班級時間表"
-                description="已選班級的上課時間表。"
-              />
-            }
-          />
+          <Route path="/timetable/class" element={<ClassTimetablePage />} />
           <Route
             path="/timetable/school"
             element={

@@ -6241,21 +6241,155 @@ tbody tr.table-row-link:focus-visible {
 
 /* —— Personal weekly timetable —— */
 .personal-tt {
-  padding: 1rem 1.1rem 1.15rem;
+  padding: 0.85rem 0.95rem 1rem;
 }
 
-.personal-tt-days {
+.personal-tt-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.personal-tt-table {
+  width: 100%;
+  min-width: 40rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.8rem;
+}
+
+.personal-tt-table thead th {
+  padding: 0.45rem 0.35rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.personal-tt-time-head {
+  width: 4.2rem;
+}
+
+.personal-tt-time-cell {
+  padding: 0.4rem 0.3rem;
+  text-align: center;
+  vertical-align: middle;
+  font-family: var(--font-input);
+  font-weight: 500;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+}
+
+.personal-tt-time-start,
+.personal-tt-time-end {
+  display: block;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.personal-tt-time-end {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+
+.personal-tt-td {
+  padding: 0.4rem 0.4rem;
+  vertical-align: middle;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.personal-tt-td.lesson {
+  background: var(--tt-soft, color-mix(in srgb, var(--ink) 3%, transparent));
+  box-shadow: inset 3px 0 0 var(--tt-accent, transparent);
+}
+
+.personal-tt-td.free {
+  background: transparent;
+}
+
+.personal-tt-cell-lesson {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  line-height: 1.25;
+}
+
+.personal-tt-cell-group {
+  font-weight: 700;
+  color: var(--tt-text, var(--ink));
+  letter-spacing: 0.01em;
+}
+
+.personal-tt-cell-meta {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--tt-text, var(--ink-soft)) 72%, var(--ink-soft));
+}
+
+.personal-tt-cell-free {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--ink-soft) 75%, transparent);
+}
+
+.personal-tt-cell-mute {
+  color: color-mix(in srgb, var(--ink-soft) 45%, transparent);
+}
+
+.personal-tt-break-row .personal-tt-time-cell {
+  border-bottom-color: transparent;
+  background: transparent;
+  opacity: 0.55;
+}
+
+.personal-tt-break-cell {
+  padding: 0.28rem 0.4rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink-soft) 5%, transparent);
+  border-bottom: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  .personal-tt {
+    padding: 0.7rem 0.65rem 0.85rem;
+  }
+
+  .personal-tt-table {
+    min-width: 34rem;
+    font-size: 0.74rem;
+  }
+
+  .personal-tt-cell-meta {
+    font-size: 0.66rem;
+  }
+}
+
+/* —— Class / grade Chinese timetable —— */
+.class-tt {
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.class-tt-grades {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.95rem;
 }
 
-.personal-tt-day {
+.class-tt-grade {
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 600;
-  padding: 0.35rem 0.7rem;
+  padding: 0.35rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: transparent;
@@ -6263,20 +6397,184 @@ tbody tr.table-row-link:focus-visible {
   cursor: pointer;
 }
 
-.personal-tt-day:hover {
+.class-tt-grade:hover {
   color: var(--ink);
   border-color: color-mix(in srgb, var(--ink) 28%, var(--line));
 }
 
-.personal-tt-day.active {
+.class-tt-grade.active {
   color: var(--ink);
   background: color-mix(in srgb, var(--ink) 6%, transparent);
   border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
 }
 
-.personal-tt-list {
-  max-height: none;
-  touch-action: auto;
-  user-select: text;
+.class-tt-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
 }
+
+.class-tt-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.class-tt-summary-label {
+  flex: 0 0 auto;
+  min-width: 4.5rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.class-tt-summary-classes,
+.class-tt-summary-count {
+  flex: 1 1 12rem;
+}
+
+.class-tt-section {
+  margin-top: 0.85rem;
+}
+
+.class-tt-section + .class-tt-section {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.class-tt-section-title {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.class-tt-grid-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin: 0 -0.15rem;
+  padding: 0 0.15rem;
+}
+
+.class-tt-grid {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.78rem;
+}
+
+.class-tt-grid th,
+.class-tt-grid td {
+  border: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.class-tt-grid thead th {
+  padding: 0.45rem 0.4rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+
+.class-tt-corner {
+  width: 4.4rem;
+  min-width: 4.4rem;
+}
+
+.class-tt-time-col {
+  padding: 0.45rem 0.35rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
+  font-family: var(--font-input);
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.class-tt-time-start,
+.class-tt-time-end {
+  display: block;
+  line-height: 1.25;
+}
+
+.class-tt-time-end {
+  opacity: 0.72;
+  font-size: 0.92em;
+}
+
+.class-tt-td {
+  padding: 0;
+  width: 18%;
+  min-width: 6.5rem;
+}
+
+.class-tt-td.free {
+  background: color-mix(in srgb, #2a6b52 7%, transparent);
+}
+
+.class-tt-cell {
+  min-height: 3.2rem;
+  padding: 0.35rem 0.4rem;
+}
+
+.class-tt-cell.free {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.class-tt-cell-free {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #1a3d30;
+  letter-spacing: 0.02em;
+}
+
+.class-tt-lessons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.class-tt-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  line-height: 1.3;
+}
+
+.class-tt-lesson-classes {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.class-tt-lesson-meta {
+  color: var(--ink-soft);
+  font-size: 0.92em;
+}
+
+@media (max-width: 720px) {
+  .class-tt {
+    padding: 0.85rem 0.8rem 1rem;
+  }
+
+  .class-tt-summary-label {
+    min-width: 3.6rem;
+  }
+}
+
 
