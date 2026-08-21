@@ -3,10 +3,39 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
+import { EVENT_KIND_META, isoDateLocal } from '../data/calendarEvents'
 import { GRADE_LEVELS, gradeLabel } from '../data/teacherWhitelist'
-import type { GradeDeadline } from '../types'
+import type { CalendarAudience, CalendarEventKind, GradeDeadline } from '../types'
 
 type DeadlineDraft = Omit<GradeDeadline, 'submitted'>
+
+type CalAudienceMode = 'all' | 'grades' | 'teachers'
+
+const CAL_KIND_ORDER: CalendarEventKind[] = [
+  'holiday',
+  'non-school-day',
+  'school-day',
+  'timetable',
+  'event',
+  'progress',
+  'department',
+  'assessment',
+]
+
+const DAY_STATUS_KINDS = [
+  'school-day',
+  'non-school-day',
+  'holiday',
+] as const satisfies readonly CalendarEventKind[]
+
+const DAY_STATUS_DEFAULT_TITLE: Record<
+  (typeof DAY_STATUS_KINDS)[number],
+  string
+> = {
+  'school-day': '正常上課日',
+  'non-school-day': '非正常上課日',
+  holiday: '假期',
+}
 
 const WEEKDAYS = [
   '星期日',
@@ -171,6 +200,7 @@ export function AdminPage() {
     gradeDeadlines,
     updateGradeDeadline,
     submitGradeDeadlines,
+    addCalendarEventsBatch,
   } = useCampus()
 
   const [drafts, setDrafts] = useState<Record<number, DeadlineDraft>>(() => {
@@ -199,6 +229,30 @@ export function AdminPage() {
   )
   const [dialog, setDialog] = useState<DialogState | null>(null)
 
+  const [calTitle, setCalTitle] = useState('')
+  const [calDate, setCalDate] = useState(isoDateLocal)
+  const [calDateEnd, setCalDateEnd] = useState('')
+  const [calKind, setCalKind] = useState<CalendarEventKind>('department')
+  const [calAudienceMode, setCalAudienceMode] =
+    useState<CalAudienceMode>('all')
+  const [calGrades, setCalGrades] = useState<Set<number>>(new Set())
+  const [calTeacherIds, setCalTeacherIds] = useState<Set<string>>(new Set())
+  const [calNotice, setCalNotice] = useState<string | null>(null)
+
+  const [dayStatusKind, setDayStatusKind] =
+    useState<(typeof DAY_STATUS_KINDS)[number]>('non-school-day')
+  const [dayStatusTitle, setDayStatusTitle] = useState('')
+  const [dayStatusFrom, setDayStatusFrom] = useState(isoDateLocal)
+  const [dayStatusTo, setDayStatusTo] = useState('')
+  const [dayStatusWeekdaysOnly, setDayStatusWeekdaysOnly] = useState(true)
+  const [dayStatusAudienceMode, setDayStatusAudienceMode] = useState<
+    'all' | 'teachers'
+  >('all')
+  const [dayStatusTeacherIds, setDayStatusTeacherIds] = useState<Set<string>>(
+    new Set(),
+  )
+  const [dayStatusNotice, setDayStatusNotice] = useState<string | null>(null)
+
   if (user?.role !== 'admin') return <Navigate to="/progress" replace />
 
   const teacherCards = teachers.map((t) => {
@@ -207,6 +261,94 @@ export function AdminPage() {
     )
     return { teacher: t, owned }
   })
+
+  const submitCalendarBatch = () => {
+    const trimmed = calTitle.trim()
+    if (!trimmed || !calDate) {
+      setCalNotice('請填寫事件名稱與日期。')
+      return
+    }
+    if (calDateEnd && calDateEnd < calDate) {
+      setCalNotice('結束日期不可早於開始日期。')
+      return
+    }
+    if (calAudienceMode === 'grades' && calGrades.size === 0) {
+      setCalNotice('請至少選一個年級。')
+      return
+    }
+    if (calAudienceMode === 'teachers' && calTeacherIds.size === 0) {
+      setCalNotice('請至少選一位教師。')
+      return
+    }
+    let audience: Exclude<CalendarAudience, { type: 'personal' }>
+    if (calAudienceMode === 'all') {
+      audience = { type: 'all' }
+    } else if (calAudienceMode === 'grades') {
+      audience = {
+        type: 'grades',
+        grades: Array.from(calGrades).sort((a, b) => a - b),
+      }
+    } else {
+      audience = {
+        type: 'teachers',
+        teacherIds: Array.from(calTeacherIds),
+      }
+    }
+    const count = addCalendarEventsBatch({
+      title: trimmed,
+      date: calDate,
+      dateEnd: calDateEnd || undefined,
+      kind: calKind,
+      audience,
+    })
+    setCalTitle('')
+    setCalDateEnd('')
+    setCalNotice(count > 1 ? `已加入 ${count} 天的月曆事件。` : '已加入月曆事件。')
+  }
+
+  const submitDayStatusBatch = () => {
+    if (!dayStatusFrom) {
+      setDayStatusNotice('請選擇開始日期。')
+      return
+    }
+    if (dayStatusTo && dayStatusTo < dayStatusFrom) {
+      setDayStatusNotice('結束日期不可早於開始日期。')
+      return
+    }
+    if (
+      dayStatusAudienceMode === 'teachers' &&
+      dayStatusTeacherIds.size === 0
+    ) {
+      setDayStatusNotice('請至少選一位教師。')
+      return
+    }
+    const title =
+      dayStatusTitle.trim() || DAY_STATUS_DEFAULT_TITLE[dayStatusKind]
+    const audience: Exclude<CalendarAudience, { type: 'personal' }> =
+      dayStatusAudienceMode === 'all'
+        ? { type: 'all' }
+        : {
+            type: 'teachers',
+            teacherIds: Array.from(dayStatusTeacherIds),
+          }
+    const count = addCalendarEventsBatch({
+      title,
+      date: dayStatusFrom,
+      dateEnd: dayStatusTo || undefined,
+      kind: dayStatusKind,
+      audience,
+      weekdaysOnly: dayStatusWeekdaysOnly,
+    })
+    if (count === 0) {
+      setDayStatusNotice('所選範圍沒有可套用的日期。')
+      return
+    }
+    setDayStatusTitle('')
+    setDayStatusTo('')
+    setDayStatusNotice(
+      `已標記 ${count} 日為「${EVENT_KIND_META[dayStatusKind].label}」。`,
+    )
+  }
 
   const patchDraft = (grade: number, patch: Partial<DeadlineDraft>) => {
     const nextDraft: DeadlineDraft = {
@@ -362,6 +504,286 @@ export function AdminPage() {
           <p className="metric-value">{classes.length}</p>
         </GlassPanel>
       </div>
+
+      <GlassPanel className="table-panel cal-admin reveal-up delay-1">
+        <div className="table-panel-head">
+          <h2>上課日／假期批量設定</h2>
+          <button
+            type="button"
+            className="deadline-submit-btn"
+            onClick={submitDayStatusBatch}
+          >
+            套用
+          </button>
+        </div>
+        <p className="deadline-admin-lead">
+          一次為多日、全部或指定教師標記正常上課日、非正常上課日或假期；會影響詳細日曆左側時間表是否顯示。
+        </p>
+        <div className="cal-admin-form">
+          <fieldset className="cal-admin-field">
+            <legend>日曆狀態</legend>
+            <div className="cal-admin-kinds">
+              {DAY_STATUS_KINDS.map((k) => (
+                <label key={k} className="cal-admin-kind">
+                  <input
+                    type="radio"
+                    name="day-status-kind"
+                    checked={dayStatusKind === k}
+                    onChange={() => {
+                      setDayStatusKind(k)
+                      setDayStatusNotice(null)
+                    }}
+                  />
+                  <span
+                    className="cal-admin-kind-dot"
+                    style={{ background: EVENT_KIND_META[k].color }}
+                  />
+                  {EVENT_KIND_META[k].label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <label className="cal-admin-field">
+            <span>說明（可留空）</span>
+            <input
+              type="text"
+              className="deadline-input text"
+              value={dayStatusTitle}
+              placeholder={DAY_STATUS_DEFAULT_TITLE[dayStatusKind]}
+              onChange={(e) => {
+                setDayStatusTitle(e.target.value)
+                setDayStatusNotice(null)
+              }}
+            />
+          </label>
+          <div className="cal-admin-date-row">
+            <label className="cal-admin-field">
+              <span>由</span>
+              <input
+                type="date"
+                className="deadline-input"
+                value={dayStatusFrom}
+                onChange={(e) => {
+                  setDayStatusFrom(e.target.value)
+                  setDayStatusNotice(null)
+                }}
+              />
+            </label>
+            <label className="cal-admin-field">
+              <span>至</span>
+              <input
+                type="date"
+                className="deadline-input"
+                value={dayStatusTo}
+                onChange={(e) => {
+                  setDayStatusTo(e.target.value)
+                  setDayStatusNotice(null)
+                }}
+              />
+            </label>
+          </div>
+          <label className="cal-admin-weekdays">
+            <input
+              type="checkbox"
+              checked={dayStatusWeekdaysOnly}
+              onChange={(e) => setDayStatusWeekdaysOnly(e.target.checked)}
+            />
+            只套用星期一至五
+          </label>
+          <fieldset className="cal-admin-field">
+            <legend>對象</legend>
+            <div className="cal-admin-audience">
+              {(
+                [
+                  ['all', '全部教師'],
+                  ['teachers', '指定教師'],
+                ] as const
+              ).map(([mode, label]) => (
+                <label key={mode} className="cal-admin-audience-opt">
+                  <input
+                    type="radio"
+                    name="day-status-audience"
+                    checked={dayStatusAudienceMode === mode}
+                    onChange={() => setDayStatusAudienceMode(mode)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {dayStatusAudienceMode === 'teachers' && (
+              <div className="cal-admin-chips">
+                {teachers.map((t) => {
+                  const on = dayStatusTeacherIds.has(t.id)
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`cal-admin-chip${on ? ' active' : ''}`}
+                      onClick={() => {
+                        setDayStatusTeacherIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(t.id)) next.delete(t.id)
+                          else next.add(t.id)
+                          return next
+                        })
+                      }}
+                    >
+                      {t.name.replace(/老師$/, '')}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </fieldset>
+          {dayStatusNotice && (
+            <p className="cal-admin-notice" role="status">
+              {dayStatusNotice}
+            </p>
+          )}
+        </div>
+      </GlassPanel>
+
+      <GlassPanel className="table-panel cal-admin reveal-up delay-1">
+        <div className="table-panel-head">
+          <h2>批量加入月曆</h2>
+          <button
+            type="button"
+            className="deadline-submit-btn"
+            onClick={submitCalendarBatch}
+          >
+            加入
+          </button>
+        </div>
+        <p className="deadline-admin-lead">
+          一次將事件推送到全部教師、指定年級，或個別教師的月曆。
+        </p>
+        <div className="cal-admin-form">
+          <label className="cal-admin-field">
+            <span>事件名稱</span>
+            <input
+              type="text"
+              className="deadline-input text"
+              value={calTitle}
+              placeholder="例如：中文科組會議"
+              onChange={(e) => {
+                setCalTitle(e.target.value)
+                setCalNotice(null)
+              }}
+            />
+          </label>
+          <div className="cal-admin-date-row">
+            <label className="cal-admin-field">
+              <span>由</span>
+              <input
+                type="date"
+                className="deadline-input"
+                value={calDate}
+                onChange={(e) => setCalDate(e.target.value)}
+              />
+            </label>
+            <label className="cal-admin-field">
+              <span>至（可留空）</span>
+              <input
+                type="date"
+                className="deadline-input"
+                value={calDateEnd}
+                onChange={(e) => setCalDateEnd(e.target.value)}
+              />
+            </label>
+          </div>
+          <fieldset className="cal-admin-field">
+            <legend>類型</legend>
+            <div className="cal-admin-kinds">
+              {CAL_KIND_ORDER.map((k) => (
+                <label key={k} className="cal-admin-kind">
+                  <input
+                    type="radio"
+                    name="cal-kind"
+                    checked={calKind === k}
+                    onChange={() => setCalKind(k)}
+                  />
+                  <span
+                    className="cal-admin-kind-dot"
+                    style={{ background: EVENT_KIND_META[k].color }}
+                  />
+                  {EVENT_KIND_META[k].label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="cal-admin-field">
+            <legend>對象</legend>
+            <div className="cal-admin-audience">
+              {(
+                [
+                  ['all', '全部教師'],
+                  ['grades', '按級別'],
+                  ['teachers', '按老師'],
+                ] as const
+              ).map(([mode, label]) => (
+                <label key={mode} className="cal-admin-audience-opt">
+                  <input
+                    type="radio"
+                    name="cal-audience"
+                    checked={calAudienceMode === mode}
+                    onChange={() => setCalAudienceMode(mode)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {calAudienceMode === 'grades' && (
+              <div className="cal-admin-chips">
+                {GRADE_LEVELS.map((g) => {
+                  const on = calGrades.has(g)
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      className={`cal-admin-chip${on ? ' active' : ''}`}
+                      onClick={() => {
+                        setCalGrades((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(g)) next.delete(g)
+                          else next.add(g)
+                          return next
+                        })
+                      }}
+                    >
+                      {gradeLabel(g)}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {calAudienceMode === 'teachers' && (
+              <div className="cal-admin-chips">
+                {teachers.map((t) => {
+                  const on = calTeacherIds.has(t.id)
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`cal-admin-chip${on ? ' active' : ''}`}
+                      onClick={() => {
+                        setCalTeacherIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(t.id)) next.delete(t.id)
+                          else next.add(t.id)
+                          return next
+                        })
+                      }}
+                    >
+                      {t.name.replace(/老師$/, '')}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </fieldset>
+          {calNotice && <p className="cal-admin-notice">{calNotice}</p>}
+        </div>
+      </GlassPanel>
 
       <GlassPanel className="table-panel deadline-admin reveal-up delay-1">
         <div className="table-panel-head">
@@ -536,7 +958,7 @@ export function AdminPage() {
                     ))}
                   </div>
                 )}
-                <p className="teacher-handle">@{t.username}</p>
+                <p className="teacher-handle">{t.username}</p>
               </li>
             ))}
           </ul>

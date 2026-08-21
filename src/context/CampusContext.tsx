@@ -8,13 +8,27 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  expandIsoDateRange,
+  loadCalendarEvents,
+  newCalendarEventId,
+  saveCalendarEvents,
+} from '../data/calendarEvents'
+import {
   classes as seedClasses,
   seedGradeDeadlines,
   students as seedStudents,
   users as seedUsers,
 } from '../data/mockData'
 import { gradeNumberFromClassName } from '../data/teacherWhitelist'
-import type { GradeDeadline, SchoolClass, Student, User } from '../types'
+import type {
+  CalendarAudience,
+  CalendarEvent,
+  CalendarEventKind,
+  GradeDeadline,
+  SchoolClass,
+  Student,
+  User,
+} from '../types'
 import { useAuth } from './AuthContext'
 
 interface CampusContextValue {
@@ -51,6 +65,30 @@ interface CampusContextValue {
   /** Deadlines for grades covered by currently selected classes. */
   relevantDeadlines: GradeDeadline[]
   taughtGradeNumbers: number[]
+  /** Events visible to the signed-in user. */
+  calendarEvents: CalendarEvent[]
+  addCalendarEvent: (input: {
+    date: string
+    title: string
+    kind: CalendarEventKind
+    audience?: CalendarAudience
+    lesson?: CalendarEvent['lesson']
+  }) => string | undefined
+  updateCalendarEvent: (
+    id: string,
+    patch: Partial<Pick<CalendarEvent, 'date' | 'title' | 'kind' | 'lesson'>>,
+  ) => void
+  deleteCalendarEvent: (id: string) => void
+  addCalendarEventsBatch: (input: {
+    date: string
+    /** Inclusive end date; when set, creates one event per day in the range. */
+    dateEnd?: string
+    title: string
+    kind: CalendarEventKind
+    audience: Exclude<CalendarAudience, { type: 'personal' }>
+    /** When true, skip Sat/Sun in a date range. */
+    weekdaysOnly?: boolean
+  }) => number
 }
 
 const globalKey = '__campusCampusContext'
@@ -87,6 +125,22 @@ function saveSelectedClassIds(userId: string, ids: string[]) {
   }
 }
 
+function eventVisibleToUser(
+  event: CalendarEvent,
+  user: User,
+  taughtGrades: number[],
+): boolean {
+  if (user.role === 'admin') return true
+  const { audience } = event
+  if (audience.type === 'personal') return audience.ownerId === user.id
+  if (audience.type === 'all') return true
+  if (audience.type === 'teachers') return audience.teacherIds.includes(user.id)
+  if (audience.type === 'grades') {
+    return audience.grades.some((g) => taughtGrades.includes(g))
+  }
+  return false
+}
+
 export function CampusProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [classes, setClasses] = useState<SchoolClass[]>(seedClasses)
@@ -95,6 +149,9 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [gradeDeadlines, setGradeDeadlines] =
     useState<GradeDeadline[]>(seedGradeDeadlines)
+  const [allCalendarEvents, setAllCalendarEvents] = useState<CalendarEvent[]>(
+    () => loadCalendarEvents(),
+  )
   const [selectionReady, setSelectionReady] = useState(false)
 
   const teachers = useMemo(
@@ -153,6 +210,10 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     saveSelectedClassIds(user.id, selectedClassIds)
   }, [user, selectionReady, selectedClassIds])
 
+  useEffect(() => {
+    saveCalendarEvents(allCalendarEvents)
+  }, [allCalendarEvents])
+
   const selectedStudents = useMemo(
     () => students.filter((s) => selectedClassIds.includes(s.classId)),
     [students, selectedClassIds],
@@ -192,6 +253,16 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     return [...grades].sort((a, b) => a - b)
   }, [classes, selectedClassIds, accessibleClasses])
 
+  /** Grades for calendar visibility — all accessible classes, not picker. */
+  const visibilityGradeNumbers = useMemo(() => {
+    const grades = new Set<number>()
+    for (const cls of accessibleClasses) {
+      const n = gradeNumberFromClassName(cls.name)
+      if (n != null) grades.add(n)
+    }
+    return [...grades]
+  }, [accessibleClasses])
+
   const relevantDeadlines = useMemo(
     () =>
       gradeDeadlines.filter(
@@ -202,6 +273,13 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       ),
     [gradeDeadlines, taughtGradeNumbers],
   )
+
+  const calendarEvents = useMemo(() => {
+    if (!user) return []
+    return allCalendarEvents
+      .filter((e) => eventVisibleToUser(e, user, visibilityGradeNumbers))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, 'zh-Hant'))
+  }, [allCalendarEvents, user, visibilityGradeNumbers])
 
   const getTeachersForClass = (classId: string): User[] => {
     const cls = classes.find((c) => c.id === classId)
@@ -287,6 +365,73 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       },
       relevantDeadlines,
       taughtGradeNumbers,
+      calendarEvents,
+      addCalendarEvent: ({ date, title, kind, audience, lesson }) => {
+        if (!user) return undefined
+        const trimmed = title.trim()
+        if (!date) return undefined
+        // Lesson-tagged events may start with an empty body for the teacher to fill in.
+        if (!trimmed && !lesson) return undefined
+        const event: CalendarEvent = {
+          id: newCalendarEventId(),
+          date,
+          title: trimmed,
+          kind,
+          createdBy: user.id,
+          audience:
+            audience ??
+            ({ type: 'personal', ownerId: user.id } satisfies CalendarAudience),
+          ...(lesson ? { lesson } : {}),
+        }
+        setAllCalendarEvents((prev) => [...prev, event])
+        return event.id
+      },
+      updateCalendarEvent: (id, patch) => {
+        setAllCalendarEvents((prev) =>
+          prev.map((e) => {
+            if (e.id !== id) return e
+            return {
+              ...e,
+              ...patch,
+              title: patch.title != null ? patch.title.trim() : e.title,
+            }
+          }),
+        )
+      },
+      deleteCalendarEvent: (id) => {
+        setAllCalendarEvents((prev) => prev.filter((e) => e.id !== id))
+      },
+      addCalendarEventsBatch: ({
+        date,
+        dateEnd,
+        title,
+        kind,
+        audience,
+        weekdaysOnly,
+      }) => {
+        if (!user) return 0
+        const trimmed = title.trim()
+        if (!trimmed || !date) return 0
+        let dates = expandIsoDateRange(date, dateEnd ?? date)
+        if (weekdaysOnly) {
+          dates = dates.filter((iso) => {
+            const [y, m, d] = iso.split('-').map(Number)
+            const dow = new Date(y, m - 1, d).getDay()
+            return dow >= 1 && dow <= 5
+          })
+        }
+        if (dates.length === 0) return 0
+        const created: CalendarEvent[] = dates.map((d) => ({
+          id: newCalendarEventId(),
+          date: d,
+          title: trimmed,
+          kind,
+          createdBy: user.id,
+          audience,
+        }))
+        setAllCalendarEvents((prev) => [...prev, ...created])
+        return created.length
+      },
     }),
     [
       classes,
@@ -301,6 +446,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       gradeDeadlines,
       relevantDeadlines,
       taughtGradeNumbers,
+      calendarEvents,
+      user,
     ],
   )
 

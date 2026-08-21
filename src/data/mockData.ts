@@ -36,7 +36,7 @@ export const classes: SchoolClass[] = [...formClasses, ...ecClasses]
 
 const teacherUsers: User[] = teacherWhitelist.map((t) => ({
   id: `u-${t.initial.toLowerCase()}`,
-  username: t.initial.toLowerCase(),
+  username: t.email,
   password: 'campus',
   name: `${t.name}老師`,
   role: 'teacher',
@@ -53,9 +53,6 @@ for (const t of teacherWhitelist) {
   }
 }
 
-const demoTeacher =
-  teacherUsers.find((u) => u.id === 'u-yln') ?? teacherUsers[0]
-
 export const users: User[] = [
   {
     id: 'u-admin',
@@ -65,12 +62,15 @@ export const users: User[] = [
     role: 'admin',
     classIds: [],
   },
-  /** Easy demo login → 吳綺琳 YLN（7G、7L、G9 EC、12L） */
   {
-    ...demoTeacher,
-    username: 'teacher',
+    id: 'u-student',
+    username: 'student',
+    password: 'campus',
+    name: '陳子軒',
+    role: 'student',
+    classIds: [],
   },
-  ...teacherUsers.filter((u) => u.id !== demoTeacher.id),
+  ...teacherUsers,
 ]
 
 const firstNames = [
@@ -239,7 +239,7 @@ const EXTREME_FIXTURES: {
     notes: '極端測試：落在危急區上緣（<10%）。',
   },
   {
-    className: '7J',
+    className: '7L',
     classNumber: 1,
     name: '測偏弱區',
     progress: 25,
@@ -248,7 +248,7 @@ const EXTREME_FIXTURES: {
     notes: '極端測試：偏弱區（10%–40%）。',
   },
   {
-    className: '7J',
+    className: '7L',
     classNumber: 2,
     name: '測高進低答',
     progress: 98,
@@ -257,7 +257,7 @@ const EXTREME_FIXTURES: {
     notes: '極端測試：進度極高但答對率極低。',
   },
   {
-    className: '7J',
+    className: '7L',
     classNumber: 3,
     name: '測低進高答',
     progress: 4,

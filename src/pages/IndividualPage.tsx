@@ -226,7 +226,7 @@ function StudentFileCard({
         </div>
         <div className="file-score">
           <span>{student.progress}%</span>
-          <small>進度</small>
+          <small>平時分</small>
         </div>
       </div>
 
@@ -236,7 +236,7 @@ function StudentFileCard({
           <dd>{student.readingScore}%</dd>
         </div>
         <div>
-          <dt>答對率</dt>
+          <dt>寫作</dt>
           <dd>{student.correctRate}%</dd>
         </div>
       </dl>
@@ -574,7 +574,7 @@ export function IndividualPage() {
               <div className="roster-col metric" role="columnheader">
                 <SortHeader
                   as="div"
-                  label="進度"
+                  label="平時分"
                   column="progress"
                   activeKey={sortKey}
                   dir={sortDir}
@@ -584,7 +584,7 @@ export function IndividualPage() {
               <div className="roster-col metric" role="columnheader">
                 <SortHeader
                   as="div"
-                  label="答對率"
+                  label="寫作"
                   column="correctRate"
                   activeKey={sortKey}
                   dir={sortDir}

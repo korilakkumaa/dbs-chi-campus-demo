@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'teacher'
+export type Role = 'admin' | 'teacher' | 'student'
 
 export interface User {
   id: string
@@ -53,4 +53,42 @@ export interface GradeDeadline {
   activityDue: string
   /** Confirmed by admin via submit tick; only then shown to teachers. */
   submitted: boolean
+}
+
+/** Calendar event kinds — visual mapping on mini calendar. */
+export type CalendarEventKind =
+  | 'holiday'
+  | 'event'
+  | 'timetable'
+  | 'progress'
+  | 'department'
+  | 'assessment'
+  | 'school-day'
+  | 'non-school-day'
+// holiday → red day number; event → brown dot; timetable → red circle;
+// progress → yellow; department → green; assessment → blue;
+// school-day → 正常上課日; non-school-day → 非正常上課日
+
+export type CalendarAudience =
+  | { type: 'personal'; ownerId: string }
+  | { type: 'all' }
+  | { type: 'grades'; grades: number[] }
+  | { type: 'teachers'; teacherIds: string[] }
+
+export interface CalendarEvent {
+  id: string
+  date: string
+  /** Editable note / body — not the lesson identity labels. */
+  title: string
+  kind: CalendarEventKind
+  createdBy: string
+  audience: CalendarAudience
+  /** Optional lesson tags from personal timetable (class / subject / time). */
+  lesson?: {
+    group: string
+    subject: string
+    start: string
+    end: string
+    room?: string
+  }
 }

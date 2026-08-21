@@ -7,11 +7,21 @@ import {
   type ReactNode,
 } from 'react'
 import { users } from '../data/mockData'
-import type { User } from '../types'
+import type { Role, User } from '../types'
+
+export const ROLE_LABEL: Record<Role, string> = {
+  admin: '管理員',
+  teacher: '教師',
+  student: '學生',
+}
+
+export function defaultPath(role?: Role) {
+  return role === 'student' ? '/tower' : '/progress'
+}
 
 interface AuthContextValue {
   user: User | null
-  login: (username: string, password: string) => string | null
+  login: (username: string, password: string, role: Role) => User | string
   logout: () => void
 }
 
@@ -41,16 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      login: (username, password) => {
+      login: (username, password, role) => {
         const found = users.find(
           (u) =>
             u.username.toLowerCase() === username.trim().toLowerCase() &&
             u.password === password,
         )
         if (!found) return '帳戶或密碼不正確。'
+        if (found.role !== role) {
+          return `此帳戶不是${ROLE_LABEL[role]}身分。`
+        }
         setUser(found)
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: found.id }))
-        return null
+        return found
       },
       logout: () => {
         setUser(null)

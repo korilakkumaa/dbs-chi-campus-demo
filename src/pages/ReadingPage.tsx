@@ -48,7 +48,7 @@ export function ReadingPage() {
   return (
     <div className="page reading-page">
       <header className="page-header reveal-up">
-        <h1>閱讀</h1>
+        <h1>廣泛閱讀</h1>
         <p>已選班級的流暢度與理解表現。</p>
       </header>
 

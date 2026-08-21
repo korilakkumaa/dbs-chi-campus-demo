@@ -1,10 +1,24 @@
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  defaultAcademicYearStart,
+  formatAcademicYearLabel,
+  listAcademicYearStarts,
+} from '../data/academicYear'
 import { average } from '../data/mockData'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
 
+function parseStartYearParam(raw: string | null): number | null {
+  if (!raw) return null
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 2000 || n > 2100) return null
+  return Math.trunc(n)
+}
+
 export function ClassPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     selectedClassIds,
     accessibleClasses,
@@ -13,6 +27,22 @@ export function ClassPage() {
     getTeacherNamesForClass,
     selectClasses,
   } = useCampus()
+
+  const yearOptions = useMemo(() => listAcademicYearStarts(), [])
+  const defaultStart = useMemo(() => defaultAcademicYearStart(), [])
+  const startYear = useMemo(() => {
+    const param = parseStartYearParam(searchParams.get('year'))
+    if (param != null && yearOptions.includes(param)) return param
+    return defaultStart
+  }, [searchParams, yearOptions, defaultStart])
+
+  const onSelectYear = (next: number) => {
+    if (next === defaultStart) {
+      setSearchParams({}, { replace: true })
+    } else {
+      setSearchParams({ year: String(next) }, { replace: true })
+    }
+  }
 
   const active =
     selectedClassIds.length > 0
@@ -30,9 +60,29 @@ export function ClassPage() {
 
   return (
     <div className="page class-page">
-      <header className="page-header reveal-up">
-        <h1>班級</h1>
-        <p>並排檢視已選班級的概況。點擊班級卡片可開啟該班個人頁；點擊成長條可開啟該生檔案。</p>
+      <header className="page-header year-ov-header reveal-up">
+        <div className="year-ov-header-text">
+          <h1>班級</h1>
+          <p>
+            {formatAcademicYearLabel(startYear)}學年 · 並排檢視已選班級的概況。點擊班級卡片可開啟該班個人頁；點擊成長條可開啟該生檔案。
+          </p>
+        </div>
+        <label className="year-ov-select-wrap">
+          <span className="year-ov-select-label">學年</span>
+          <select
+            className="year-ov-select"
+            value={startYear}
+            onChange={(e) => onSelectYear(Number(e.target.value))}
+            aria-label="選擇學年"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {formatAcademicYearLabel(y)}
+                {y === defaultStart ? '（目前）' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
       </header>
 
       <div className="class-grid">
@@ -65,7 +115,7 @@ export function ClassPage() {
                   <dd>{roster.length}</dd>
                 </div>
                 <div>
-                  <dt>進度</dt>
+                  <dt>平時分</dt>
                   <dd>{avgP}%</dd>
                 </div>
                 <div>
@@ -73,7 +123,7 @@ export function ClassPage() {
                   <dd>{avgR}%</dd>
                 </div>
                 <div>
-                  <dt>答對率</dt>
+                  <dt>寫作</dt>
                   <dd>{avgA}%</dd>
                 </div>
               </dl>
@@ -85,7 +135,7 @@ export function ClassPage() {
                     className="spark"
                     style={{ height: `${Math.max(18, s.progress * 0.7)}%` }}
                     data-tip={`${s.name}：${s.progress}%`}
-                    aria-label={`開啟 ${s.name} 的個人檔案，進度 ${s.progress}%`}
+                    aria-label={`開啟 ${s.name} 的個人檔案，平時分 ${s.progress}%`}
                     onClick={(e) => {
                       e.stopPropagation()
                       openStudent(s.id)

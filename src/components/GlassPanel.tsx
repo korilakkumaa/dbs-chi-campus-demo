@@ -4,12 +4,18 @@ interface GlassPanelProps {
   children: ReactNode
   className?: string
   as?: 'div' | 'section' | 'aside' | 'header' | 'form'
+  id?: string
 }
 
 export function GlassPanel({
   children,
   className = '',
   as: Tag = 'div',
+  id,
 }: GlassPanelProps) {
-  return <Tag className={`panel ${className}`.trim()}>{children}</Tag>
+  return (
+    <Tag id={id} className={`panel ${className}`.trim()}>
+      {children}
+    </Tag>
+  )
 }

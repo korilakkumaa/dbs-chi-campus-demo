@@ -12,6 +12,20 @@ export function AppLayout() {
 
   if (!user) return <Navigate to="/login" replace />
 
+  if (user.role === 'student') {
+    return (
+      <div className="app-shell student-shell">
+        <div className="atmosphere" aria-hidden />
+        <header className="shell-chrome">
+          <Navbar />
+        </header>
+        <main className="page-stage">
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <CampusProvider>
       <div className={`app-shell${toolsOpen ? ' tools-open' : ''}`}>
