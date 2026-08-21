@@ -1,4 +1,5 @@
 import type { CalendarEvent } from '../types'
+import { TEACHER_WEEKLY_2627 } from './teacherWeekly2627.generated'
 
 /** Monday=1 … Friday=5 (Date#getDay compatible for weekdays). */
 export type SchoolWeekday = 1 | 2 | 3 | 4 | 5
@@ -32,69 +33,6 @@ const WEEKDAY_NAME: Record<string, SchoolWeekday> = {
   friday: 5,
 }
 
-const PERIOD_MORNING: DayPeriod = {
-  type: 'break',
-  start: '08:05',
-  end: '08:30',
-  label: '早會',
-}
-
-const BREAK_AM: DayPeriod = {
-  type: 'break',
-  start: '10:00',
-  end: '10:20',
-  label: '小息',
-}
-
-const BREAK_LUNCH: DayPeriod = {
-  type: 'break',
-  start: '12:35',
-  end: '14:00',
-  label: '午膳',
-}
-
-const PERIOD_DISMISSAL: DayPeriod = {
-  type: 'break',
-  start: '15:30',
-  end: '16:00',
-  label: '放學',
-}
-
-/** Prepend morning slot and append 放學 to a weekday grid. */
-function dayPeriods(...middle: DayPeriod[]): DayPeriod[] {
-  return [PERIOD_MORNING, ...middle, PERIOD_DISMISSAL]
-}
-
-function lesson(
-  start: string,
-  end: string,
-  subject: string,
-  group: string,
-  room: string,
-): DayPeriod {
-  return { type: 'lesson', start, end, subject, group, room }
-}
-
-/** Two consecutive periods with the same lesson (連堂仍分兩節顯示). */
-function doubleLesson(
-  start1: string,
-  end1: string,
-  start2: string,
-  end2: string,
-  subject: string,
-  group: string,
-  room: string,
-): DayPeriod[] {
-  return [
-    lesson(start1, end1, subject, group, room),
-    lesson(start2, end2, subject, group, room),
-  ]
-}
-
-function free(start: string, end: string): DayPeriod {
-  return { type: 'free', start, end }
-}
-
 /** Stable highlight swatches per class / teaching group. */
 export type ClassHighlight = {
   accent: string
@@ -120,6 +58,11 @@ const CLASS_HIGHLIGHTS: Record<string, ClassHighlight> = {
     soft: 'rgba(47, 122, 92, 0.22)',
     text: '#1e4a38',
   },
+  'G9G, G9L': {
+    accent: '#2f7a5c',
+    soft: 'rgba(47, 122, 92, 0.22)',
+    text: '#1e4a38',
+  },
   '12L': { accent: '#8a4a6e', soft: 'rgba(138, 74, 110, 0.22)', text: '#4a2840' },
 }
 
@@ -140,7 +83,6 @@ export function classHighlight(group: string): ClassHighlight {
   const key = normalizeGroupKey(group)
   if (CLASS_HIGHLIGHTS[key]) return CLASS_HIGHLIGHTS[key]
 
-  // Try first token (e.g. "G7P" from longer labels)
   const first = key.split(/[,/]/)[0]?.trim()
   if (first && CLASS_HIGHLIGHTS[first]) return CLASS_HIGHLIGHTS[first]
 
@@ -149,99 +91,6 @@ export function classHighlight(group: string): ClassHighlight {
     hash = (hash * 31 + key.charCodeAt(i)) | 0
   }
   return FALLBACK_HIGHLIGHTS[Math.abs(hash) % FALLBACK_HIGHLIGHTS.length]
-}
-
-/**
- * NG Yee Lam Elaine (YLN) — 2025/26 personal timetable
- * Source: CLS weekly view (sample week Mon 4 May – Fri 8 May 2026).
- * Academic year window: 2025-09-01 … 2026-08-31
- * Regular teaching until: 2026-06-30 (Jul–Aug → 非正常上課日).
- * 連堂拆成兩個課節列，方便各自點選／標記。
- */
-const YLN_WEEKLY: Record<SchoolWeekday, DayPeriod[]> = {
-  1: dayPeriods(
-    ...doubleLesson(
-      '08:30',
-      '09:15',
-      '09:15',
-      '10:00',
-      'CHIN-PM3',
-      'G11M, G11P',
-      'SR6',
-    ),
-    BREAK_AM,
-    free('10:20', '11:05'),
-    lesson('11:05', '11:50', 'CHIS', 'G7L', '07L'),
-    free('11:50', '12:35'),
-    BREAK_LUNCH,
-    ...doubleLesson(
-      '14:00',
-      '14:45',
-      '14:45',
-      '15:30',
-      'CHIN',
-      'G7P',
-      '07P',
-    ),
-  ),
-  2: dayPeriods(
-    lesson('08:30', '09:15', 'CHIN', 'G7P', '07P'),
-    free('09:15', '10:00'),
-    BREAK_AM,
-    lesson('10:20', '11:05', 'CHIS', 'G7L', '07L'),
-    free('11:05', '11:50'),
-    free('11:50', '12:35'),
-    BREAK_LUNCH,
-    ...doubleLesson(
-      '14:00',
-      '14:45',
-      '14:45',
-      '15:30',
-      'CHIN',
-      'G7A',
-      '07A',
-    ),
-  ),
-  3: dayPeriods(
-    lesson('08:30', '09:15', 'CHIN-PM3', 'G11M, G11P', 'SR6'),
-    free('09:15', '10:00'),
-    BREAK_AM,
-    lesson('10:20', '11:05', 'CHIS', 'G7P', '07P'),
-    free('11:05', '11:50'),
-    free('11:50', '12:35'),
-    BREAK_LUNCH,
-    ...doubleLesson(
-      '14:00',
-      '14:45',
-      '14:45',
-      '15:30',
-      'CHIN',
-      'G7A',
-      '07A',
-    ),
-  ),
-  4: dayPeriods(
-    lesson('08:30', '09:15', 'CHIS', 'G7S', '07S'),
-    free('09:15', '10:00'),
-    BREAK_AM,
-    lesson('10:20', '11:05', 'CHIN', 'G7P', '07P'),
-    free('11:05', '11:50'),
-    lesson('11:50', '12:35', 'CHIN-PM3', 'G11M, G11P', 'SR6'),
-    BREAK_LUNCH,
-    free('14:00', '14:45'),
-    free('14:45', '15:30'),
-  ),
-  5: dayPeriods(
-    lesson('08:30', '09:15', 'CHIN', 'G7P', '07P'),
-    free('09:15', '10:00'),
-    BREAK_AM,
-    lesson('10:20', '11:05', 'CHIS', 'G7S', '07S'),
-    free('11:05', '11:50'),
-    free('11:50', '12:35'),
-    BREAK_LUNCH,
-    lesson('14:00', '14:45', 'CHIS', 'G7P', '07P'),
-    lesson('14:45', '15:30', 'CHIN', 'G7A', '07A'),
-  ),
 }
 
 /** teacherUserId → personal weekly timetable + academic year window */
@@ -265,18 +114,9 @@ export type TeacherTimetableEntry = {
   weekly: Record<SchoolWeekday, DayPeriod[]>
 }
 
+/** 2026/27 Chinese department personal timetables (from CLS export). */
 export const TEACHER_WEEKLY_TIMETABLES: Record<string, TeacherTimetableEntry> =
-  {
-    'u-yln': {
-      academicYear: {
-        label: '2025/26',
-        validFrom: '2025-09-01',
-        validTo: '2026-08-31',
-        teachingUntil: '2026-06-30',
-      },
-      weekly: YLN_WEEKLY,
-    },
-  }
+  TEACHER_WEEKLY_2627
 
 /** Whether iso (YYYY-MM-DD) falls in the timetable's academic year. */
 export function isDateInAcademicYear(
@@ -292,7 +132,7 @@ export function resolveTimetableTeacherId(
 ): string | null {
   if (!userId) return null
   if (TEACHER_WEEKLY_TIMETABLES[userId]) return userId
-  // Admin preview: show YLN sample until more timetables are imported.
+  // Admin preview: YLN sample when admin has no personal grid.
   if (role === 'admin') return 'u-yln'
   return null
 }

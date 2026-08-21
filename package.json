@@ -7,9 +7,15 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "import:scores": "tsx scripts/import-chinese-scores.ts",
+    "import:scores:sql": "tsx scripts/import-chinese-scores.ts --sql",
+    "import:roster": "tsx scripts/import-student-roster.ts",
+    "import:roster:sql": "tsx scripts/import-student-roster.ts --sql",
+    "generate:timetables": "tsx scripts/generate-teacher-timetables.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.2"
@@ -19,8 +25,11 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "dotenv": "^17.4.2",
     "oxlint": "^1.71.0",
+    "tsx": "^4.23.12",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "xlsx": "^0.18.5"
   }
 }

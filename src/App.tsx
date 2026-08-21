@@ -9,6 +9,7 @@ import { OverviewPage } from './pages/OverviewPage'
 import { CalendarPage } from './pages/CalendarPage'
 import { YearOverviewPage } from './pages/YearOverviewPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { PersonalTimetablePage } from './pages/PersonalTimetablePage'
 import { ProgressPage } from './pages/ProgressPage'
 import { ReadingPage } from './pages/ReadingPage'
 import { TowerPage } from './pages/TowerPage'
@@ -50,15 +51,7 @@ export default function App() {
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/calendar/year" element={<YearOverviewPage />} />
-          <Route
-            path="/timetable"
-            element={
-              <PlaceholderPage
-                title="個人時間表"
-                description="你的任教堂次與個人時間表。"
-              />
-            }
-          />
+          <Route path="/timetable" element={<PersonalTimetablePage />} />
           <Route
             path="/timetable/class"
             element={

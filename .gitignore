@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# Real student Excel / import dumps (PII)
+data/imports/
+scripts/out/
 
 # Editor directories and files
 .vscode/*

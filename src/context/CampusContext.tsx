@@ -19,7 +19,12 @@ import {
   students as seedStudents,
   users as seedUsers,
 } from '../data/mockData'
+import {
+  fetchCampusClassesFromSupabase,
+  fetchCampusStudentsFromSupabase,
+} from '../data/supabaseStudents'
 import { gradeNumberFromClassName } from '../data/teacherWhitelist'
+import { supabaseConfigured } from '../lib/supabase'
 import type {
   CalendarAudience,
   CalendarEvent,
@@ -35,6 +40,10 @@ interface CampusContextValue {
   classes: SchoolClass[]
   students: Student[]
   teachers: User[]
+  /** True while loading roster/scores from Supabase (when configured). */
+  campusDataLoading: boolean
+  /** Set when Supabase fetch fails; mock seed may still be shown. */
+  campusDataError: string | null
   accessibleClasses: SchoolClass[]
   selectedClassIds: string[]
   toggleClass: (classId: string) => void
@@ -144,7 +153,9 @@ function eventVisibleToUser(
 export function CampusProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [classes, setClasses] = useState<SchoolClass[]>(seedClasses)
-  const [students] = useState<Student[]>(seedStudents)
+  const [students, setStudents] = useState<Student[]>(seedStudents)
+  const [campusDataLoading, setCampusDataLoading] = useState(supabaseConfigured)
+  const [campusDataError, setCampusDataError] = useState<string | null>(null)
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [gradeDeadlines, setGradeDeadlines] =
@@ -158,6 +169,58 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     () => seedUsers.filter((u) => u.role === 'teacher'),
     [],
   )
+
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      setCampusDataLoading(false)
+      return
+    }
+    let cancelled = false
+    setCampusDataLoading(true)
+    setCampusDataError(null)
+    ;(async () => {
+      try {
+        const [remoteClasses, remoteStudents] = await Promise.all([
+          fetchCampusClassesFromSupabase(),
+          fetchCampusStudentsFromSupabase(),
+        ])
+        if (cancelled) return
+        if (remoteClasses == null || remoteStudents == null) {
+          setCampusDataError('無法從 Supabase 載入學生資料，暫用本機示範資料。')
+          setCampusDataLoading(false)
+          return
+        }
+        if (remoteClasses.length > 0) {
+          setClasses((prev) => {
+            const byId = new Map(prev.map((c) => [c.id, c]))
+            return remoteClasses.map((c) => {
+              const existing = byId.get(c.id)
+              return {
+                ...c,
+                teacherId: existing?.teacherId ?? c.teacherId,
+              }
+            })
+          })
+        }
+        if (remoteStudents.length > 0) {
+          setStudents(remoteStudents)
+        } else {
+          setCampusDataError('Supabase 尚無 2025/26 學生資料，請先匯入入分檔。')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCampusDataError(
+            err instanceof Error ? err.message : 'Supabase 載入失敗',
+          )
+        }
+      } finally {
+        if (!cancelled) setCampusDataLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const accessibleClasses = useMemo(() => {
     if (!user) return []
@@ -307,6 +370,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       classes,
       students,
       teachers,
+      campusDataLoading,
+      campusDataError,
       accessibleClasses,
       selectedClassIds,
       toggleClass: (classId) => {
@@ -448,6 +513,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       taughtGradeNumbers,
       calendarEvents,
       user,
+      campusDataLoading,
+      campusDataError,
     ],
   )
 

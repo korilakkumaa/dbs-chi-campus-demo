@@ -16,8 +16,11 @@ Repo：https://github.com/korilakkumaa/dbs-chi-campus-demo
 
 ```bash
 npm install
+cp .env.example .env.local   # 填入 Supabase URL / anon key
 npm run dev
 ```
+
+接上 2025/26 真實成績的步驟見 [`docs-supabase.md`](docs-supabase.md)。
 
 ## 示範帳號
 
