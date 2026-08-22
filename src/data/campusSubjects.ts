@@ -1,9 +1,13 @@
-import type { SchoolClass, User } from '../types'
+import type { CalendarAudience, SchoolClass, User } from '../types'
 import {
   normalizeClassCode,
   splitGroupTokens,
 } from './gradeChineseTimetable'
-import { classNameToId, teacherWhitelist } from './teacherWhitelist'
+import {
+  classNameToId,
+  gradeNumberFromClassName,
+  teacherWhitelist,
+} from './teacherWhitelist'
 import { TEACHER_WEEKLY_TIMETABLES } from './teacherTimetable'
 
 export type CampusSubject = 'CHIN' | 'EC' | 'CHIS' | 'PTH'
@@ -106,6 +110,85 @@ export function subjectsFromTimetable(teacherId: string): CampusSubject[] {
   return CAMPUS_SUBJECT_OPTIONS.map((o) => o.id).filter((id) => found.has(id))
 }
 
+function isCampusSubject(value: string): value is CampusSubject {
+  return CAMPUS_SUBJECT_OPTIONS.some((o) => o.id === value)
+}
+
+export function normalizeSelectedSubjects(
+  subjects: Iterable<CampusSubject>,
+): CampusSubject[] {
+  const set = new Set(subjects)
+  return CAMPUS_SUBJECT_OPTIONS.map((o) => o.id).filter((id) => set.has(id))
+}
+
+export function classIdsForSubjects(
+  subjects: CampusSubject[],
+  user: User,
+  accessibleClasses: SchoolClass[],
+  allClasses: SchoolClass[],
+): string[] {
+  const ids = new Set<string>()
+  for (const subject of normalizeSelectedSubjects(subjects)) {
+    for (const id of classIdsForSubject(
+      subject,
+      user,
+      accessibleClasses,
+      allClasses,
+    )) {
+      ids.add(id)
+    }
+  }
+  return [...ids]
+}
+
+/** Grade levels the user teaches for one subject (timetable + whitelist fallback). */
+export function gradeNumbersForSubject(
+  user: User,
+  subject: CampusSubject,
+  accessibleClasses: SchoolClass[],
+  allClasses: SchoolClass[],
+): number[] {
+  const ids = classIdsForSubject(subject, user, accessibleClasses, allClasses)
+  const grades = new Set<number>()
+  for (const id of ids) {
+    const cls = allClasses.find((c) => c.id === id)
+    if (!cls) continue
+    const g = gradeNumberFromClassName(cls.name)
+    if (g != null) grades.add(g)
+  }
+  return [...grades].sort((a, b) => a - b)
+}
+
+/** Whether a signed-in user should see a grade-scoped calendar audience. */
+export function calendarGradeAudienceMatchesUser(
+  audience: Extract<CalendarAudience, { type: 'grades' }>,
+  user: User,
+  ctx: {
+    accessibleClasses: SchoolClass[]
+    allClasses: SchoolClass[]
+    selectedSubjects: CampusSubject[]
+  },
+): boolean {
+  const eventSubjects = audience.subjects?.length
+    ? normalizeSelectedSubjects(audience.subjects)
+    : CAMPUS_SUBJECT_OPTIONS.map((o) => o.id)
+  const visibleSubjects = eventSubjects.filter((s) =>
+    ctx.selectedSubjects.includes(s),
+  )
+  if (visibleSubjects.length === 0) return false
+
+  for (const subject of visibleSubjects) {
+    const taught = gradeNumbersForSubject(
+      user,
+      subject,
+      ctx.accessibleClasses,
+      ctx.allClasses,
+    )
+    if (audience.grades.some((g) => taught.includes(g))) return true
+  }
+  return false
+}
+
 export function classIdsForSubject(
   subject: CampusSubject,
   user: User,
@@ -184,3 +267,5 @@ export function subjectsForUser(
 export function classIdFromName(name: string): string {
   return classNameToId(name)
 }
+
+export { isCampusSubject }

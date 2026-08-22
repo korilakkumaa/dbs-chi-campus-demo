@@ -76,7 +76,12 @@ export type CalendarEventKind =
 export type CalendarAudience =
   | { type: 'personal'; ownerId: string }
   | { type: 'all' }
-  | { type: 'grades'; grades: number[] }
+  | {
+      type: 'grades'
+      grades: number[]
+      /** When set, only teachers of these subjects at the listed grades see the event. */
+      subjects?: import('./data/campusSubjects').CampusSubject[]
+    }
   | { type: 'teachers'; teacherIds: string[] }
 
 export interface CalendarEvent {

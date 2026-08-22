@@ -186,6 +186,7 @@ export function AdminPage() {
     updateGradeDeadline,
     submitGradeDeadlines,
     addCalendarEventsBatch,
+    selectedSubjects,
   } = useCampus()
 
   const [drafts, setDrafts] = useState<Record<number, DeadlineDraft>>(() => {
@@ -258,6 +259,7 @@ export function AdminPage() {
       audience = {
         type: 'grades',
         grades: Array.from(calGrades).sort((a, b) => a - b),
+        subjects: [...selectedSubjects],
       }
     } else {
       audience = {

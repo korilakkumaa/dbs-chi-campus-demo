@@ -80,7 +80,7 @@ function teacherDisplayName(name?: string, role?: string) {
 }
 
 function SubjectButtons() {
-  const { accessibleSubjects, selectedSubject, setSelectedSubject } =
+  const { accessibleSubjects, selectedSubjects, toggleSelectedSubject } =
     useCampus()
 
   if (accessibleSubjects.length === 0) {
@@ -88,18 +88,18 @@ function SubjectButtons() {
   }
 
   return (
-    <div className="subject-buttons" role="group" aria-label="選擇科目">
+    <div className="subject-buttons" role="group" aria-label="選擇科目（可多選）">
       {CAMPUS_SUBJECT_OPTIONS.filter((opt) =>
         accessibleSubjects.includes(opt.id),
       ).map((opt) => {
-        const on = selectedSubject === opt.id
+        const on = selectedSubjects.includes(opt.id)
         return (
           <button
             key={opt.id}
             type="button"
             className={`class-btn subject-btn${on ? ' selected' : ''}`}
             aria-pressed={on}
-            onClick={() => setSelectedSubject(opt.id)}
+            onClick={() => toggleSelectedSubject(opt.id)}
           >
             <span>{opt.label}</span>
           </button>

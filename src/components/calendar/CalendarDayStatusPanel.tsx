@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { EVENT_KIND_META } from '../../data/calendarEvents'
 import { useCampus } from '../../context/CampusContext'
+import { CAMPUS_SUBJECT_OPTIONS } from '../../data/campusSubjects'
+import { GRADE_LEVELS, gradeLabel } from '../../data/teacherWhitelist'
 import type { CalendarAudience, CalendarEventKind } from '../../types'
+
+type AudienceMode = 'all' | 'grades' | 'teachers'
 
 const DAY_STATUS_KINDS = [
   'school-day',
@@ -34,14 +38,15 @@ export function CalendarDayStatusPanel({
   selectedDates,
   onClearSelection,
 }: Props) {
-  const { teachers, addCalendarEventsBatch } = useCampus()
+  const { teachers, addCalendarEventsBatch, selectedSubjects } = useCampus()
 
   const [dayStatusKind, setDayStatusKind] =
     useState<(typeof DAY_STATUS_KINDS)[number]>('holiday')
   const [customKind, setCustomKind] = useState<CalendarEventKind>('event')
   const [useCustomKind, setUseCustomKind] = useState(false)
   const [dayStatusTitle, setDayStatusTitle] = useState('')
-  const [audienceMode, setAudienceMode] = useState<'all' | 'teachers'>('all')
+  const [audienceMode, setAudienceMode] = useState<AudienceMode>('all')
+  const [grades, setGrades] = useState<Set<number>>(new Set())
   const [teacherIds, setTeacherIds] = useState<Set<string>>(new Set())
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -54,6 +59,10 @@ export function CalendarDayStatusPanel({
       setNotice('請先在月曆上選取至少一日。')
       return
     }
+    if (audienceMode === 'grades' && grades.size === 0) {
+      setNotice('請至少選一個級別。')
+      return
+    }
     if (audienceMode === 'teachers' && teacherIds.size === 0) {
       setNotice('請至少選一位教師。')
       return
@@ -63,10 +72,18 @@ export function CalendarDayStatusPanel({
       (useCustomKind
         ? EVENT_KIND_META[customKind].label
         : DAY_STATUS_DEFAULT_TITLE[dayStatusKind])
-    const audience: Exclude<CalendarAudience, { type: 'personal' }> =
-      audienceMode === 'all'
-        ? { type: 'all' }
-        : { type: 'teachers', teacherIds: Array.from(teacherIds) }
+    let audience: Exclude<CalendarAudience, { type: 'personal' }>
+    if (audienceMode === 'all') {
+      audience = { type: 'all' }
+    } else if (audienceMode === 'grades') {
+      audience = {
+        type: 'grades',
+        grades: Array.from(grades).sort((a, b) => a - b),
+        subjects: [...selectedSubjects],
+      }
+    } else {
+      audience = { type: 'teachers', teacherIds: Array.from(teacherIds) }
+    }
 
     let total = 0
     for (const iso of sortedDates) {
@@ -90,6 +107,12 @@ export function CalendarDayStatusPanel({
     )
     onClearSelection()
   }
+
+  const subjectHint = selectedSubjects
+    .map(
+      (id) => CAMPUS_SUBJECT_OPTIONS.find((o) => o.id === id)?.label ?? id,
+    )
+    .join('、')
 
   return (
     <div className="detail-cal-admin-panel">
@@ -208,8 +231,9 @@ export function CalendarDayStatusPanel({
           {(
             [
               ['all', '全部教師'],
+              ['grades', '指定級別'],
               ['teachers', '指定教師'],
-            ] as const
+            ] as const satisfies readonly [AudienceMode, string][]
           ).map(([mode, label]) => (
             <label key={mode} className="detail-cal-admin-audience-opt">
               <input
@@ -222,6 +246,35 @@ export function CalendarDayStatusPanel({
             </label>
           ))}
         </div>
+        {audienceMode === 'grades' && (
+          <>
+            <p className="detail-cal-admin-lead">
+              依右上角科目篩選推送：目前為 {subjectHint || '—'}。
+            </p>
+            <div className="detail-cal-admin-chips">
+            {GRADE_LEVELS.map((g) => {
+              const on = grades.has(g)
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  className={`detail-cal-admin-chip${on ? ' active' : ''}`}
+                  onClick={() => {
+                    setGrades((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(g)) next.delete(g)
+                      else next.add(g)
+                      return next
+                    })
+                  }}
+                >
+                  {gradeLabel(g)}
+                </button>
+              )
+            })}
+            </div>
+          </>
+        )}
         {audienceMode === 'teachers' && (
           <div className="detail-cal-admin-chips">
             {teachers.map((t) => {
