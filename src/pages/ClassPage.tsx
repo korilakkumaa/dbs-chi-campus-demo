@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  defaultAcademicYearStart,
-  formatAcademicYearLabel,
-  listAcademicYearStarts,
-} from '../data/academicYear'
+import { useNavigate } from 'react-router-dom'
+import { formatAcademicYearLabel } from '../data/academicYear'
 import { average } from '../data/mockData'
+import {
+  semesterMaxForGrade,
+  semesterWeightedTotal,
+} from '../data/yearScoring'
 import {
   GRADE_LEVELS,
   formClassLetterRank,
@@ -18,51 +18,53 @@ import {
 import type { SchoolClass } from '../types'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
+import { ScoresYearSelect } from '../components/ScoresYearSelect'
+import {
+  useScoresAcademicYear,
+  withScoresYearQuery,
+} from '../hooks/useScoresAcademicYear'
 
-function sortClassesForDisplay(a: SchoolClass, b: SchoolClass): number {
+function formatScore(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
+function sortClassesForDisplay(
+  a: SchoolClass,
+  b: SchoolClass,
+  academicYearStart: number,
+): number {
   const metaA = parseClassMeta(a.name)
   const metaB = parseClassMeta(b.name)
   if (metaA.kind !== metaB.kind) return metaA.kind === 'form' ? -1 : 1
   if (metaA.kind === 'form') {
+    const gradeA = gradeNumberFromClassName(a.name)
+    const gradeB = gradeNumberFromClassName(b.name)
     const letterA = a.name.slice(-1)
     const letterB = b.name.slice(-1)
-    return formClassLetterRank(letterA) - formClassLetterRank(letterB)
+    return (
+      formClassLetterRank(letterA, gradeA ?? undefined, academicYearStart) -
+      formClassLetterRank(letterB, gradeB ?? undefined, academicYearStart)
+    )
   }
   return a.name.localeCompare(b.name, 'zh-Hant')
 }
 
-function parseStartYearParam(raw: string | null): number | null {
-  if (!raw) return null
-  const n = Number(raw)
-  if (!Number.isFinite(n) || n < 2000 || n > 2100) return null
-  return Math.trunc(n)
-}
-
 export function ClassPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const {
+    startYear,
+    onSelectYear,
+    yearOptions,
+    defaultStart,
+    campusDataLoading,
+    campusDataError,
+  } = useScoresAcademicYear()
   const {
     accessibleClasses,
     students,
     getClassName,
     getTeacherNamesForClass,
   } = useCampus()
-
-  const yearOptions = useMemo(() => listAcademicYearStarts(), [])
-  const defaultStart = useMemo(() => defaultAcademicYearStart(), [])
-  const startYear = useMemo(() => {
-    const param = parseStartYearParam(searchParams.get('year'))
-    if (param != null && yearOptions.includes(param)) return param
-    return defaultStart
-  }, [searchParams, yearOptions, defaultStart])
-
-  const onSelectYear = (next: number) => {
-    if (next === defaultStart) {
-      setSearchParams({}, { replace: true })
-    } else {
-      setSearchParams({ year: String(next) }, { replace: true })
-    }
-  }
 
   const pool = useMemo(
     () =>
@@ -91,16 +93,28 @@ export function ClassPage() {
     () =>
       pool
         .filter((c) => gradeNumberFromClassName(c.name) === grade)
-        .sort(sortClassesForDisplay),
-    [pool, grade],
+        .sort((a, b) => sortClassesForDisplay(a, b, startYear)),
+    [pool, grade, startYear],
   )
 
   const openStudent = (studentId: string) => {
-    navigate(`/class/individual?student=${encodeURIComponent(studentId)}`)
+    navigate(
+      withScoresYearQuery(
+        `/class/individual?student=${encodeURIComponent(studentId)}`,
+        startYear,
+        defaultStart,
+      ),
+    )
   }
 
   const openClassIndividual = (classId: string) => {
-    navigate(`/class/individual?class=${encodeURIComponent(classId)}`)
+    navigate(
+      withScoresYearQuery(
+        `/class/individual?class=${encodeURIComponent(classId)}`,
+        startYear,
+        defaultStart,
+      ),
+    )
   }
 
   return (
@@ -109,26 +123,27 @@ export function ClassPage() {
         <div className="year-ov-header-text">
           <h1>班級</h1>
           <p>
-            {formatAcademicYearLabel(startYear)}學年 · 並排檢視已選班級的概況。點擊班級卡片可開啟該班個人頁；點擊成長條可開啟該生檔案。
+            {formatAcademicYearLabel(startYear)}學年 · 並排檢視已選班級的概況。長條為每位學生學期總分（初中滿分 100：CA 20+閱40+寫40；高中滿分 100：CA 15+閱40+寫45）。點擊班級卡片可開啟該班個人頁；點擊長條可開啟該生檔案。
           </p>
+          {campusDataError && (
+            <p className="campus-data-notice" role="status">
+              {campusDataError}
+            </p>
+          )}
         </div>
-        <label className="year-ov-select-wrap">
-          <span className="year-ov-select-label">學年</span>
-          <select
-            className="year-ov-select"
-            value={startYear}
-            onChange={(e) => onSelectYear(Number(e.target.value))}
-            aria-label="選擇學年"
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {formatAcademicYearLabel(y)}
-                {y === defaultStart ? '（目前）' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ScoresYearSelect
+          startYear={startYear}
+          defaultStart={defaultStart}
+          yearOptions={yearOptions}
+          onSelectYear={onSelectYear}
+        />
       </header>
+
+      {campusDataLoading && (
+        <p className="campus-data-notice" role="status">
+          正在載入 {formatAcademicYearLabel(startYear)} 學年成績…
+        </p>
+      )}
 
       {availableGrades.length > 0 && (
         <div
@@ -159,11 +174,19 @@ export function ClassPage() {
 
       <div className="class-grid class-grid-five">
         {active.map((cls, i) => {
-          const roster = rosterForChineseClass(cls.id, cls.name, students)
+          const roster = rosterForChineseClass(
+            cls.id,
+            cls.name,
+            students,
+            startYear,
+          )
+            .slice()
+            .sort((a, b) => a.classNumber - b.classNumber)
           const avgP = average(roster.map((s) => s.progress))
           const avgR = average(roster.map((s) => s.readingScore))
           const avgA = average(roster.map((s) => s.correctRate))
-          const remedialNote = remedialClassNote(cls.name)
+          const denseSparks = roster.length > 18
+          const remedialNote = remedialClassNote(cls.name, startYear)
           return (
             <GlassPanel
               key={cls.id}
@@ -208,23 +231,26 @@ export function ClassPage() {
                 </div>
               </dl>
               <div
-                className="spark-row"
+                className={`spark-row${denseSparks ? ' spark-row-dense' : ''}`}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                {roster.slice(0, 12).map((s) => (
+                {roster.map((s) => {
+                  const total = semesterWeightedTotal(s)
+                  const semesterMax = semesterMaxForGrade(grade)
+                  const heightPct = Math.max(8, (total / semesterMax) * 100)
+                  return (
                   <button
                     key={s.id}
                     type="button"
                     className="spark"
-                    style={{
-                      height: `${Math.max(18, (s.progress / 20) * 100 * 0.7)}%`,
-                    }}
-                    data-tip={`${s.name}：CA ${s.progress}`}
-                    aria-label={`開啟 ${s.name} 的個人檔案，CA ${s.progress}`}
+                    style={{ height: `${heightPct}%` }}
+                    data-tip={`${s.name}（${String(s.classNumber).padStart(2, '0')}）：總分 ${formatScore(total)}`}
+                    aria-label={`開啟 ${s.name} 的個人檔案，總分 ${formatScore(total)}`}
                     onClick={() => openStudent(s.id)}
                   />
-                ))}
+                  )
+                })}
               </div>
               <p className="snapshot-foot">
                 點擊卡片開啟{getClassName(cls.id)}個人頁 · 點擊長條開啟個人檔案

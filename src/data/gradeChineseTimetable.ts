@@ -173,7 +173,7 @@ export function compareClassCodes(a: string, b: string): number {
     if (form) {
       return {
         g: Number(form[1]),
-        form: formClassLetterRank(form[2]),
+        form: formClassLetterRank(form[2], Number(form[1])),
         ec: 0,
       }
     }

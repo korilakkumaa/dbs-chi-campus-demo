@@ -1,10 +1,12 @@
 /**
  * Import 2025/26 Chinese score workbooks into Supabase.
  *
- * Usage:
- *   SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/import-chinese-scores.ts
+ * All rows use academic_year_start = 2025 (2025/26). Second-semester files dated
+ * Jan 2026 still belong to that year. Do not import 2026/27 workbooks here.
  *
- * Defaults to Downloads folders for 上學期 / 下學期 workbooks.
+ * Usage:
+ *   SUPABASE_SERVICE_ROLE_KEY=... npm run import:scores
+ *   SCORE_IMPORT_ACADEMIC_YEAR=2025 npm run import:scores  (default)
  */
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
@@ -17,7 +19,22 @@ const XLSX = xlsx
 config({ path: '.env.local' })
 config()
 
-const ACADEMIC_YEAR_START = 2025
+function resolveImportAcademicYear(): number {
+  const raw = process.env.SCORE_IMPORT_ACADEMIC_YEAR?.trim()
+  const year = raw ? Number(raw) : 2025
+  if (!Number.isFinite(year) || year < 2000 || year > 2100) {
+    throw new Error(`Invalid SCORE_IMPORT_ACADEMIC_YEAR: ${raw}`)
+  }
+  if (year !== 2025) {
+    throw new Error(
+      `Score import is locked to 2025/26 (academic_year_start=2025). ` +
+        `Got ${year}; use a separate pipeline before importing 2026/27.`,
+    )
+  }
+  return Math.trunc(year)
+}
+
+const ACADEMIC_YEAR_START = resolveImportAcademicYear()
 
 const DEFAULT_SOURCES: { semester: 'first' | 'second'; dir: string }[] = [
   { semester: 'first', dir: '/Users/apple/Downloads/01. 上學期' },
@@ -72,6 +89,28 @@ function gradeFromClassName(name: string): number | null {
   const form = name.match(/^(\d+)/)
   if (form) return Number(form[1])
   return null
+}
+
+function appendChineseStreamClasses(
+  classMap: Map<string, ClassRow>,
+  academicYearStart: number,
+) {
+  for (const grade of [7, 8, 9] as const) {
+    const name = `${grade}R`
+    classMap.set(classNameToId(name), { id: classNameToId(name), name, grade })
+  }
+  classMap.set(classNameToId('10A'), {
+    id: classNameToId('10A'),
+    name: '10A',
+    grade: 10,
+  })
+  if (academicYearStart >= 2026) {
+    classMap.set(classNameToId('11A'), {
+      id: classNameToId('11A'),
+      name: '11A',
+      grade: 11,
+    })
+  }
 }
 
 function normHeader(h: unknown): string {
@@ -344,6 +383,7 @@ function listWorkbooks(dir: string): string[] {
   if (!existsSync(dir)) return []
   return readdirSync(dir)
     .filter((f) => /中文科.*入分檔.*\.xlsx$/i.test(f) && !f.startsWith('~$'))
+    .filter((f) => !/2627|2026\/27|202627/i.test(f))
     .map((f) => join(dir, f))
     .sort()
 }
@@ -368,6 +408,10 @@ async function main() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const sqlOnly = process.argv.includes('--sql')
 
+  console.log(
+    `Academic year: ${ACADEMIC_YEAR_START}/${String(ACADEMIC_YEAR_START + 1).slice(-2)} (academic_year_start=${ACADEMIC_YEAR_START})`,
+  )
+
   const classMap = new Map<string, ClassRow>()
   const studentMap = new Map<string, StudentRow>()
   const semesterRows: SemesterRow[] = []
@@ -391,6 +435,8 @@ async function main() {
       console.log(`    namelist=${students.length} scores=${scores.length}`)
     }
   }
+
+  appendChineseStreamClasses(classMap, ACADEMIC_YEAR_START)
 
   const classes = [...classMap.values()].sort((a, b) =>
     a.name.localeCompare(b.name, 'en'),

@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { formatAcademicYearLabel } from '../data/academicYear'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
 import { SortHeader } from '../components/SortHeader'
-import { gradeLabel, gradeNumberFromClassName } from '../data/teacherWhitelist'
+import { ScoresYearSelect } from '../components/ScoresYearSelect'
+import { useScoresAcademicYear } from '../hooks/useScoresAcademicYear'
+import { gradeLabel, gradeNumberFromClassName, rosterForChineseClass } from '../data/teacherWhitelist'
 import {
   PAPER_ROWS,
   SEMESTER_LABELS,
-  SUBJECT_MAX,
+  subjectMaxForGrade,
   buildScorePools,
   descendingRank,
   lookupPercentile,
@@ -56,8 +59,8 @@ function YearHistoryCharts({
   return (
     <div className="year-charts" role="list" aria-label="歷年表現">
       {records.map((record) => {
-        const firstTotal = semesterPoints(record.first)
-        const secondTotal = semesterPoints(record.second)
+        const firstTotal = semesterPoints(record.first, record.grade)
+        const secondTotal = semesterPoints(record.second, record.grade)
         const total = yearPoints(record)
         const yearPool = pools.sameYearTotal.get(String(record.grade)) ?? []
         const firstPool =
@@ -90,8 +93,8 @@ function YearHistoryCharts({
             <div className="year-chart-bars">
               {PAPER_ROWS.map(({ semester, subject, label }, index) => {
                 const raw = record[semester][subject as SubjectKey]
-                const max = SUBJECT_MAX[subject]
-                const earned = subjectEarned(raw, subject)
+                const max = subjectMaxForGrade(record.grade)[subject]
+                const earned = subjectEarned(raw, subject, record.grade)
                 const { sameYear } = lookupPercentile(
                   pools,
                   record.grade,
@@ -300,7 +303,7 @@ function StudentFileCard({
 const SCORE_HELP_ITEMS = [
   {
     title: '計分結構',
-    body: '每學期由 CA（最高 20%）、閱讀（最高 40%）、寫作（最高 45%）組成，學期滿分 105%。學年總分＝上學期 × 35%＋下學期 × 65%。',
+    body: '每學期滿分 100。初中（G7–G9）：CA 20%、閱讀 40%、寫作 40%。高中（G10–G12）：CA 15%、閱讀 40%、寫作 45%。學年總分＝上學期 × 35%＋下學期 × 65%。',
   },
   {
     title: '閱讀圖表',
@@ -314,6 +317,14 @@ const SCORE_HELP_ITEMS = [
 
 export function IndividualPage() {
   const [searchParams] = useSearchParams()
+  const {
+    startYear,
+    onSelectYear,
+    yearOptions,
+    defaultStart,
+    campusDataLoading,
+    campusDataError,
+  } = useScoresAcademicYear()
   const {
     filteredStudents,
     accessibleStudents,
@@ -377,7 +388,10 @@ export function IndividualPage() {
   const baseRoster = useMemo(() => {
     let rows = list
     if (rosterClassId) {
-      rows = rows.filter((s) => s.classId === rosterClassId)
+      const cls = classes.find((c) => c.id === rosterClassId)
+      rows = cls
+        ? rosterForChineseClass(rosterClassId, cls.name, list, startYear)
+        : rows.filter((s) => s.classId === rosterClassId)
     }
     const requested = requestedId
       ? students.find((s) => s.id === requestedId)
@@ -386,7 +400,7 @@ export function IndividualPage() {
       return [requested, ...rows]
     }
     return rows
-  }, [list, requestedId, students, rosterClassId])
+  }, [list, requestedId, students, rosterClassId, classes])
 
   const gradeFiltered = useMemo(() => {
     // Class deep-link already scopes the roster; grade filter applies when browsing all classes.
@@ -447,41 +461,62 @@ export function IndividualPage() {
 
   return (
     <div className="page individual-page">
-      <header className="page-header reveal-up">
-        <div className="page-header-title">
-          <h1>個人</h1>
-          <div className="page-help" ref={helpRef}>
-            <button
-              type="button"
-              className={`page-help-btn${helpOpen ? ' open' : ''}`}
-              aria-expanded={helpOpen}
-              aria-controls="individual-score-help"
-              onClick={() => setHelpOpen((o) => !o)}
-            >
-              ?
-              <span className="sr-only">近期成績說明</span>
-            </button>
-            {helpOpen && (
-              <div
-                id="individual-score-help"
-                className="page-help-panel"
-                role="dialog"
-                aria-label="近期成績說明"
+      <header className="page-header year-ov-header reveal-up">
+        <div className="year-ov-header-text">
+          <div className="page-header-title">
+            <h1>個人</h1>
+            <div className="page-help" ref={helpRef}>
+              <button
+                type="button"
+                className={`page-help-btn${helpOpen ? ' open' : ''}`}
+                aria-expanded={helpOpen}
+                aria-controls="individual-score-help"
+                onClick={() => setHelpOpen((o) => !o)}
               >
-                <p className="page-help-lead">近期成績怎麼看</p>
-                <ul className="page-help-list">
-                  {SCORE_HELP_ITEMS.map((item) => (
-                    <li key={item.title}>
-                      <strong>{item.title}</strong>
-                      <span>{item.body}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                ?
+                <span className="sr-only">近期成績說明</span>
+              </button>
+              {helpOpen && (
+                <div
+                  id="individual-score-help"
+                  className="page-help-panel"
+                  role="dialog"
+                  aria-label="近期成績說明"
+                >
+                  <p className="page-help-lead">近期成績怎麼看</p>
+                  <ul className="page-help-list">
+                    {SCORE_HELP_ITEMS.map((item) => (
+                      <li key={item.title}>
+                        <strong>{item.title}</strong>
+                        <span>{item.body}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
+          <p>
+            {formatAcademicYearLabel(startYear)}學年 · 勾選名冊學生以對比檔案；名冊年級篩選獨立於頂部班級選擇。
+          </p>
+          {campusDataError && (
+            <p className="campus-data-notice" role="status">
+              {campusDataError}
+            </p>
+          )}
+          {campusDataLoading && (
+            <p className="campus-data-notice" role="status">
+              正在載入 {formatAcademicYearLabel(startYear)} 學年成績…
+            </p>
+          )}
         </div>
-        <p>勾選名冊學生以對比檔案；名冊年級篩選獨立於頂部班級選擇。</p>
+        <ScoresYearSelect
+          id="individual-scores-academic-year"
+          startYear={startYear}
+          defaultStart={defaultStart}
+          yearOptions={yearOptions}
+          onSelectYear={onSelectYear}
+        />
       </header>
 
       <div className="individual-layout">

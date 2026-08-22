@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SemesterScores, Student, YearRecord } from '../types'
+import { subjectMaxForGrade } from './yearScoring'
 import { supabase } from '../lib/supabase'
 
 type StudentRow = {
@@ -112,15 +113,20 @@ function componentNumber(
  */
 function scoresFromSemesterRow(r: SemesterRow): SemesterScores {
   const weighted = weightedScoresFromSemesterRow(r)
+  const max = subjectMaxForGrade(r.grade)
   return {
-    daily: roundScore((weighted.daily / 20) * 100),
-    reading: roundScore((weighted.reading / 40) * 100),
-    writing: roundScore((weighted.writing / 45) * 100),
+    daily: roundScore(max.daily > 0 ? (weighted.daily / max.daily) * 100 : 0),
+    reading: roundScore(
+      max.reading > 0 ? (weighted.reading / max.reading) * 100 : 0,
+    ),
+    writing: roundScore(
+      max.writing > 0 ? (weighted.writing / max.writing) * 100 : 0,
+    ),
   }
 }
 
 /**
- * Excel semester weighted contributions (out of 20 / 40 / 45).
+ * Excel semester weighted contributions (grade band: junior 20/40/40, senior 15/40/45).
  * Prefer summary fields; reading/writing columns are already contributions.
  */
 function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
@@ -152,10 +158,10 @@ function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
   const colDaily = Number(r.daily)
   const colReading = Number(r.reading)
   const colWriting = Number(r.writing)
-  // Import stores reading/writing as contributions; daily is a 0–100 estimate.
+  const max = subjectMaxForGrade(r.grade)
   return {
     daily: roundWeighted(
-      ca ?? (colDaily > 20 ? (colDaily / 100) * 20 : colDaily),
+      ca ?? (colDaily > max.daily ? (colDaily / 100) * max.daily : colDaily),
     ),
     reading: roundWeighted(readingContrib ?? colReading),
     writing: roundWeighted(writingContrib ?? colWriting),
@@ -192,7 +198,9 @@ function buildYearHistory(
     }))
 }
 
-export async function fetchCampusStudentsFromSupabase(): Promise<Student[] | null> {
+export async function fetchCampusStudentsFromSupabase(
+  academicYearStart: number,
+): Promise<Student[] | null> {
   if (!supabase) return null
   const client: SupabaseClient = supabase
 
@@ -203,7 +211,7 @@ export async function fetchCampusStudentsFromSupabase(): Promise<Student[] | nul
         .select(
           'student_no, class_id, class_number, name_zh, name_en, teaching_group, academic_year_start, house, french, roster_remarks',
         )
-        .eq('academic_year_start', 2025)
+        .eq('academic_year_start', academicYearStart)
         .order('class_id')
         .order('class_number')
         .range(from, to),
@@ -227,7 +235,7 @@ export async function fetchCampusStudentsFromSupabase(): Promise<Student[] | nul
         .select(
           'student_no, academic_year_start, grade, semester, daily, reading, writing, components, attitude_grade, remarks',
         )
-        .eq('academic_year_start', 2025)
+        .eq('academic_year_start', academicYearStart)
         .order('student_no')
         .order('grade')
         .order('semester')
@@ -272,6 +280,7 @@ export async function fetchCampusStudentsFromSupabase(): Promise<Student[] | nul
       classId: s.class_id,
       classNumber: s.class_number,
       teachingGroup: s.teaching_group || undefined,
+      french: Boolean(s.french),
       progress: dailyScore,
       readingScore,
       correctRate: writingScore,

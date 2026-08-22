@@ -1,14 +1,33 @@
 import type { SemesterScores, Student, YearRecord } from '../types'
 
-/** Max contribution (%) of each component within a semester. */
-export const SUBJECT_MAX = {
+export type SubjectMaxes = {
+  daily: number
+  reading: number
+  writing: number
+}
+
+/** G7–G9：CA 20%、閱讀 40%、寫作 40%（學期滿分 100）。 */
+export const JUNIOR_SUBJECT_MAX: SubjectMaxes = {
   daily: 20,
   reading: 40,
-  writing: 45,
-} as const
+  writing: 40,
+}
 
+/** G10–G12：CA 15%、閱讀 40%、寫作 45%（學期滿分 100）。 */
+export const SENIOR_SUBJECT_MAX: SubjectMaxes = {
+  daily: 15,
+  reading: 40,
+  writing: 45,
+}
+
+/** @deprecated Use {@link subjectMaxForGrade}. */
+export const SUBJECT_MAX = SENIOR_SUBJECT_MAX
+
+/** @deprecated Use {@link semesterMaxForGrade}. */
 export const SEMESTER_MAX =
-  SUBJECT_MAX.daily + SUBJECT_MAX.reading + SUBJECT_MAX.writing
+  SENIOR_SUBJECT_MAX.daily +
+  SENIOR_SUBJECT_MAX.reading +
+  SENIOR_SUBJECT_MAX.writing
 
 /** Year composition: first 35%, second 65%. */
 export const YEAR_WEIGHTS = {
@@ -50,33 +69,63 @@ export const PAPER_ROWS: {
   label: SUBJECT_LABELS[subject],
 }))
 
+export function isSeniorGrade(grade: number): boolean {
+  return grade >= 10
+}
+
+export function subjectMaxForGrade(grade: number): SubjectMaxes {
+  return isSeniorGrade(grade) ? SENIOR_SUBJECT_MAX : JUNIOR_SUBJECT_MAX
+}
+
+export function semesterMaxForGrade(grade: number): number {
+  const m = subjectMaxForGrade(grade)
+  return m.daily + m.reading + m.writing
+}
+
+export function scoreWeightsLabel(grade: number): string {
+  const m = subjectMaxForGrade(grade)
+  return `CA ${m.daily}% · 閱讀 ${m.reading}% · 寫作 ${m.writing}%`
+}
+
 export function paperKey(semester: SemesterKey, subject: SubjectKey): PaperKey {
   return `${semester}-${subject}`
 }
 
-/** Convert raw 0–100 mark into weighted contribution points. */
-export function subjectEarned(rawScore: number, subject: SubjectKey): number {
+/** Convert raw 0–100 mark into weighted contribution points for a grade band. */
+export function subjectEarned(
+  rawScore: number,
+  subject: SubjectKey,
+  grade: number,
+): number {
   const clamped = Math.min(100, Math.max(0, rawScore))
-  return Math.round((clamped / 100) * SUBJECT_MAX[subject])
+  const max = subjectMaxForGrade(grade)[subject]
+  return Math.round((clamped / 100) * max)
 }
 
-export function semesterPoints(scores: SemesterScores): number {
+export function semesterPoints(scores: SemesterScores, grade: number): number {
   return (
-    subjectEarned(scores.daily, 'daily') +
-    subjectEarned(scores.reading, 'reading') +
-    subjectEarned(scores.writing, 'writing')
+    subjectEarned(scores.daily, 'daily', grade) +
+    subjectEarned(scores.reading, 'reading', grade) +
+    subjectEarned(scores.writing, 'writing', grade)
   )
 }
 
 export function yearPoints(record: YearRecord): number {
   return Math.round(
-    semesterPoints(record.first) * YEAR_WEIGHTS.first +
-      semesterPoints(record.second) * YEAR_WEIGHTS.second,
+    semesterPoints(record.first, record.grade) * YEAR_WEIGHTS.first +
+      semesterPoints(record.second, record.grade) * YEAR_WEIGHTS.second,
   )
 }
 
-export function semesterTotal(scores: SemesterScores): number {
-  return semesterPoints(scores)
+export function semesterTotal(scores: SemesterScores, grade: number): number {
+  return semesterPoints(scores, grade)
+}
+
+/** CA + 閱讀 + 寫作加權分（與 Excel 學期總分一致）。 */
+export function semesterWeightedTotal(
+  s: Pick<Student, 'progress' | 'readingScore' | 'correctRate'>,
+): number {
+  return Math.round((s.progress + s.readingScore + s.correctRate) * 10) / 10
 }
 
 export function yearTotal(record: YearRecord): number {
@@ -147,18 +196,19 @@ export function buildScorePools(students: Student[]) {
 
   for (const student of students) {
     for (const record of student.yearHistory) {
-      push(sameYearTotal, String(record.grade), yearPoints(record))
+      const { grade } = record
+      push(sameYearTotal, String(grade), yearPoints(record))
       for (const semester of ['first', 'second'] as const) {
         push(
           sameYearSemester,
-          `${record.grade}-${semester}`,
-          semesterPoints(record[semester]),
+          `${grade}-${semester}`,
+          semesterPoints(record[semester], grade),
         )
         for (const subject of ['daily', 'reading', 'writing'] as const) {
-          const earned = subjectEarned(record[semester][subject], subject)
+          const earned = subjectEarned(record[semester][subject], subject, grade)
           push(
             sameYearSubject,
-            `${record.grade}-${semester}-${subject}`,
+            `${grade}-${semester}-${subject}`,
             earned,
           )
           const crossList = crossPaper.get(paperKey(semester, subject))

@@ -13,7 +13,10 @@ import {
   newCalendarEventId,
   saveCalendarEvents,
 } from '../data/calendarEvents'
-import { academicYearStartFromIso } from '../data/academicYear'
+import { academicYearStartFromIso, formatAcademicYearLabel } from '../data/academicYear'
+import {
+  defaultScoresAcademicYearStart,
+} from '../data/campusScoresYear'
 import {
   classes as seedClasses,
   seedGradeDeadlines,
@@ -30,7 +33,14 @@ import {
   subjectsForUser,
   type CampusSubject,
 } from '../data/campusSubjects'
-import { gradeNumberFromClassName } from '../data/teacherWhitelist'
+import {
+  classNameToId,
+  formClassLettersForGrade,
+  gradeLabel,
+  gradeNumberFromClassName,
+  hasTrailingAClass,
+  teacherWhitelistForYear,
+} from '../data/teacherWhitelist'
 import { supabaseConfigured } from '../lib/supabase'
 import type {
   CalendarAudience,
@@ -73,6 +83,9 @@ interface CampusContextValue {
   /** All teachers linked to a class (homeroom + co-teachers). */
   getTeachersForClass: (classId: string) => User[]
   getTeacherNamesForClass: (classId: string) => string
+  /** Academic year for 分數 pages (Supabase academic_year_start). */
+  scoresAcademicYearStart: number
+  setScoresAcademicYearStart: (startYear: number) => void
   gradeDeadlines: GradeDeadline[]
   updateGradeDeadline: (
     grade: number,
@@ -157,6 +170,51 @@ function schoolYearStartFromIso(iso: string): number {
   return academicYearStartFromIso(iso)
 }
 
+function teachersFromWhitelist(startYear: number): User[] {
+  return teacherWhitelistForYear(startYear).map((t) => ({
+    id: `u-${t.initial.toLowerCase()}`,
+    username: t.email,
+    password: 'campus',
+    name: `${t.name}老師`,
+    role: 'teacher' as const,
+    classIds: t.classes.map(classNameToId),
+  }))
+}
+
+/** R / trailing A / EC rows not on the official admin class roll. */
+function supplementalClassesFromSeed(
+  prev: SchoolClass[],
+  remoteIds: Set<string>,
+  academicYearStart: number,
+): SchoolClass[] {
+  const byId = new Map(prev.map((c) => [c.id, c]))
+  const names = new Set<string>()
+  for (const grade of [7, 8, 9, 10, 11, 12]) {
+    for (const letter of formClassLettersForGrade(grade, academicYearStart)) {
+      if (letter === 'R' || (letter === 'A' && grade >= 10)) {
+        names.add(`${grade}${letter}`)
+      }
+    }
+  }
+  for (const name of ['G7 EC', 'G8 EC', 'G9 EC', 'G10 EC']) {
+    if (isEcClassName(name)) names.add(name)
+  }
+  return [...names]
+    .filter((name) => !remoteIds.has(classNameToId(name)))
+    .map((name) => {
+      const id = classNameToId(name)
+      const existing = byId.get(id)
+      if (existing) return existing
+      const gradeNum = gradeNumberFromClassName(name)
+      return {
+        id,
+        name,
+        grade: gradeNum != null ? gradeLabel(gradeNum) : '其他',
+        teacherId: null,
+      } satisfies SchoolClass
+    })
+}
+
 function eventVisibleToUser(
   event: CalendarEvent,
   user: User,
@@ -179,6 +237,9 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   const [students, setStudents] = useState<Student[]>(seedStudents)
   const [campusDataLoading, setCampusDataLoading] = useState(supabaseConfigured)
   const [campusDataError, setCampusDataError] = useState<string | null>(null)
+  const [scoresAcademicYearStart, setScoresAcademicYearStart] = useState(
+    defaultScoresAcademicYearStart,
+  )
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [selectedSubject, setSelectedSubjectState] =
     useState<CampusSubject>('CHIN')
@@ -195,9 +256,24 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const scoreTeachers = useMemo(
+    () => teachersFromWhitelist(scoresAcademicYearStart),
+    [scoresAcademicYearStart],
+  )
+
   useEffect(() => {
+    const demoYear = defaultScoresAcademicYearStart()
     if (!supabaseConfigured) {
       setCampusDataLoading(false)
+      if (scoresAcademicYearStart === demoYear) {
+        setStudents(seedStudents)
+        setCampusDataError(null)
+      } else {
+        setStudents([])
+        setCampusDataError(
+          `本機示範資料僅含 ${formatAcademicYearLabel(demoYear)} 學年成績。`,
+        )
+      }
       return
     }
     let cancelled = false
@@ -207,11 +283,16 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       try {
         const [remoteClasses, remoteStudents] = await Promise.all([
           fetchCampusClassesFromSupabase(),
-          fetchCampusStudentsFromSupabase(),
+          fetchCampusStudentsFromSupabase(scoresAcademicYearStart),
         ])
         if (cancelled) return
         if (remoteClasses == null || remoteStudents == null) {
           setCampusDataError('無法從 Supabase 載入學生資料，暫用本機示範資料。')
+          if (scoresAcademicYearStart === demoYear) {
+            setStudents(seedStudents)
+          } else {
+            setStudents([])
+          }
           setCampusDataLoading(false)
           return
         }
@@ -226,23 +307,33 @@ export function CampusProvider({ children }: { children: ReactNode }) {
                 teacherId: existing?.teacherId ?? c.teacherId,
               }
             })
-            // Supabase roster has form classes only — keep EC rows from seed.
-            const ecFromSeed = prev.filter(
-              (c) => isEcClassName(c.name) && !remoteIds.has(c.id),
+            const ecFromSeed = supplementalClassesFromSeed(
+              prev,
+              remoteIds,
+              scoresAcademicYearStart,
             )
             return [...merged, ...ecFromSeed]
           })
         }
         if (remoteStudents.length > 0) {
           setStudents(remoteStudents)
+          setCampusDataError(null)
         } else {
-          setCampusDataError('Supabase 尚無 2025/26 學生資料，請先匯入入分檔。')
+          setStudents([])
+          setCampusDataError(
+            `Supabase 尚無 ${formatAcademicYearLabel(scoresAcademicYearStart)} 學年成績，請先匯入該學年入分檔。`,
+          )
         }
       } catch (err) {
         if (!cancelled) {
           setCampusDataError(
             err instanceof Error ? err.message : 'Supabase 載入失敗',
           )
+          if (scoresAcademicYearStart === demoYear) {
+            setStudents(seedStudents)
+          } else {
+            setStudents([])
+          }
         }
       } finally {
         if (!cancelled) setCampusDataLoading(false)
@@ -251,7 +342,28 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [scoresAcademicYearStart])
+
+  useEffect(() => {
+    setClasses((prev) => {
+      const id11A = classNameToId('11A')
+      const has11A = prev.some((c) => c.id === id11A)
+      if (hasTrailingAClass(11, scoresAcademicYearStart)) {
+        if (has11A) return prev
+        return [
+          ...prev,
+          {
+            id: id11A,
+            name: '11A',
+            grade: gradeLabel(11),
+            teacherId: null,
+          },
+        ]
+      }
+      if (!has11A) return prev
+      return prev.filter((c) => c.id !== id11A)
+    })
+  }, [scoresAcademicYearStart])
 
   const accessibleClasses = useMemo(() => {
     if (!user) return []
@@ -396,17 +508,24 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   }, [allCalendarEvents, user, visibilityGradeNumbers])
 
   const getTeachersForClass = (classId: string): User[] => {
+    const fromWhitelist = scoreTeachers.filter((t) =>
+      t.classIds.includes(classId),
+    )
+    if (fromWhitelist.length > 0) return fromWhitelist
+
     const cls = classes.find((c) => c.id === classId)
     const seen = new Set<string>()
     const list: User[] = []
     if (cls?.teacherId) {
-      const primary = teachers.find((t) => t.id === cls.teacherId)
+      const primary =
+        scoreTeachers.find((t) => t.id === cls.teacherId) ??
+        teachers.find((t) => t.id === cls.teacherId)
       if (primary) {
         seen.add(primary.id)
         list.push(primary)
       }
     }
-    for (const t of teachers) {
+    for (const t of scoreTeachers) {
       if (seen.has(t.id)) continue
       if (t.classIds.includes(classId)) {
         seen.add(t.id)
@@ -467,6 +586,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         const names = getTeachersForClass(classId).map((t) => t.name)
         return names.length > 0 ? names.join('、') : '未分派'
       },
+      scoresAcademicYearStart,
+      setScoresAcademicYearStart,
       gradeDeadlines,
       updateGradeDeadline: (grade, patch) => {
         setGradeDeadlines((prev) =>
@@ -582,6 +703,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       user,
       campusDataLoading,
       campusDataError,
+      scoresAcademicYearStart,
     ],
   )
 

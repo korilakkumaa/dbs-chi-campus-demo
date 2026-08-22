@@ -1,28 +1,26 @@
 import type { GradeDeadline, SchoolClass, SemesterScores, Student, User, YearRecord } from '../types'
 import {
   classNameToId,
+  formClassLettersForGrade,
   gradeNumberFromClassName,
-  FORM_CLASS_ORDER,
   GRADE_LEVELS,
   gradeLabel,
   teacherWhitelist,
 } from './teacherWhitelist'
+import { CAMPUS_SCORES_ACADEMIC_YEAR_START } from './campusScoresYear'
 
-/** Form classes: G7–G9 ten classes (incl. R 補底班); G10–G12 nine; plus G7–G10 EC. */
+/** Form classes: G7–G9 ten (incl. R); G10 +10A in 2526; G11 +11A from 2627; plus G7–G10 EC. */
 const GRADES = [7, 8, 9, 10, 11, 12] as const
 
-function lettersForGrade(grade: number): readonly string[] {
-  if (grade >= 10) return FORM_CLASS_ORDER.filter((letter) => letter !== 'R')
-  return FORM_CLASS_ORDER
-}
-
 const formClasses: SchoolClass[] = GRADES.flatMap((grade) =>
-  lettersForGrade(grade).map((letter) => ({
-    id: classNameToId(`${grade}${letter}`),
-    name: `${grade}${letter}`,
-    grade: gradeLabel(grade),
-    teacherId: null as string | null,
-  })),
+  formClassLettersForGrade(grade, CAMPUS_SCORES_ACADEMIC_YEAR_START).map(
+    (letter) => ({
+      id: classNameToId(`${grade}${letter}`),
+      name: `${grade}${letter}`,
+      grade: gradeLabel(grade),
+      teacherId: null as string | null,
+    }),
+  ),
 )
 
 const ecClasses: SchoolClass[] = [7, 8, 9, 10].map((grade) => ({
@@ -86,13 +84,16 @@ const lastNames = [
   '鄧', '曾', '黃', '楊', '謝',
 ]
 
-function pastClassLetter(seed: number, currentName: string): string {
+function pastClassLetter(seed: number, currentName: string, grade: number): string {
   const form = currentName.match(/^(\d+)([A-Z])$/i)
   if (form) {
     const letter = form[2].toUpperCase()
     return letter === 'R' ? 'T' : letter
   }
-  const letters = FORM_CLASS_ORDER.filter((l) => l !== 'R')
+  const letters = formClassLettersForGrade(
+    grade,
+    CAMPUS_SCORES_ACADEMIC_YEAR_START,
+  ).filter((l) => l !== 'R')
   return letters[seed % letters.length]
 }
 
@@ -103,7 +104,7 @@ function classNameForPastGrade(
 ): string {
   const currentGrade = gradeNumberFromClassName(currentName) ?? grade
   if (grade === currentGrade) return currentName
-  const letter = pastClassLetter(seed, currentName)
+  const letter = pastClassLetter(seed, currentName, grade)
   const safeLetter = grade >= 10 && letter === 'R' ? 'J' : letter
   return `${grade}${safeLetter}`
 }

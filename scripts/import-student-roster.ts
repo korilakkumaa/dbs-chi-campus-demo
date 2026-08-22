@@ -15,7 +15,7 @@ const XLSX = xlsx
 config({ path: '.env.local' })
 config()
 
-const ACADEMIC_YEAR_START = 2025
+const ACADEMIC_YEAR_START = 2025 // 2025/26 roster only — see src/data/campusScoresYear.ts
 const DEFAULT_PATH =
   '/Users/apple/Downloads/Student Name List 2025-26_27Feb26 (ALL Only).xlsx'
 
@@ -52,6 +52,19 @@ function gradeFromClassName(name: string): number | null {
   const form = name.match(/^(\d+)/)
   if (form) return Number(form[1])
   return null
+}
+
+function appendChineseStreamClasses(classMap: Map<string, ClassRow>) {
+  for (const grade of [7, 8, 9] as const) {
+    const name = `${grade}R`
+    const id = classNameToId(name)
+    classMap.set(id, { id, name, grade })
+  }
+  classMap.set(classNameToId('10A'), {
+    id: classNameToId('10A'),
+    name: '10A',
+    grade: 10,
+  })
 }
 
 function toNum(v: unknown): number | null {
@@ -107,6 +120,8 @@ function parseAllSheet(filePath: string): {
       academic_year_start: ACADEMIC_YEAR_START,
     })
   }
+
+  appendChineseStreamClasses(classMap)
 
   return {
     classes: [...classMap.values()].sort((a, b) =>

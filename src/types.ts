@@ -21,8 +21,10 @@ export interface Student {
   name: string
   classId: string
   classNumber: number
-  /** Chinese teaching stream, e.g. 7R-LWT for remedial pulled from 7A/7L. */
+  /** Chinese teaching stream, e.g. 7R-LWT, 8R-YCN, G7 EC-WKL (2526). */
   teachingGroup?: string
+  /** Official roster: takes French instead of Chinese (removed from 母班中文名冊). */
+  french?: boolean
   progress: number
   readingScore: number
   correctRate: number
