@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import campus from '../assets/school-campus.png'
 import crest from '../assets/dbs-crest.png'
 import { defaultPath, ROLE_LABEL, useAuth } from '../context/AuthContext'
+import { TextSizeControl } from '../components/TextSizeControl'
 import type { Role } from '../types'
 
 const DEMO_MODES: {
@@ -75,6 +76,9 @@ export function LoginPage() {
     <div className="login-page">
       <img className="login-bg" src={campus} alt="" aria-hidden />
       <div className="login-veil" aria-hidden />
+      <div className="login-text-size">
+        <TextSizeControl />
+      </div>
 
       <div className="login-compose">
         <header className="login-brand reveal-up">

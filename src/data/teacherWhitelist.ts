@@ -75,6 +75,26 @@ export function classNameToId(name: string): string {
   return `c-${name.toLowerCase().replace(/\s+/g, '-')}`
 }
 
+/** Teacher user id (u-fyc) → whitelist initial (FYC). */
+export function teacherInitialFromUserId(userId: string): string | null {
+  const raw = userId.replace(/^u-/i, '').trim()
+  if (!raw || raw === 'admin' || raw === 'student') return null
+  return raw.toUpperCase()
+}
+
+/** Class ids a teacher teaches in the given academic year (from whitelist). */
+export function classIdsForTeacherInYear(
+  teacherId: string,
+  startYear: number,
+): string[] {
+  const initial = teacherInitialFromUserId(teacherId)
+  if (!initial) return []
+  const entry = teacherWhitelistForYear(startYear).find(
+    (t) => t.initial === initial,
+  )
+  return entry?.classes.map(classNameToId) ?? []
+}
+
 export function parseClassMeta(name: string): { grade: string; kind: 'form' | 'ec' } {
   const ec = name.match(/^G(\d+)\s*EC$/i)
   if (ec) {

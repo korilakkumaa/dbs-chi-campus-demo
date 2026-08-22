@@ -3,9 +3,10 @@ import {
   academicYearStartFromIso,
   formatAcademicYearLabel,
 } from './academicYear'
+import { isoDateLocal, mondayOfWeekIso, schoolWeekDates } from './calendarEvents'
 import { SCHOOL_YEAR_2526 } from './schoolCalendar2526'
 import { SCHOOL_YEAR_2627 } from './schoolCalendar2627'
-import { teacherWhitelist } from './teacherWhitelist'
+import { teacherWhitelist, teacherWhitelistForYear } from './teacherWhitelist'
 import { TEACHER_WEEKLY_2526 } from './teacherWeekly2526.generated'
 import { TEACHER_WEEKLY_2627 } from './teacherWeekly2627.generated'
 
@@ -259,6 +260,36 @@ export function hasTimetableForSchoolYear(startYear: number): boolean {
   return map != null && Object.keys(map).length > 0
 }
 
+/**
+ * Default week for the personal timetable view.
+ * Before 1 Sep, open the upcoming year's first school week when it has fuller imports.
+ */
+export function defaultTimetableWeekMonday(today = isoDateLocal()): string {
+  const currentStart = academicYearStartFromIso(today)
+  const nextStart = currentStart + 1
+  const sep1 = `${nextStart}-09-01`
+  if (today < sep1 && hasTimetableForSchoolYear(nextStart)) {
+    const currentCount = Object.keys(TIMETABLES_BY_YEAR[currentStart] ?? {}).length
+    const nextCount = Object.keys(TIMETABLES_BY_YEAR[nextStart] ?? {}).length
+    if (nextCount > currentCount) {
+      return mondayOfWeekIso(sep1)
+    }
+  }
+  return mondayOfWeekIso(today)
+}
+
+/**
+ * Academic year used to pick teacher list / grid template for a school week.
+ * If the week spans 31 Aug + 1 Sep, prefer the newer year (full timetables from 1 Sep).
+ */
+export function timetableViewStartYear(weekMonday: string): number {
+  let startYear = academicYearStartFromIso(weekMonday)
+  for (const iso of schoolWeekDates(weekMonday)) {
+    startYear = Math.max(startYear, academicYearStartFromIso(iso))
+  }
+  return startYear
+}
+
 /** Default export: 2026/27 grids (used by grade distribution views). */
 export const TEACHER_WEEKLY_TIMETABLES: Record<string, TeacherTimetableEntry> =
   TEACHER_WEEKLY_2627
@@ -269,19 +300,31 @@ export type TimetableTeacherOption = {
   name: string
 }
 
-/** Teachers with imported weekly timetables, in whitelist order. */
-export function listTeachersWithTimetables(): TimetableTeacherOption[] {
+/** Teachers with imported weekly timetables, sorted by initial (A–Z). */
+export function listTeachersWithTimetables(
+  startYear?: number,
+): TimetableTeacherOption[] {
   const ids = new Set<string>()
-  for (const map of Object.values(TIMETABLES_BY_YEAR)) {
-    for (const id of Object.keys(map)) ids.add(id)
+  if (startYear != null) {
+    const map = TIMETABLES_BY_YEAR[startYear]
+    if (map) {
+      for (const id of Object.keys(map)) ids.add(id)
+    }
+  } else {
+    for (const map of Object.values(TIMETABLES_BY_YEAR)) {
+      for (const id of Object.keys(map)) ids.add(id)
+    }
   }
-  return teacherWhitelist
+  const whitelist =
+    startYear != null ? teacherWhitelistForYear(startYear) : teacherWhitelist
+  return whitelist
     .filter((t) => ids.has(`u-${t.initial.toLowerCase()}`))
     .map((t) => ({
       teacherId: `u-${t.initial.toLowerCase()}`,
       initial: t.initial,
       name: t.name,
     }))
+    .sort((a, b) => a.initial.localeCompare(b.initial, 'en'))
 }
 
 export function isTeacherFreeAt(
@@ -333,10 +376,10 @@ export function resolveTimetableTeacherId(
   userId: string | undefined,
   role: string | undefined,
 ): string | null {
-  if (!userId) return null
-  if (TEACHER_WEEKLY_TIMETABLES[userId]) return userId
-  // Admin preview: YLN sample when admin has no personal grid.
-  if (role === 'admin') return 'u-yln'
+  if (!userId || role === 'admin') return null
+  for (const map of Object.values(TIMETABLES_BY_YEAR)) {
+    if (map[userId]) return userId
+  }
   return null
 }
 
@@ -398,7 +441,8 @@ export function weekdayLabel(day: SchoolWeekday) {
   return WEEKDAY_LABEL[day]
 }
 
-function eventTargetsTeacher(
+/** Whether a calendar event applies to this teacher's timetable / day preview. */
+export function calendarEventTargetsTeacher(
   event: CalendarEvent,
   teacherId: string,
 ): boolean {
@@ -421,7 +465,7 @@ function findDayMark(
     (e) =>
       e.date === iso &&
       e.kind === kind &&
-      eventTargetsTeacher(e, teacherId),
+      calendarEventTargetsTeacher(e, teacherId),
   )
 }
 

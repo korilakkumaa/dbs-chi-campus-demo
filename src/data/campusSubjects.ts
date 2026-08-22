@@ -4,11 +4,14 @@ import {
   splitGroupTokens,
 } from './gradeChineseTimetable'
 import {
+  teacherTimetableEntry,
+} from './teacherTimetable'
+import {
+  classIdsForTeacherInYear,
   classNameToId,
   gradeNumberFromClassName,
-  teacherWhitelist,
+  teacherWhitelistForYear,
 } from './teacherWhitelist'
-import { TEACHER_WEEKLY_TIMETABLES } from './teacherTimetable'
 
 export type CampusSubject = 'CHIN' | 'EC' | 'CHIS' | 'PTH'
 
@@ -62,8 +65,9 @@ function classIdsFromCodes(
 function classCodesFromTimetable(
   teacherId: string,
   subject: CampusSubject,
+  startYear: number,
 ): string[] {
-  const entry = TEACHER_WEEKLY_TIMETABLES[teacherId]
+  const entry = teacherTimetableEntry(teacherId, startYear)
   if (!entry) return []
   const codes = new Set<string>()
   for (let day = 1; day <= 5; day++) {
@@ -79,27 +83,27 @@ function classCodesFromTimetable(
   return [...codes]
 }
 
-function classCodesFromAllTimetables(subject: CampusSubject): string[] {
+function classCodesFromAllTimetables(
+  subject: CampusSubject,
+  startYear: number,
+): string[] {
   const codes = new Set<string>()
-  for (const entry of Object.values(TEACHER_WEEKLY_TIMETABLES)) {
-    for (let day = 1; day <= 5; day++) {
-      for (const period of entry.weekly[day as 1 | 2 | 3 | 4 | 5]) {
-        if (period.type !== 'lesson') continue
-        if (subjectKind(period.subject) !== subject) continue
-        for (const token of splitGroupTokens(period.group)) {
-          const code = normalizeClassCode(token)
-          if (code) codes.add(code)
-        }
-      }
+  for (const teacher of teacherWhitelistForYear(startYear)) {
+    const teacherId = `u-${teacher.initial.toLowerCase()}`
+    for (const code of classCodesFromTimetable(teacherId, subject, startYear)) {
+      codes.add(code)
     }
   }
   return [...codes]
 }
 
-export function subjectsFromTimetable(teacherId: string): CampusSubject[] {
+export function subjectsFromTimetable(
+  teacherId: string,
+  startYear: number,
+): CampusSubject[] {
   const found = new Set<CampusSubject>()
   for (let day = 1; day <= 5; day++) {
-    const entry = TEACHER_WEEKLY_TIMETABLES[teacherId]
+    const entry = teacherTimetableEntry(teacherId, startYear)
     if (!entry) continue
     for (const period of entry.weekly[day as 1 | 2 | 3 | 4 | 5]) {
       if (period.type !== 'lesson') continue
@@ -126,6 +130,7 @@ export function classIdsForSubjects(
   user: User,
   accessibleClasses: SchoolClass[],
   allClasses: SchoolClass[],
+  startYear: number,
 ): string[] {
   const ids = new Set<string>()
   for (const subject of normalizeSelectedSubjects(subjects)) {
@@ -134,6 +139,7 @@ export function classIdsForSubjects(
       user,
       accessibleClasses,
       allClasses,
+      startYear,
     )) {
       ids.add(id)
     }
@@ -147,8 +153,15 @@ export function gradeNumbersForSubject(
   subject: CampusSubject,
   accessibleClasses: SchoolClass[],
   allClasses: SchoolClass[],
+  startYear: number,
 ): number[] {
-  const ids = classIdsForSubject(subject, user, accessibleClasses, allClasses)
+  const ids = classIdsForSubject(
+    subject,
+    user,
+    accessibleClasses,
+    allClasses,
+    startYear,
+  )
   const grades = new Set<number>()
   for (const id of ids) {
     const cls = allClasses.find((c) => c.id === id)
@@ -167,6 +180,7 @@ export function calendarGradeAudienceMatchesUser(
     accessibleClasses: SchoolClass[]
     allClasses: SchoolClass[]
     selectedSubjects: CampusSubject[]
+    scoresAcademicYearStart: number
   },
 ): boolean {
   const eventSubjects = audience.subjects?.length
@@ -183,6 +197,7 @@ export function calendarGradeAudienceMatchesUser(
       subject,
       ctx.accessibleClasses,
       ctx.allClasses,
+      ctx.scoresAcademicYearStart,
     )
     if (audience.grades.some((g) => taught.includes(g))) return true
   }
@@ -194,6 +209,7 @@ export function classIdsForSubject(
   user: User,
   accessibleClasses: SchoolClass[],
   allClasses: SchoolClass[],
+  startYear: number,
 ): string[] {
   const accessibleIds = new Set(accessibleClasses.map((c) => c.id))
 
@@ -204,11 +220,14 @@ export function classIdsForSubject(
     if (subject === 'EC') {
       return allClasses.filter((c) => isEcClassName(c.name)).map((c) => c.id)
     }
-    return classIdsFromCodes(classCodesFromAllTimetables(subject), allClasses)
+    return classIdsFromCodes(
+      classCodesFromAllTimetables(subject, startYear),
+      allClasses,
+    )
   }
 
   let ids = classIdsFromCodes(
-    classCodesFromTimetable(user.id, subject),
+    classCodesFromTimetable(user.id, subject, startYear),
     allClasses,
   )
 
@@ -227,11 +246,9 @@ export function classIdsForSubject(
   return ids.filter((id) => accessibleIds.has(id))
 }
 
-function teacherHasEcAssignment(user: User): boolean {
-  const entry = teacherWhitelist.find(
-    (t) => `u-${t.initial.toLowerCase()}` === user.id,
-  )
-  if (entry?.classes.some((c) => isEcClassName(c))) return true
+function teacherHasEcAssignment(user: User, startYear: number): boolean {
+  const ids = classIdsForTeacherInYear(user.id, startYear)
+  if (ids.some((id) => /-ec$/i.test(id))) return true
   return user.classIds.some((id) => /-ec$/i.test(id))
 }
 
@@ -239,6 +256,7 @@ export function subjectsForUser(
   user: User | null,
   accessibleClasses: SchoolClass[],
   _allClasses: SchoolClass[],
+  startYear: number,
 ): CampusSubject[] {
   if (!user) return []
 
@@ -246,7 +264,7 @@ export function subjectsForUser(
     return CAMPUS_SUBJECT_OPTIONS.map((o) => o.id)
   }
 
-  const fromTimetable = subjectsFromTimetable(user.id)
+  const fromTimetable = subjectsFromTimetable(user.id, startYear)
   const merged = new Set<CampusSubject>(fromTimetable)
 
   if (accessibleClasses.some((c) => !isEcClassName(c.name))) {
@@ -254,7 +272,7 @@ export function subjectsForUser(
   }
   if (
     accessibleClasses.some((c) => isEcClassName(c.name)) ||
-    teacherHasEcAssignment(user) ||
+    teacherHasEcAssignment(user, startYear) ||
     fromTimetable.includes('EC')
   ) {
     merged.add('EC')

@@ -16,6 +16,7 @@ import {
   rosterForChineseClass,
 } from '../data/teacherWhitelist'
 import type { SchoolClass } from '../types'
+import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
 import { ScoresYearSelect } from '../components/ScoresYearSelect'
@@ -51,6 +52,7 @@ function sortClassesForDisplay(
 
 export function ClassPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const {
     startYear,
     onSelectYear,
@@ -209,9 +211,11 @@ export function ClassPage() {
                 <h2>{cls.name}</h2>
                 <p>{remedialNote ?? cls.grade}</p>
               </div>
-              <p className="snapshot-teacher">
-                {getTeacherNamesForClass(cls.id)}
-              </p>
+              {user?.role === 'admin' ? (
+                <p className="snapshot-teacher">
+                  {getTeacherNamesForClass(cls.id)}
+                </p>
+              ) : null}
               <dl className="snapshot-stats">
                 <div>
                   <dt>人數</dt>

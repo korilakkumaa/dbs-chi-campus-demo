@@ -18,6 +18,7 @@ dist-ssr
 # Real student Excel / import dumps (PII)
 data/imports/
 scripts/out/
+scripts/.pydeps/
 
 # Editor directories and files
 .vscode/*

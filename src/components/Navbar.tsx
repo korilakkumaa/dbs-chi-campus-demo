@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react'
 import crest from '../assets/dbs-crest.png'
+import { TextSizeControl } from './TextSizeControl'
 
 type NavChild = {
   to: string
@@ -152,6 +153,7 @@ function StudentNav({ name, onLogout }: { name: string; onLogout: () => void }) 
         </ul>
       </div>
       <div className="nav-user">
+        <TextSizeControl />
         <LogoutButton onClick={onLogout} />
       </div>
     </nav>
@@ -389,6 +391,7 @@ function StaffNavbar({
 
       <div className="nav-user">
         <SubjectButtons />
+        <TextSizeControl />
         <LogoutButton onClick={logout} />
       </div>
     </nav>

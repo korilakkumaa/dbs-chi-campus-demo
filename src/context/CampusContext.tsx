@@ -38,10 +38,12 @@ import {
 } from '../data/campusSubjects'
 import {
   classNameToId,
+  classIdsForTeacherInYear,
   formClassLettersForGrade,
   gradeLabel,
   gradeNumberFromClassName,
   hasTrailingAClass,
+  rosterForChineseClass,
   teacherWhitelistForYear,
 } from '../data/teacherWhitelist'
 import { supabaseConfigured } from '../lib/supabase'
@@ -225,6 +227,7 @@ function eventVisibleToUser(
     accessibleClasses: SchoolClass[]
     allClasses: SchoolClass[]
     selectedSubjects: CampusSubject[]
+    scoresAcademicYearStart: number
   },
 ): boolean {
   if (user.role === 'admin') return true
@@ -376,14 +379,15 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   const accessibleClasses = useMemo(() => {
     if (!user) return []
     if (user.role === 'admin') return classes
-    return classes.filter(
-      (c) => c.teacherId === user.id || user.classIds.includes(c.id),
+    const yearClassIds = new Set(
+      classIdsForTeacherInYear(user.id, scoresAcademicYearStart),
     )
-  }, [user, classes])
+    return classes.filter((c) => yearClassIds.has(c.id))
+  }, [user, classes, scoresAcademicYearStart])
 
   const accessibleSubjects = useMemo(
-    () => subjectsForUser(user, accessibleClasses, classes),
-    [user, accessibleClasses, classes],
+    () => subjectsForUser(user, accessibleClasses, classes, scoresAcademicYearStart),
+    [user, accessibleClasses, classes, scoresAcademicYearStart],
   )
 
   const accessibleIdKey = accessibleClasses.map((c) => c.id).join('|')
@@ -436,6 +440,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       user,
       accessibleClasses,
       classes,
+      scoresAcademicYearStart,
     )
     setSelectedClassIds(ids)
   }, [
@@ -445,6 +450,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     classes,
     selectionReady,
     accessibleIdKey,
+    scoresAcademicYearStart,
   ])
 
   useEffect(() => {
@@ -462,9 +468,22 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   )
 
   const accessibleStudents = useMemo(() => {
-    const ids = new Set(accessibleClasses.map((c) => c.id))
-    return students.filter((s) => ids.has(s.classId))
-  }, [students, accessibleClasses])
+    if (!user) return []
+    if (user.role === 'admin') return students
+
+    const byId = new Map<string, Student>()
+    for (const cls of accessibleClasses) {
+      for (const s of rosterForChineseClass(
+        cls.id,
+        cls.name,
+        students,
+        scoresAcademicYearStart,
+      )) {
+        byId.set(s.id, s)
+      }
+    }
+    return [...byId.values()]
+  }, [user, students, accessibleClasses, scoresAcademicYearStart])
 
   const filteredStudents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -511,8 +530,9 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       accessibleClasses,
       allClasses: classes,
       selectedSubjects,
+      scoresAcademicYearStart,
     }),
-    [accessibleClasses, classes, selectedSubjects],
+    [accessibleClasses, classes, selectedSubjects, scoresAcademicYearStart],
   )
 
   const calendarEvents = useMemo(() => {
@@ -593,6 +613,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
             user,
             accessibleClasses,
             classes,
+            scoresAcademicYearStart,
           ),
         )
       },
