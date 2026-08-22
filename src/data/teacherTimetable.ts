@@ -1,4 +1,12 @@
 import type { CalendarEvent } from '../types'
+import {
+  academicYearStartFromIso,
+  formatAcademicYearLabel,
+} from './academicYear'
+import { SCHOOL_YEAR_2526 } from './schoolCalendar2526'
+import { SCHOOL_YEAR_2627 } from './schoolCalendar2627'
+import { teacherWhitelist } from './teacherWhitelist'
+import { TEACHER_WEEKLY_2526 } from './teacherWeekly2526.generated'
 import { TEACHER_WEEKLY_2627 } from './teacherWeekly2627.generated'
 
 /** Monday=1 … Friday=5 (Date#getDay compatible for weekdays). */
@@ -191,9 +199,127 @@ export type TeacherTimetableEntry = {
   weekly: Record<SchoolWeekday, DayPeriod[]>
 }
 
-/** 2026/27 Chinese department personal timetables (from CLS export). */
+/** Per-year academic windows (from official school calendars). */
+const ACADEMIC_YEAR_WINDOWS: Record<number, AcademicYearWindow> = {
+  2025: {
+    label: SCHOOL_YEAR_2526.label,
+    validFrom: SCHOOL_YEAR_2526.validFrom,
+    validTo: SCHOOL_YEAR_2526.validTo,
+    teachingUntil: SCHOOL_YEAR_2526.teachingUntil,
+  },
+  2026: {
+    label: SCHOOL_YEAR_2627.label,
+    validFrom: SCHOOL_YEAR_2627.validFrom,
+    validTo: SCHOOL_YEAR_2627.validTo,
+    teachingUntil: SCHOOL_YEAR_2627.teachingUntil,
+  },
+}
+
+/** Academic year window for an ISO date (Sep–Aug). */
+export function academicYearWindowForIso(iso: string): AcademicYearWindow {
+  const startYear = academicYearStartFromIso(iso)
+  const known = ACADEMIC_YEAR_WINDOWS[startYear]
+  if (known) return known
+  return {
+    label: formatAcademicYearLabel(startYear),
+    validFrom: `${startYear}-09-01`,
+    validTo: `${startYear + 1}-08-31`,
+    teachingUntil: `${startYear + 1}-07-12`,
+  }
+}
+
+/** Weekly grids keyed by academic-year start (2025 → 2025/26, 2026 → 2026/27). */
+const TIMETABLES_BY_YEAR: Record<
+  number,
+  Record<string, TeacherTimetableEntry>
+> = {
+  2025: TEACHER_WEEKLY_2526,
+  2026: TEACHER_WEEKLY_2627,
+}
+
+/** Resolve imported timetable for a teacher and academic year. */
+export function teacherTimetableEntry(
+  teacherId: string,
+  startYear: number,
+): TeacherTimetableEntry | null {
+  return TIMETABLES_BY_YEAR[startYear]?.[teacherId] ?? null
+}
+
+/** Whether this teacher has an imported grid for the given academic year. */
+export function hasTeacherTimetableForYear(
+  teacherId: string,
+  startYear: number,
+): boolean {
+  return teacherTimetableEntry(teacherId, startYear) != null
+}
+
+/** Whether we have any weekly timetable data for this academic year. */
+export function hasTimetableForSchoolYear(startYear: number): boolean {
+  const map = TIMETABLES_BY_YEAR[startYear]
+  return map != null && Object.keys(map).length > 0
+}
+
+/** Default export: 2026/27 grids (used by grade distribution views). */
 export const TEACHER_WEEKLY_TIMETABLES: Record<string, TeacherTimetableEntry> =
   TEACHER_WEEKLY_2627
+
+export type TimetableTeacherOption = {
+  teacherId: string
+  initial: string
+  name: string
+}
+
+/** Teachers with imported weekly timetables, in whitelist order. */
+export function listTeachersWithTimetables(): TimetableTeacherOption[] {
+  const ids = new Set<string>()
+  for (const map of Object.values(TIMETABLES_BY_YEAR)) {
+    for (const id of Object.keys(map)) ids.add(id)
+  }
+  return teacherWhitelist
+    .filter((t) => ids.has(`u-${t.initial.toLowerCase()}`))
+    .map((t) => ({
+      teacherId: `u-${t.initial.toLowerCase()}`,
+      initial: t.initial,
+      name: t.name,
+    }))
+}
+
+export function isTeacherFreeAt(
+  teacherId: string,
+  day: SchoolWeekday,
+  start: string,
+  end: string,
+): boolean {
+  const entry = TEACHER_WEEKLY_TIMETABLES[teacherId]
+  if (!entry) return false
+  const period = entry.weekly[day].find(
+    (p) => p.start === start && p.end === end,
+  )
+  return period?.type === 'free'
+}
+
+/** Periods for a teacher on a calendar date (respects holidays & timetable swaps). */
+export function getTeacherPeriodsOnDate(
+  teacherId: string,
+  iso: string,
+  events: CalendarEvent[],
+): DayPeriod[] | null {
+  const result = getDayTimetable(teacherId, iso, events)
+  return result.status === 'ok' ? result.periods : null
+}
+
+export function isTeacherFreeAtDate(
+  teacherId: string,
+  iso: string,
+  start: string,
+  end: string,
+  events: CalendarEvent[],
+): boolean {
+  const periods = getTeacherPeriodsOnDate(teacherId, iso, events)
+  if (!periods) return false
+  const period = periods.find((p) => p.start === start && p.end === end)
+  return period?.type === 'free'
+}
 
 /** Whether iso (YYYY-MM-DD) falls in the timetable's academic year. */
 export function isDateInAcademicYear(
@@ -306,11 +432,13 @@ export function getDayTimetable(
 ): DayTimetableResult {
   if (!teacherId) return { status: 'no-timetable' }
 
-  const entry = TEACHER_WEEKLY_TIMETABLES[teacherId]
+  const yearWindow = academicYearWindowForIso(iso)
+  const startYear = academicYearStartFromIso(iso)
+  const entry = teacherTimetableEntry(teacherId, startYear)
   if (!entry) return { status: 'no-timetable' }
 
-  if (!isDateInAcademicYear(iso, entry.academicYear)) {
-    return { status: 'out-of-year', academicYear: entry.academicYear }
+  if (!isDateInAcademicYear(iso, yearWindow)) {
+    return { status: 'out-of-year', academicYear: yearWindow }
   }
 
   const holiday = findDayMark(events, iso, teacherId, 'holiday')
@@ -323,11 +451,7 @@ export function getDayTimetable(
 
   const forcedSchool = findDayMark(events, iso, teacherId, 'school-day')
 
-  // After teachingUntil (e.g. Jul–Aug) → 非正常上課日 unless forced school-day
-  if (
-    !forcedSchool &&
-    iso > entry.academicYear.teachingUntil
-  ) {
+  if (!forcedSchool && iso > yearWindow.teachingUntil) {
     return { status: 'non-school-day' }
   }
 
@@ -342,7 +466,6 @@ export function getDayTimetable(
   let effective = effectiveSchoolWeekday(iso, events)
   if (effective == null) {
     if (!forcedSchool) return { status: 'weekend' }
-    // Forced school day on weekend: use Friday grid as fallback.
     effective = 5
   }
 
@@ -356,6 +479,6 @@ export function getDayTimetable(
     periods: entry.weekly[effective],
     weekday: effective,
     adoptedFrom,
-    academicYear: entry.academicYear,
+    academicYear: yearWindow,
   }
 }

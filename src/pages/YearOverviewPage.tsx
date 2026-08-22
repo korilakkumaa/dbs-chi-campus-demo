@@ -21,11 +21,8 @@ import {
 import { useCampus } from '../context/CampusContext'
 import type { CalendarEventKind } from '../types'
 
-/** Kinds shown on the year overview (skip personal progress noise). */
+/** Calendar kinds shown on year overview (excludes day-status marks from detailed calendar). */
 const OVERVIEW_KINDS: CalendarEventKind[] = [
-  'holiday',
-  'non-school-day',
-  'school-day',
   'timetable',
   'event',
   'department',
@@ -41,7 +38,6 @@ type OverviewItem = {
   date: string
   title: string
   custom?: boolean
-  holiday?: boolean
 }
 
 type CustomEntry = {
@@ -299,7 +295,6 @@ export function YearOverviewPage() {
         id: e.id,
         date: e.date,
         title: e.title,
-        holiday: e.kind === 'holiday',
       })
       map.set(key, list)
     }
@@ -366,7 +361,7 @@ export function YearOverviewPage() {
           <p>
             {formatAcademicYearLabel(startYear)}學年（
             {formatYm(range.from)}至{formatYm(range.to)}
-            ）重要日子一覽；可自行新增項目，勾選後會劃去並移到該月最底。
+            ）校曆活動一覽；可自行新增項目，勾選後會劃去並移到該月最底。上課日／假期標注請見詳細日曆。
           </p>
         </div>
         <label className="year-ov-select-wrap">
@@ -412,7 +407,7 @@ export function YearOverviewPage() {
                       <li
                         key={item.id}
                         data-flip-id={item.id}
-                        className={`year-ov-item${done ? ' done' : ''}${item.holiday ? ' holiday' : ''}`}
+                        className={`year-ov-item${done ? ' done' : ''}`}
                       >
                         <label className="year-ov-check">
                           <input

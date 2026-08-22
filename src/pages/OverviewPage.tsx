@@ -86,12 +86,12 @@ export function OverviewPage() {
       value: String(scopeStudents.length),
     },
     {
-      label: '平均進度',
-      value: `${average(scopeStudents.map((s) => s.progress))}%`,
+      label: '平均 CA',
+      value: String(average(scopeStudents.map((s) => s.progress))),
     },
     {
       label: '平均閱讀',
-      value: `${average(scopeStudents.map((s) => s.readingScore))}%`,
+      value: String(average(scopeStudents.map((s) => s.readingScore))),
     },
   ]
 
@@ -150,7 +150,7 @@ export function OverviewPage() {
                   onSort={onSort}
                 />
                 <SortHeader
-                  label="進度"
+                  label="CA"
                   column="progress"
                   activeKey={sortKey}
                   dir={sortDir}
@@ -172,8 +172,8 @@ export function OverviewPage() {
                   <td>{row.cls.grade}</td>
                   <td>{row.teacher}</td>
                   <td>{row.count}</td>
-                  <td>{row.progress}%</td>
-                  <td>{row.reading}%</td>
+                  <td>{row.progress}</td>
+                  <td>{row.reading}</td>
                 </tr>
               ))}
             </tbody>

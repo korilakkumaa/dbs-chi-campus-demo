@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   defaultAcademicYearStart,
@@ -6,8 +6,30 @@ import {
   listAcademicYearStarts,
 } from '../data/academicYear'
 import { average } from '../data/mockData'
+import {
+  GRADE_LEVELS,
+  formClassLetterRank,
+  gradeLabel,
+  gradeNumberFromClassName,
+  parseClassMeta,
+  remedialClassNote,
+  rosterForChineseClass,
+} from '../data/teacherWhitelist'
+import type { SchoolClass } from '../types'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
+
+function sortClassesForDisplay(a: SchoolClass, b: SchoolClass): number {
+  const metaA = parseClassMeta(a.name)
+  const metaB = parseClassMeta(b.name)
+  if (metaA.kind !== metaB.kind) return metaA.kind === 'form' ? -1 : 1
+  if (metaA.kind === 'form') {
+    const letterA = a.name.slice(-1)
+    const letterB = b.name.slice(-1)
+    return formClassLetterRank(letterA) - formClassLetterRank(letterB)
+  }
+  return a.name.localeCompare(b.name, 'zh-Hant')
+}
 
 function parseStartYearParam(raw: string | null): number | null {
   if (!raw) return null
@@ -20,12 +42,10 @@ export function ClassPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const {
-    selectedClassIds,
     accessibleClasses,
     students,
     getClassName,
     getTeacherNamesForClass,
-    selectClasses,
   } = useCampus()
 
   const yearOptions = useMemo(() => listAcademicYearStarts(), [])
@@ -44,17 +64,42 @@ export function ClassPage() {
     }
   }
 
-  const active =
-    selectedClassIds.length > 0
-      ? accessibleClasses.filter((c) => selectedClassIds.includes(c.id))
-      : accessibleClasses
+  const pool = useMemo(
+    () =>
+      accessibleClasses.filter((c) => parseClassMeta(c.name).kind === 'form'),
+    [accessibleClasses],
+  )
+
+  const availableGrades = useMemo(() => {
+    const grades = new Set<number>()
+    for (const cls of pool) {
+      const g = gradeNumberFromClassName(cls.name)
+      if (g != null) grades.add(g)
+    }
+    return GRADE_LEVELS.filter((g) => grades.has(g))
+  }, [pool])
+
+  const [grade, setGrade] = useState<number>(() => availableGrades[0] ?? 7)
+
+  useEffect(() => {
+    if (availableGrades.length > 0 && !availableGrades.some((g) => g === grade)) {
+      setGrade(availableGrades[0])
+    }
+  }, [availableGrades, grade])
+
+  const active = useMemo(
+    () =>
+      pool
+        .filter((c) => gradeNumberFromClassName(c.name) === grade)
+        .sort(sortClassesForDisplay),
+    [pool, grade],
+  )
 
   const openStudent = (studentId: string) => {
     navigate(`/class/individual?student=${encodeURIComponent(studentId)}`)
   }
 
   const openClassIndividual = (classId: string) => {
-    selectClasses([classId])
     navigate(`/class/individual?class=${encodeURIComponent(classId)}`)
   }
 
@@ -85,26 +130,61 @@ export function ClassPage() {
         </label>
       </header>
 
-      <div className="class-grid">
+      {availableGrades.length > 0 && (
+        <div
+          className="class-page-grades reveal-up delay-1"
+          role="tablist"
+          aria-label="年級"
+        >
+          {availableGrades.map((g) => (
+            <button
+              key={g}
+              type="button"
+              role="tab"
+              aria-selected={grade === g}
+              className={`class-tt-grade${grade === g ? ' active' : ''}`}
+              onClick={() => setGrade(g)}
+            >
+              {gradeLabel(g)}
+              <span className="class-page-grade-count">
+                {
+                  pool.filter((c) => gradeNumberFromClassName(c.name) === g)
+                    .length
+                }
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="class-grid class-grid-five">
         {active.map((cls, i) => {
-          const roster = students.filter((s) => s.classId === cls.id)
+          const roster = rosterForChineseClass(cls.id, cls.name, students)
           const avgP = average(roster.map((s) => s.progress))
           const avgR = average(roster.map((s) => s.readingScore))
           const avgA = average(roster.map((s) => s.correctRate))
+          const remedialNote = remedialClassNote(cls.name)
           return (
             <GlassPanel
               key={cls.id}
-              className={`class-snapshot class-snapshot-link reveal-up delay-${Math.min(i + 1, 3)}`}
+              className={`class-snapshot class-snapshot-link class-snapshot-compact reveal-up delay-${Math.min(i + 1, 3)}`}
             >
-              <button
-                type="button"
-                className="class-snapshot-hit"
+              <div
+                className="class-snapshot-body"
                 onClick={() => openClassIndividual(cls.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    openClassIndividual(cls.id)
+                  }
+                }}
+                role="link"
+                tabIndex={0}
                 aria-label={`開啟 ${cls.name} 個人頁`}
-              />
+              >
               <div className="snapshot-head">
                 <h2>{cls.name}</h2>
-                <p>{cls.grade}</p>
+                <p>{remedialNote ?? cls.grade}</p>
               </div>
               <p className="snapshot-teacher">
                 {getTeacherNamesForClass(cls.id)}
@@ -115,37 +195,41 @@ export function ClassPage() {
                   <dd>{roster.length}</dd>
                 </div>
                 <div>
-                  <dt>平時分</dt>
-                  <dd>{avgP}%</dd>
+                  <dt>CA</dt>
+                  <dd>{avgP}</dd>
                 </div>
                 <div>
                   <dt>閱讀</dt>
-                  <dd>{avgR}%</dd>
+                  <dd>{avgR}</dd>
                 </div>
                 <div>
                   <dt>寫作</dt>
-                  <dd>{avgA}%</dd>
+                  <dd>{avgA}</dd>
                 </div>
               </dl>
-              <div className="spark-row">
+              <div
+                className="spark-row"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
                 {roster.slice(0, 12).map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     className="spark"
-                    style={{ height: `${Math.max(18, s.progress * 0.7)}%` }}
-                    data-tip={`${s.name}：${s.progress}%`}
-                    aria-label={`開啟 ${s.name} 的個人檔案，平時分 ${s.progress}%`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openStudent(s.id)
+                    style={{
+                      height: `${Math.max(18, (s.progress / 20) * 100 * 0.7)}%`,
                     }}
+                    data-tip={`${s.name}：CA ${s.progress}`}
+                    aria-label={`開啟 ${s.name} 的個人檔案，CA ${s.progress}`}
+                    onClick={() => openStudent(s.id)}
                   />
                 ))}
               </div>
               <p className="snapshot-foot">
                 點擊卡片開啟{getClassName(cls.id)}個人頁 · 點擊長條開啟個人檔案
               </p>
+              </div>
             </GlassPanel>
           )
         })}

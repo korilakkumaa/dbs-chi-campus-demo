@@ -8,7 +8,7 @@ import {
   teacherWhitelist,
 } from './teacherWhitelist'
 
-/** Form classes: grades 7–9 × school letter order; 10–12 without R; plus G7–G10 EC. */
+/** Form classes: G7–G9 ten classes (incl. R 補底班); G10–G12 nine; plus G7–G10 EC. */
 const GRADES = [7, 8, 9, 10, 11, 12] as const
 
 function lettersForGrade(grade: number): readonly string[] {
@@ -58,7 +58,7 @@ export const users: User[] = [
     id: 'u-admin',
     username: 'admin',
     password: 'campus',
-    name: '夏伊雲博士',
+    name: '管理員',
     role: 'admin',
     classIds: [],
   },
@@ -66,7 +66,7 @@ export const users: User[] = [
     id: 'u-student',
     username: 'student',
     password: 'campus',
-    name: '陳子軒',
+    name: '示範學生',
     role: 'student',
     classIds: [],
   },
@@ -92,7 +92,7 @@ function pastClassLetter(seed: number, currentName: string): string {
     const letter = form[2].toUpperCase()
     return letter === 'R' ? 'T' : letter
   }
-  const letters = CLASS_LETTERS.filter((l) => l !== 'R')
+  const letters = FORM_CLASS_ORDER.filter((l) => l !== 'R')
   return letters[seed % letters.length]
 }
 
@@ -156,9 +156,9 @@ function makeStudent(
     >
   >,
 ): Student {
-  const progress = 55 + ((seed * 17) % 40)
-  const readingScore = 50 + ((seed * 23) % 45)
-  const correctRate = 48 + ((seed * 19) % 48)
+  const progress = Math.round((8 + ((seed * 17) % 11)) * 10) / 10
+  const readingScore = Math.round((18 + ((seed * 23) % 18)) * 10) / 10
+  const correctRate = Math.round((14 + ((seed * 19) % 20)) * 10) / 10
   return {
     id,
     name,
@@ -206,7 +206,7 @@ const EXTREME_FIXTURES: {
     progress: 0,
     correctRate: 0,
     readingScore: 0,
-    notes: '極端測試：進度／答對率／閱讀皆為 0%。',
+    notes: '極端測試：CA／閱讀／寫作加權分皆為 0。',
     recentScores: [
       { label: '小測一', score: 0 },
       { label: '小測二', score: 0 },
@@ -218,10 +218,10 @@ const EXTREME_FIXTURES: {
     className: '7D',
     classNumber: 2,
     name: '測滿優秀',
-    progress: 100,
-    correctRate: 100,
-    readingScore: 100,
-    notes: '極端測試：全部指標滿分為 100%。',
+    progress: 20,
+    correctRate: 45,
+    readingScore: 40,
+    notes: '極端測試：CA／閱讀／寫作加權分皆滿分。',
     recentScores: [
       { label: '小測一', score: 100 },
       { label: '小測二', score: 100 },
@@ -233,64 +233,64 @@ const EXTREME_FIXTURES: {
     className: '7D',
     classNumber: 3,
     name: '測危急邊',
-    progress: 9,
-    correctRate: 8,
-    readingScore: 12,
-    notes: '極端測試：落在危急區上緣（<10%）。',
+    progress: 1.5,
+    correctRate: 3,
+    readingScore: 3.5,
+    notes: '極端測試：加權分極低。',
   },
   {
     className: '7L',
     classNumber: 1,
     name: '測偏弱區',
-    progress: 25,
-    correctRate: 18,
-    readingScore: 22,
-    notes: '極端測試：偏弱區（10%–40%）。',
+    progress: 6,
+    correctRate: 12,
+    readingScore: 14,
+    notes: '極端測試：加權分偏弱。',
   },
   {
     className: '7L',
     classNumber: 2,
     name: '測高進低答',
-    progress: 98,
-    correctRate: 5,
-    readingScore: 40,
-    notes: '極端測試：進度極高但答對率極低。',
+    progress: 18,
+    correctRate: 4,
+    readingScore: 28,
+    notes: '極端測試：CA 高、寫作極低。',
   },
   {
     className: '7L',
     classNumber: 3,
     name: '測低進高答',
-    progress: 4,
-    correctRate: 96,
-    readingScore: 88,
-    notes: '極端測試：進度極低但答對率極高。',
+    progress: 2,
+    correctRate: 40,
+    readingScore: 34,
+    notes: '極端測試：CA 極低、寫作／閱讀高。',
   },
   {
     className: '10S',
     classNumber: 1,
     name: '測一般區',
-    progress: 55,
-    correctRate: 52,
-    readingScore: 50,
-    notes: '極端測試：一般區中段（約 40%–70%）。',
+    progress: 12,
+    correctRate: 22,
+    readingScore: 24,
+    notes: '極端測試：加權分中段。',
   },
   {
     className: '10S',
     classNumber: 2,
     name: '測良好邊',
-    progress: 70,
-    correctRate: 71,
-    readingScore: 68,
-    notes: '極端測試：良好區下限（≥70%）。',
+    progress: 15,
+    correctRate: 30,
+    readingScore: 30,
+    notes: '極端測試：加權分良好。',
   },
   {
     className: '10S',
     classNumber: 3,
     name: '測近滿分',
-    progress: 99,
-    correctRate: 1,
-    readingScore: 99,
-    notes: '極端測試：進度近滿分、答對率近零。',
+    progress: 19,
+    correctRate: 2,
+    readingScore: 38,
+    notes: '極端測試：CA／閱讀近滿分、寫作極低。',
   },
 ]
 

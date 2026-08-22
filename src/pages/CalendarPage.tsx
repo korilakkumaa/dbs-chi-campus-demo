@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { GlassPanel } from '../components/GlassPanel'
+import { CalendarDayStatusPanel } from '../components/calendar/CalendarDayStatusPanel'
 import { DayTimetablePanel, type LessonPick } from '../components/calendar/DayTimetablePanel'
 import { QuickEventInput } from '../components/calendar/QuickEventInput'
 import {
   EVENT_KIND_META,
   eventInMonth,
+  expandIsoDateRange,
   formatEventDateLabel,
   isoDateLocal,
 } from '../data/calendarEvents'
-import { resolveTimetableTeacherId } from '../data/teacherTimetable'
+import { resolveTimetableTeacherId, listTeachersWithTimetables } from '../data/teacherTimetable'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import type { CalendarEvent, CalendarEventKind } from '../types'
@@ -58,6 +60,11 @@ function isTypingTarget(target: EventTarget | null) {
   )
 }
 
+function isoRangeInclusive(a: string, b: string): string[] {
+  if (a <= b) return expandIsoDateRange(a, b)
+  return expandIsoDateRange(b, a)
+}
+
 function EventMark({ kind }: { kind: CalendarEventKind }) {
   const meta = EVENT_KIND_META[kind]
   if (meta.mode === 'text') {
@@ -97,11 +104,23 @@ export function CalendarPage() {
     deleteCalendarEvent,
   } = useCampus()
 
-  const timetableTeacherId = resolveTimetableTeacherId(user?.id, user?.role)
-  const timetableTeacherName =
-    timetableTeacherId === 'u-yln'
-      ? '吳綺琳老師'
-      : user?.name ?? '教師'
+  const isAdmin = user?.role === 'admin'
+
+  const teachersWithTimetable = useMemo(() => listTeachersWithTimetables(), [])
+  const defaultTeacherId =
+    resolveTimetableTeacherId(user?.id, user?.role) ??
+    teachersWithTimetable[0]?.teacherId ??
+    null
+  const [timetableTeacherId, setTimetableTeacherId] = useState<string | null>(
+    defaultTeacherId,
+  )
+  const timetableTeacherName = useMemo(() => {
+    if (!timetableTeacherId) return '教師'
+    const match = teachersWithTimetable.find(
+      (t) => t.teacherId === timetableTeacherId,
+    )
+    return match ? `${match.name}老師` : '教師'
+  }, [teachersWithTimetable, timetableTeacherId])
 
   const todayIso = isoDateLocal()
   const paramDate = parseIsoDate(searchParams.get('date'))
@@ -112,6 +131,14 @@ export function CalendarPage() {
   const [selectedIso, setSelectedIso] = useState(
     paramDate ? isoDateLocal(paramDate) : todayIso,
   )
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
+  const [dragAnchor, setDragAnchor] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragMovedRef = useRef(false)
+  const dragAdditiveRef = useRef(false)
   const [pinned, setPinned] = useState(() => Boolean(paramDate))
   const [hoverIso, setHoverIso] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -218,13 +245,112 @@ export function CalendarPage() {
   }, [editingId])
 
   const previewDay = (iso: string) => {
+    if (isAdmin && (isDragging || selectedDates.size > 1)) return
     if (pinnedRef.current) return
     if (iso === selectedIso) return
     setSelectedIso(iso)
     setEditingId(null)
   }
 
+  const syncPrimaryFromSelection = (dates: Set<string>, fallback: string) => {
+    const primary =
+      dates.size > 0
+        ? Array.from(dates).sort().at(-1) ?? fallback
+        : fallback
+    setSelectedIso(primary)
+    setEditingId(null)
+    const d = parseIsoDate(primary)
+    if (d) {
+      setYear(d.getFullYear())
+      setMonthIndex(d.getMonth())
+    }
+    return primary
+  }
+
+  const applyAdminSelection = (
+    dates: Set<string>,
+    anchor: string,
+    opts?: { additive?: boolean },
+  ) => {
+    if (opts?.additive) {
+      setSelectedDates((prev) => {
+        const next = new Set(prev)
+        for (const iso of dates) {
+          if (next.has(iso)) next.delete(iso)
+          else next.add(iso)
+        }
+        syncPrimaryFromSelection(next, anchor)
+        return next
+      })
+    } else {
+      setSelectedDates(dates)
+      syncPrimaryFromSelection(dates, anchor)
+    }
+    setSelectionAnchor(anchor)
+  }
+
+  const onAdminDayMouseDown = (
+    iso: string,
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (!isAdmin || e.button !== 0) return
+    e.preventDefault()
+    dragMovedRef.current = false
+    dragAdditiveRef.current = e.metaKey || e.ctrlKey
+    setIsDragging(true)
+    setDragAnchor(iso)
+
+    if (e.shiftKey && selectionAnchor) {
+      applyAdminSelection(new Set(isoRangeInclusive(selectionAnchor, iso)), iso)
+      return
+    }
+    if (dragAdditiveRef.current) return
+    applyAdminSelection(new Set([iso]), iso)
+  }
+
+  const onAdminDayMouseEnter = (iso: string) => {
+    if (!isAdmin || !isDragging || !dragAnchor) return
+    dragMovedRef.current = true
+    applyAdminSelection(
+      new Set(isoRangeInclusive(dragAnchor, iso)),
+      iso,
+    )
+  }
+
+  const onAdminDayMouseUp = (iso: string) => {
+    if (!isAdmin || !isDragging) return
+    setIsDragging(false)
+    setDragAnchor(null)
+    if (!dragMovedRef.current && dragAdditiveRef.current) {
+      applyAdminSelection(new Set([iso]), iso, { additive: true })
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdmin) return
+    const endDrag = () => {
+      setIsDragging(false)
+      setDragAnchor(null)
+    }
+    window.addEventListener('mouseup', endDrag)
+    return () => window.removeEventListener('mouseup', endDrag)
+  }, [isAdmin])
+
   const lockDay = (iso: string) => {
+    if (isAdmin) {
+      if (dragMovedRef.current) {
+        dragMovedRef.current = false
+        return
+      }
+      if (selectedDates.size > 1) {
+        syncPrimaryFromSelection(selectedDates, iso)
+      } else {
+        applyAdminSelection(new Set([iso]), iso)
+      }
+      setPinned(true)
+      setSearchParams(iso === todayIso ? {} : { date: iso }, { replace: true })
+      return
+    }
     if (pinned && selectedIso === iso) {
       setPinned(false)
       if (hoverIso && hoverIso !== iso) setSelectedIso(hoverIso)
@@ -366,13 +492,47 @@ export function CalendarPage() {
         <div>
           <h1>詳細日曆</h1>
           <p>
-            點擊或拖選左側時段會在右側新增事件並跳到輸入欄；拖選相連課節會顯示連堂時間。
+            {isAdmin
+              ? '拖選或 Ctrl／⌘ 多選日期，於左側標記假期與上課日；點擊時段可在右側新增事件。'
+              : '點擊或拖選左側時段會在右側新增事件並跳到輸入欄；拖選相連課節會顯示連堂時間。'}
           </p>
         </div>
       </header>
 
-      <div className="detail-cal-layout reveal-up delay-1">
+      <div
+        className={`detail-cal-layout${isAdmin ? ' has-admin-panel' : ''} reveal-up delay-1`}
+      >
+        {isAdmin && (
+          <GlassPanel className="detail-cal-admin">
+            <CalendarDayStatusPanel
+              selectedDates={selectedDates}
+              onClearSelection={() => {
+                setSelectedDates(new Set())
+                setSelectionAnchor(null)
+              }}
+            />
+          </GlassPanel>
+        )}
+
         <GlassPanel className="detail-cal-timetable">
+          {teachersWithTimetable.length > 1 && (
+            <label className="detail-cal-teacher-pick">
+              <span>時間表</span>
+              <select
+                className="detail-cal-teacher-select"
+                value={timetableTeacherId ?? ''}
+                onChange={(e) =>
+                  setTimetableTeacherId(e.target.value || null)
+                }
+              >
+                {teachersWithTimetable.map((t) => (
+                  <option key={t.teacherId} value={t.teacherId}>
+                    {t.name}（{t.initial}）
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <DayTimetablePanel
             iso={selectedIso}
             teacherId={timetableTeacherId}
@@ -432,13 +592,20 @@ export function CalendarPage() {
             {cells.map((cell) => {
               const dayEvents = byDate.get(cell.iso) ?? []
               const hasHoliday = dayEvents.some((e) => e.kind === 'holiday')
+              const hasNonSchoolDay =
+                !hasHoliday &&
+                dayEvents.some((e) => e.kind === 'non-school-day')
               const hasTimetable = dayEvents.some((e) => e.kind === 'timetable')
               const isToday = cell.iso === todayIso
               const isSelected = cell.iso === selectedIso
+              const isMultiSelected =
+                isAdmin && selectedDates.has(cell.iso) && selectedDates.size > 1
+              const isInSelection = isAdmin && selectedDates.has(cell.iso)
               const isHovering = hoverIso === cell.iso
               const numClass = [
                 'detail-cal-day-num',
                 hasHoliday && cell.inMonth ? 'holiday' : '',
+                hasNonSchoolDay && cell.inMonth ? 'non-school-day' : '',
                 hasTimetable && cell.inMonth ? 'timetable' : '',
               ]
                 .filter(Boolean)
@@ -453,20 +620,27 @@ export function CalendarPage() {
                     'detail-cal-day',
                     cell.inMonth ? '' : 'out',
                     hasHoliday && cell.inMonth ? 'holiday' : '',
+                    hasNonSchoolDay && cell.inMonth ? 'non-school-day' : '',
                     isToday ? 'today' : '',
                     isSelected ? 'selected' : '',
-                    pinned && isSelected ? 'locked' : '',
+                    isInSelection ? 'in-selection' : '',
+                    isMultiSelected ? 'multi-selected' : '',
+                    pinned && isSelected && !isAdmin ? 'locked' : '',
                     pinned && isHovering && !isSelected ? 'hovering' : '',
+                    isDragging ? 'dragging' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  aria-selected={isSelected}
-                  aria-pressed={pinned && isSelected}
+                  aria-selected={isSelected || isInSelection}
+                  aria-pressed={pinned && isSelected && !isAdmin}
+                  onMouseDown={(e) => onAdminDayMouseDown(cell.iso, e)}
                   onMouseEnter={() => {
                     hoveringDayRef.current = true
                     setHoverIso(cell.iso)
+                    onAdminDayMouseEnter(cell.iso)
                     previewDay(cell.iso)
                   }}
+                  onMouseUp={() => onAdminDayMouseUp(cell.iso)}
                   onMouseLeave={() => {
                     hoveringDayRef.current = false
                     setHoverIso(null)

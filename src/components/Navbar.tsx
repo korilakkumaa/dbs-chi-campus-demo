@@ -2,12 +2,10 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import {
-  gradeLabel,
-  gradeNumberFromClassName,
-} from '../data/teacherWhitelist'
+  CAMPUS_SUBJECT_OPTIONS,
+} from '../data/campusSubjects'
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -81,208 +79,32 @@ function teacherDisplayName(name?: string, role?: string) {
   return name.endsWith('老師') ? name : `${name}老師`
 }
 
-function ClassSelectSwitch({
-  allSelected,
-  onChange,
-}: {
-  allSelected: boolean
-  onChange: (next: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      className={`class-select-switch${allSelected ? ' on' : ''}`}
-      role="switch"
-      aria-checked={allSelected}
-      aria-label={allSelected ? '清除全部班級' : '全選班級'}
-      title={allSelected ? '清除' : '全選'}
-      onClick={() => onChange(!allSelected)}
-    >
-      <span className="class-select-switch-label" aria-hidden>
-        全
-      </span>
-      <span className="class-select-switch-track" aria-hidden>
-        <span className="class-select-switch-thumb" />
-      </span>
-    </button>
-  )
-}
-
-function ClassButtons() {
-  const { user } = useAuth()
-  const { accessibleClasses, selectedClassIds, toggleClass, selectClasses } =
+function SubjectButtons() {
+  const { accessibleSubjects, selectedSubject, setSelectedSubject } =
     useCampus()
-  const [expandedGrade, setExpandedGrade] = useState<number | null>(null)
-  const [panelGrade, setPanelGrade] = useState<number | null>(null)
-  const [panelOpen, setPanelOpen] = useState(false)
-  const closeTimerRef = useRef<number | null>(null)
 
-  const grades = useMemo(() => {
-    const map = new Map<number, typeof accessibleClasses>()
-    for (const cls of accessibleClasses) {
-      const g = gradeNumberFromClassName(cls.name)
-      if (g == null) continue
-      const list = map.get(g)
-      if (list) list.push(cls)
-      else map.set(g, [cls])
-    }
-    return [...map.entries()].sort((a, b) => a[0] - b[0])
-  }, [accessibleClasses])
-
-  const panelClasses =
-    panelGrade == null
-      ? []
-      : (grades.find(([g]) => g === panelGrade)?.[1] ?? [])
-  const panelGradeLabel = panelGrade == null ? '' : gradeLabel(panelGrade)
-
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current != null) {
-      window.clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
-    }
-  }
-
-  const openGradePanel = (grade: number, classIds: string[]) => {
-    clearCloseTimer()
-    setExpandedGrade(grade)
-    setPanelGrade(grade)
-    selectClasses(classIds)
-    window.requestAnimationFrame(() => setPanelOpen(true))
-  }
-
-  const closeGradePanel = () => {
-    setExpandedGrade(null)
-    setPanelOpen(false)
-    clearCloseTimer()
-    closeTimerRef.current = window.setTimeout(() => {
-      setPanelGrade(null)
-      closeTimerRef.current = null
-    }, 280)
-  }
-
-  useEffect(() => {
-    setExpandedGrade(null)
-    setPanelGrade(null)
-    setPanelOpen(false)
-    clearCloseTimer()
-  }, [user?.id])
-
-  useEffect(() => {
-    return () => clearCloseTimer()
-  }, [])
-
-  if (accessibleClasses.length === 0) {
-    return <p className="empty-note">尚未獲分配班級。</p>
-  }
-
-  /* Admin sees every class — collapse behind grade buttons first. */
-  if (user?.role === 'admin') {
-    return (
-      <div className="class-picker" role="group" aria-label="選擇班級">
-        <div className="class-buttons grade-buttons" role="group" aria-label="選擇級別">
-          {grades.map(([grade, classesInGrade]) => {
-            const expanded = expandedGrade === grade
-            const gradeIds = classesInGrade.map((c) => c.id)
-            const allSelected = gradeIds.every((id) =>
-              selectedClassIds.includes(id),
-            )
-            const anySelected = gradeIds.some((id) =>
-              selectedClassIds.includes(id),
-            )
-            return (
-              <button
-                key={grade}
-                type="button"
-                className={`class-btn grade-btn${expanded ? ' expanded' : ''}${allSelected ? ' selected' : anySelected ? ' partial' : ''}`}
-                aria-pressed={allSelected}
-                aria-expanded={expanded}
-                onClick={() => {
-                  if (expanded) {
-                    closeGradePanel()
-                    return
-                  }
-                  openGradePanel(grade, gradeIds)
-                }}
-              >
-                <span>{gradeLabel(grade)}</span>
-              </button>
-            )
-          })}
-        </div>
-        <div
-          className={`class-picker-dropdown${panelOpen ? ' open' : ''}`}
-          aria-hidden={!panelOpen}
-        >
-          <div className="class-picker-dropdown-inner">
-            {panelClasses.length > 0 && (
-              <div className="class-buttons-bar">
-                <div
-                  className="class-buttons class-buttons-row"
-                  role="group"
-                  aria-label={`${panelGradeLabel} 班級`}
-                >
-                  {panelClasses.map((cls) => {
-                    const on = selectedClassIds.includes(cls.id)
-                    return (
-                      <button
-                        key={cls.id}
-                        type="button"
-                        className={`class-btn${on ? ' selected' : ''}`}
-                        aria-pressed={on}
-                        onClick={() => toggleClass(cls.id)}
-                      >
-                        <span>{cls.name}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <ClassSelectSwitch
-                  allSelected={panelClasses.every((c) =>
-                    selectedClassIds.includes(c.id),
-                  )}
-                  onChange={(next) =>
-                    selectClasses(
-                      next ? panelClasses.map((c) => c.id) : [],
-                    )
-                  }
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )
+  if (accessibleSubjects.length === 0) {
+    return <p className="empty-note">尚未獲分配科目。</p>
   }
 
   return (
-    <div className="class-buttons-bar">
-      <div className="class-buttons" role="group" aria-label="選擇班級">
-        {accessibleClasses.map((cls) => {
-          const on = selectedClassIds.includes(cls.id)
-          return (
-            <button
-              key={cls.id}
-              type="button"
-              className={`class-btn${on ? ' selected' : ''}`}
-              aria-pressed={on}
-              onClick={() => toggleClass(cls.id)}
-            >
-              <span>{cls.name}</span>
-            </button>
-          )
-        })}
-      </div>
-      <ClassSelectSwitch
-        allSelected={
-          accessibleClasses.length > 0 &&
-          accessibleClasses.every((c) => selectedClassIds.includes(c.id))
-        }
-        onChange={(next) =>
-          selectClasses(
-            next ? accessibleClasses.map((c) => c.id) : [],
-          )
-        }
-      />
+    <div className="subject-buttons" role="group" aria-label="選擇科目">
+      {CAMPUS_SUBJECT_OPTIONS.filter((opt) =>
+        accessibleSubjects.includes(opt.id),
+      ).map((opt) => {
+        const on = selectedSubject === opt.id
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            className={`class-btn subject-btn${on ? ' selected' : ''}`}
+            aria-pressed={on}
+            onClick={() => setSelectedSubject(opt.id)}
+          >
+            <span>{opt.label}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -566,7 +388,7 @@ function StaffNavbar({
       </div>
 
       <div className="nav-user">
-        <ClassButtons />
+        <SubjectButtons />
         <LogoutButton onClick={logout} />
       </div>
     </nav>

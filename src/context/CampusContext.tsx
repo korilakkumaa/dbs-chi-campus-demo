@@ -13,6 +13,7 @@ import {
   newCalendarEventId,
   saveCalendarEvents,
 } from '../data/calendarEvents'
+import { academicYearStartFromIso } from '../data/academicYear'
 import {
   classes as seedClasses,
   seedGradeDeadlines,
@@ -23,6 +24,12 @@ import {
   fetchCampusClassesFromSupabase,
   fetchCampusStudentsFromSupabase,
 } from '../data/supabaseStudents'
+import {
+  classIdsForSubject,
+  isEcClassName,
+  subjectsForUser,
+  type CampusSubject,
+} from '../data/campusSubjects'
 import { gradeNumberFromClassName } from '../data/teacherWhitelist'
 import { supabaseConfigured } from '../lib/supabase'
 import type {
@@ -45,6 +52,10 @@ interface CampusContextValue {
   /** Set when Supabase fetch fails; mock seed may still be shown. */
   campusDataError: string | null
   accessibleClasses: SchoolClass[]
+  /** Subject filter in the nav bar (中文 / EC / 中史 / PTH). */
+  selectedSubject: CampusSubject
+  setSelectedSubject: (subject: CampusSubject) => void
+  accessibleSubjects: CampusSubject[]
   selectedClassIds: string[]
   toggleClass: (classId: string) => void
   selectClasses: (classIds: string[]) => void
@@ -74,7 +85,7 @@ interface CampusContextValue {
   /** Deadlines for grades covered by currently selected classes. */
   relevantDeadlines: GradeDeadline[]
   taughtGradeNumbers: number[]
-  /** Events visible to the signed-in user. */
+  /** All events visible to the signed-in user (continuous across school years). */
   calendarEvents: CalendarEvent[]
   addCalendarEvent: (input: {
     date: string
@@ -107,31 +118,43 @@ const CampusContext: Context<CampusContextValue | null> =
     | undefined) ?? createContext<CampusContextValue | null>(null)
 ;(globalThis as Record<string, unknown>)[globalKey] = CampusContext
 
-const SELECTED_CLASSES_KEY = 'campus-cms-selected-classes'
+const SELECTED_SUBJECT_KEY = 'campus-cms-selected-subject'
 
-function loadSelectedClassIds(userId: string): string[] | null {
+function loadSelectedSubject(userId: string): CampusSubject | null {
   try {
-    const raw = localStorage.getItem(SELECTED_CLASSES_KEY)
+    const raw = localStorage.getItem(SELECTED_SUBJECT_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as Record<string, string[]>
-    const ids = parsed[userId]
-    return Array.isArray(ids) ? ids : null
+    const parsed = JSON.parse(raw) as Record<string, CampusSubject>
+    const subject = parsed[userId]
+    if (
+      subject === 'CHIN' ||
+      subject === 'EC' ||
+      subject === 'CHIS' ||
+      subject === 'PTH'
+    ) {
+      return subject
+    }
+    return null
   } catch {
     return null
   }
 }
 
-function saveSelectedClassIds(userId: string, ids: string[]) {
+function saveSelectedSubject(userId: string, subject: CampusSubject) {
   try {
-    const raw = localStorage.getItem(SELECTED_CLASSES_KEY)
+    const raw = localStorage.getItem(SELECTED_SUBJECT_KEY)
     const parsed = raw
-      ? (JSON.parse(raw) as Record<string, string[]>)
+      ? (JSON.parse(raw) as Record<string, CampusSubject>)
       : {}
-    parsed[userId] = ids
-    localStorage.setItem(SELECTED_CLASSES_KEY, JSON.stringify(parsed))
+    parsed[userId] = subject
+    localStorage.setItem(SELECTED_SUBJECT_KEY, JSON.stringify(parsed))
   } catch {
     /* ignore quota / private mode */
   }
+}
+
+function schoolYearStartFromIso(iso: string): number {
+  return academicYearStartFromIso(iso)
 }
 
 function eventVisibleToUser(
@@ -157,6 +180,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   const [campusDataLoading, setCampusDataLoading] = useState(supabaseConfigured)
   const [campusDataError, setCampusDataError] = useState<string | null>(null)
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
+  const [selectedSubject, setSelectedSubjectState] =
+    useState<CampusSubject>('CHIN')
   const [searchQuery, setSearchQuery] = useState('')
   const [gradeDeadlines, setGradeDeadlines] =
     useState<GradeDeadline[]>(seedGradeDeadlines)
@@ -193,13 +218,19 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         if (remoteClasses.length > 0) {
           setClasses((prev) => {
             const byId = new Map(prev.map((c) => [c.id, c]))
-            return remoteClasses.map((c) => {
+            const remoteIds = new Set(remoteClasses.map((c) => c.id))
+            const merged = remoteClasses.map((c) => {
               const existing = byId.get(c.id)
               return {
                 ...c,
                 teacherId: existing?.teacherId ?? c.teacherId,
               }
             })
+            // Supabase roster has form classes only — keep EC rows from seed.
+            const ecFromSeed = prev.filter(
+              (c) => isEcClassName(c.name) && !remoteIds.has(c.id),
+            )
+            return [...merged, ...ecFromSeed]
           })
         }
         if (remoteStudents.length > 0) {
@@ -230,48 +261,64 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     )
   }, [user, classes])
 
+  const accessibleSubjects = useMemo(
+    () => subjectsForUser(user, accessibleClasses, classes),
+    [user, accessibleClasses, classes],
+  )
+
   const accessibleIdKey = accessibleClasses.map((c) => c.id).join('|')
+  const accessibleSubjectsKey = accessibleSubjects.join('|')
 
   useEffect(() => {
     if (!user) {
       setSelectedClassIds([])
+      setSelectedSubjectState('CHIN')
       setSelectionReady(false)
       return
     }
-    const accessibleIds = accessibleClasses.map((c) => c.id)
-    const saved = loadSelectedClassIds(user.id)
-    if (saved === null) {
-      setSelectedClassIds(accessibleIds)
-    } else if (saved.length === 0) {
-      setSelectedClassIds([])
-    } else {
-      const valid = saved.filter((id) => accessibleIds.includes(id))
-      setSelectedClassIds(valid.length > 0 ? valid : accessibleIds)
-    }
+    const saved = loadSelectedSubject(user.id)
+    const pick =
+      saved && accessibleSubjects.includes(saved)
+        ? saved
+        : (accessibleSubjects[0] ?? 'CHIN')
+    setSelectedSubjectState(pick)
     setSelectionReady(true)
     // Only re-hydrate when the signed-in user changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- accessible list handled below
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subject list handled below
   }, [user?.id])
 
   useEffect(() => {
     if (!user || !selectionReady) return
-    const accessibleIds = new Set(accessibleClasses.map((c) => c.id))
-    setSelectedClassIds((prev) => {
-      const next = prev.filter((id) => accessibleIds.has(id))
-      if (prev.length > 0 && next.length === 0 && accessibleClasses.length > 0) {
-        return accessibleClasses.map((c) => c.id)
-      }
-      if (next.length === prev.length && next.every((id, i) => id === prev[i])) {
-        return prev
-      }
-      return next
-    })
-  }, [accessibleIdKey, user?.id, selectionReady, accessibleClasses])
+    if (
+      accessibleSubjects.length > 0 &&
+      !accessibleSubjects.includes(selectedSubject)
+    ) {
+      setSelectedSubjectState(accessibleSubjects[0])
+    }
+  }, [accessibleSubjectsKey, user?.id, selectionReady, accessibleSubjects, selectedSubject])
 
   useEffect(() => {
     if (!user || !selectionReady) return
-    saveSelectedClassIds(user.id, selectedClassIds)
-  }, [user, selectionReady, selectedClassIds])
+    const ids = classIdsForSubject(
+      selectedSubject,
+      user,
+      accessibleClasses,
+      classes,
+    )
+    setSelectedClassIds(ids)
+  }, [
+    selectedSubject,
+    user,
+    accessibleClasses,
+    classes,
+    selectionReady,
+    accessibleIdKey,
+  ])
+
+  useEffect(() => {
+    if (!user || !selectionReady) return
+    saveSelectedSubject(user.id, selectedSubject)
+  }, [user, selectionReady, selectedSubject])
 
   useEffect(() => {
     saveCalendarEvents(allCalendarEvents)
@@ -341,7 +388,11 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     if (!user) return []
     return allCalendarEvents
       .filter((e) => eventVisibleToUser(e, user, visibilityGradeNumbers))
-      .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, 'zh-Hant'))
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) ||
+          a.title.localeCompare(b.title, 'zh-Hant'),
+      )
   }, [allCalendarEvents, user, visibilityGradeNumbers])
 
   const getTeachersForClass = (classId: string): User[] => {
@@ -373,6 +424,9 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       campusDataLoading,
       campusDataError,
       accessibleClasses,
+      selectedSubject,
+      setSelectedSubject: setSelectedSubjectState,
+      accessibleSubjects,
       selectedClassIds,
       toggleClass: (classId) => {
         setSelectedClassIds((prev) =>
@@ -382,8 +436,17 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         )
       },
       selectClasses: (classIds) => setSelectedClassIds(classIds),
-      selectAllAccessible: () =>
-        setSelectedClassIds(accessibleClasses.map((c) => c.id)),
+      selectAllAccessible: () => {
+        if (!user) return
+        setSelectedClassIds(
+          classIdsForSubject(
+            selectedSubject,
+            user,
+            accessibleClasses,
+            classes,
+          ),
+        )
+      },
       clearSelection: () => setSelectedClassIds([]),
       searchQuery,
       setSearchQuery,
@@ -442,6 +505,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           date,
           title: trimmed,
           kind,
+          schoolYearStart: schoolYearStartFromIso(date),
           createdBy: user.id,
           audience:
             audience ??
@@ -491,6 +555,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           date: d,
           title: trimmed,
           kind,
+          schoolYearStart: schoolYearStartFromIso(d),
           createdBy: user.id,
           audience,
         }))
@@ -503,6 +568,8 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       students,
       teachers,
       accessibleClasses,
+      selectedSubject,
+      accessibleSubjects,
       selectedClassIds,
       searchQuery,
       filteredStudents,

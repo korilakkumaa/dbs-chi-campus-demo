@@ -54,9 +54,9 @@ export function ReadingPage() {
 
       <GlassPanel className="reading-hero-metric reveal-up delay-1">
         <p className="metric-label">班級閱讀平均</p>
-        <p className="metric-value xl">{avg}%</p>
+        <p className="metric-value xl">{avg}</p>
         <div className="reading-track" aria-hidden>
-          <span style={{ width: `${avg}%` }} />
+          <span style={{ width: `${Math.min(100, (avg / 40) * 100)}%` }} />
         </div>
       </GlassPanel>
 
@@ -107,12 +107,14 @@ export function ReadingPage() {
                     {getClassName(s.classId)}
                     {String(s.classNumber).padStart(2, '0')}
                   </td>
-                  <td>{s.readingScore}%</td>
+                  <td>{s.readingScore}</td>
                   <td>
                     <div className="inline-meter reading">
                       <span
                         className="inline-fill"
-                        style={{ width: `${s.readingScore}%` }}
+                        style={{
+                          width: `${Math.min(100, (s.readingScore / 40) * 100)}%`,
+                        }}
                       />
                     </div>
                   </td>

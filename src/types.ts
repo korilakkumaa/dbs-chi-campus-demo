@@ -21,6 +21,8 @@ export interface Student {
   name: string
   classId: string
   classNumber: number
+  /** Chinese teaching stream, e.g. 7R-LWT for remedial pulled from 7A/7L. */
+  teachingGroup?: string
   progress: number
   readingScore: number
   correctRate: number
@@ -83,6 +85,8 @@ export interface CalendarEvent {
   kind: CalendarEventKind
   createdBy: string
   audience: CalendarAudience
+  /** Which academic year this event belongs to (e.g. 2025 → 2025/26). */
+  schoolYearStart?: number
   /** Optional lesson tags from personal timetable (class / subject / time). */
   lesson?: {
     group: string

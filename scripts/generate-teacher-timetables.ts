@@ -157,7 +157,7 @@ function main() {
     "  label: '2026/27',",
     "  validFrom: '2026-09-01',",
     "  validTo: '2027-08-31',",
-    "  teachingUntil: '2027-06-30',",
+    "  teachingUntil: '2027-07-12',",
     '} as const',
     '',
     'function L(start: string, end: string, subject: string, group: string, room: string): DayPeriod {',

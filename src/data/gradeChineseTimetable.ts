@@ -2,6 +2,8 @@ import {
   formClassLetterRank,
   teacherWhitelist,
 } from './teacherWhitelist'
+import { formatAcademicYearLabel, academicYearStartFromIso } from './academicYear'
+import { isoDateLocal } from './calendarEvents'
 import {
   TEACHER_WEEKLY_TIMETABLES,
   type SchoolWeekday,
@@ -76,7 +78,7 @@ export function isChinSubject(subject: string): boolean {
   return subject.trim().toUpperCase().startsWith('CHIN')
 }
 
-function splitGroupTokens(group: string): string[] {
+export function splitGroupTokens(group: string): string[] {
   return group
     .split(/[,/]/)
     .map((s) => s.replace(/\s+/g, ' ').trim())
@@ -350,6 +352,5 @@ export function listCommonFreeSlots(grade: GradeLevel): GradeSlotCell[] {
 }
 
 export function academicYearLabelForGradeTimetable(): string {
-  const first = Object.values(TEACHER_WEEKLY_TIMETABLES)[0]
-  return first?.academicYear.label ?? '2026/27'
+  return formatAcademicYearLabel(academicYearStartFromIso(isoDateLocal()))
 }

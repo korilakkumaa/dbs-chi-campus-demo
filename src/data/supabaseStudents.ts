@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SemesterScores, Student, YearRecord } from '../types'
 import { supabase } from '../lib/supabase'
 
@@ -27,8 +28,35 @@ type SemesterRow = {
   remarks: string | null
 }
 
+/** PostgREST defaults to max 1000 rows — page until exhausted. */
+const PAGE_SIZE = 1000
+
+async function fetchAllRows<T>(
+  buildPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[] | null; error: string | null }> {
+  const all: T[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1
+    const { data, error } = await buildPage(from, to)
+    if (error) return { data: null, error: error.message }
+    const page = data ?? []
+    all.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
+  return { data: all, error: null }
+}
+
 function roundScore(n: number): number {
   return Math.round(Math.min(100, Math.max(0, n)))
+}
+
+/** Excel weighted contribution (CA≤20, reading≤40, writing≤45). */
+function roundWeighted(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.round(Math.max(0, n) * 10) / 10
 }
 
 function recentFromComponents(
@@ -39,7 +67,10 @@ function recentFromComponents(
     { match: (k) => k.includes('測驗') || k.includes('統測'), label: '測驗' },
     { match: (k) => k.includes('卷一'), label: '卷一' },
     { match: (k) => k.includes('卷二'), label: '卷二' },
-    { match: (k) => k.includes('作文（一）') || k.includes('作文 (一)'), label: '作文一' },
+    {
+      match: (k) => k.includes('作文（一）') || k.includes('作文 (一)'),
+      label: '作文一',
+    },
   ]
   const out: { label: string; score: number }[] = []
   for (const w of wanted) {
@@ -57,6 +88,80 @@ function recentFromComponents(
   return out.slice(0, 4)
 }
 
+function componentNumber(
+  components: Record<string, number | string> | null | undefined,
+  keys: string[],
+): number | null {
+  if (!components) return null
+  const entries = Object.entries(components)
+  for (const want of keys) {
+    const wantNorm = want.toLowerCase()
+    for (const [k, v] of entries) {
+      if (k.toLowerCase() !== wantNorm) continue
+      const n = typeof v === 'number' ? v : Number(v)
+      if (Number.isFinite(n)) return n
+    }
+  }
+  return null
+}
+
+/**
+ * Build 0–100 raw scores for yearScoring.
+ * Prefer Excel summary fields (weighted contributions) and convert to raw;
+ * fall back to daily/reading/writing columns.
+ */
+function scoresFromSemesterRow(r: SemesterRow): SemesterScores {
+  const weighted = weightedScoresFromSemesterRow(r)
+  return {
+    daily: roundScore((weighted.daily / 20) * 100),
+    reading: roundScore((weighted.reading / 40) * 100),
+    writing: roundScore((weighted.writing / 45) * 100),
+  }
+}
+
+/**
+ * Excel semester weighted contributions (out of 20 / 40 / 45).
+ * Prefer summary fields; reading/writing columns are already contributions.
+ */
+function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
+  const ca = componentNumber(r.components, [
+    'class assignments score',
+    'c.a%',
+    'ca分 %',
+    'ca分%',
+  ])
+  const readingContrib = componentNumber(r.components, [
+    'reading score',
+    '卷一 %',
+    '卷一%',
+  ])
+  const writingContrib = componentNumber(r.components, [
+    'writing score',
+    '卷二 %',
+    '卷二%',
+  ])
+
+  if (ca != null && readingContrib != null && writingContrib != null) {
+    return {
+      daily: roundWeighted(ca),
+      reading: roundWeighted(readingContrib),
+      writing: roundWeighted(writingContrib),
+    }
+  }
+
+  const colDaily = Number(r.daily)
+  const colReading = Number(r.reading)
+  const colWriting = Number(r.writing)
+  // Import stores reading/writing as contributions; daily is a 0–100 estimate.
+  return {
+    daily: roundWeighted(
+      ca ?? (colDaily > 20 ? (colDaily / 100) * 20 : colDaily),
+    ),
+    reading: roundWeighted(readingContrib ?? colReading),
+    writing: roundWeighted(writingContrib ?? colWriting),
+  }
+}
+
 function buildYearHistory(
   studentNo: string,
   className: string,
@@ -70,11 +175,7 @@ function buildYearHistory(
   for (const r of records) {
     if (r.student_no !== studentNo) continue
     const slot = byGrade.get(r.grade) ?? {}
-    const scores: SemesterScores = {
-      daily: roundScore(Number(r.daily)),
-      reading: roundScore(Number(r.reading)),
-      writing: roundScore(Number(r.writing)),
-    }
+    const scores = scoresFromSemesterRow(r)
     if (r.semester === 'first') slot.first = scores
     else slot.second = scores
     byGrade.set(r.grade, slot)
@@ -93,60 +194,74 @@ function buildYearHistory(
 
 export async function fetchCampusStudentsFromSupabase(): Promise<Student[] | null> {
   if (!supabase) return null
+  const client: SupabaseClient = supabase
 
-  const { data: studentRows, error: studentError } = await supabase
-    .from('students')
-    .select(
-      'student_no, class_id, class_number, name_zh, name_en, teaching_group, academic_year_start, house, french, roster_remarks',
+  const { data: studentRows, error: studentError } =
+    await fetchAllRows<StudentRow>((from, to) =>
+      client
+        .from('students')
+        .select(
+          'student_no, class_id, class_number, name_zh, name_en, teaching_group, academic_year_start, house, french, roster_remarks',
+        )
+        .eq('academic_year_start', 2025)
+        .order('class_id')
+        .order('class_number')
+        .range(from, to),
     )
-    .eq('academic_year_start', 2025)
-    .order('class_id')
-    .order('class_number')
 
   if (studentError) {
-    console.error('Supabase students:', studentError.message)
+    console.error('Supabase students:', studentError)
     return null
   }
   if (!studentRows?.length) return []
 
-  const { data: classRows } = await supabase.from('classes').select('id, name')
+  const { data: classRows } = await client.from('classes').select('id, name')
   const classNameById = new Map(
     (classRows ?? []).map((c: { id: string; name: string }) => [c.id, c.name]),
   )
 
-  const { data: semesterRows, error: semesterError } = await supabase
-    .from('semester_records')
-    .select(
-      'student_no, academic_year_start, grade, semester, daily, reading, writing, components, attitude_grade, remarks',
+  const { data: semesterRows, error: semesterError } =
+    await fetchAllRows<SemesterRow>((from, to) =>
+      client
+        .from('semester_records')
+        .select(
+          'student_no, academic_year_start, grade, semester, daily, reading, writing, components, attitude_grade, remarks',
+        )
+        .eq('academic_year_start', 2025)
+        .order('student_no')
+        .order('grade')
+        .order('semester')
+        .range(from, to),
     )
-    .eq('academic_year_start', 2025)
 
   if (semesterError) {
-    console.error('Supabase semester_records:', semesterError.message)
+    console.error('Supabase semester_records:', semesterError)
     return null
   }
 
   const byStudent = new Map<string, SemesterRow[]>()
-  for (const row of (semesterRows ?? []) as SemesterRow[]) {
+  for (const row of semesterRows ?? []) {
     const list = byStudent.get(row.student_no) ?? []
     list.push(row)
     byStudent.set(row.student_no, list)
   }
 
-  return (studentRows as StudentRow[]).map((s) => {
+  return studentRows.map((s) => {
     const className = classNameById.get(s.class_id) ?? s.class_id
     const records = byStudent.get(s.student_no) ?? []
     const yearHistory = buildYearHistory(s.student_no, className, records)
-    const latest =
+    const latestRow =
       records.find((r) => r.semester === 'second') ??
       records.find((r) => r.semester === 'first')
-    const readingScore = roundScore(Number(latest?.reading ?? 0))
-    const writingScore = roundScore(Number(latest?.writing ?? 0))
-    const dailyScore = roundScore(Number(latest?.daily ?? 0))
-    const progress = roundScore((dailyScore + readingScore + writingScore) / 3)
+    const latestScores = latestRow
+      ? weightedScoresFromSemesterRow(latestRow)
+      : { daily: 0, reading: 0, writing: 0 }
+    const readingScore = latestScores.reading
+    const writingScore = latestScores.writing
+    const dailyScore = latestScores.daily
 
     const noteParts = [
-      latest?.remarks?.trim(),
+      latestRow?.remarks?.trim(),
       s.roster_remarks?.trim(),
       s.house ? `House: ${s.house}` : '',
     ].filter(Boolean)
@@ -156,10 +271,11 @@ export async function fetchCampusStudentsFromSupabase(): Promise<Student[] | nul
       name: s.name_zh,
       classId: s.class_id,
       classNumber: s.class_number,
-      progress,
+      teachingGroup: s.teaching_group || undefined,
+      progress: dailyScore,
       readingScore,
       correctRate: writingScore,
-      recentScores: recentFromComponents(latest?.components ?? null),
+      recentScores: recentFromComponents(latestRow?.components ?? null),
       yearHistory,
       strengths: [],
       notes: noteParts.join(' · '),

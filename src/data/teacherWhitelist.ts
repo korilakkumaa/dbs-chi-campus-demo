@@ -63,7 +63,9 @@ export const GRADE_LEVELS = [7, 8, 9, 10, 11, 12] as const
 
 /**
  * School form-class letter order (EC listed after form classes when shown).
- * R appears only in some junior grades.
+ * Grades 7–9: ten form classes (D→T); R is the Chinese remedial stream
+ * (補底班) — students are drawn from A and L after the placement test.
+ * Grades 10–12: nine form classes (no R).
  */
 export const FORM_CLASS_ORDER = [
   'D',
@@ -83,4 +85,49 @@ export function formClassLetterRank(letter: string): number {
     letter.toUpperCase() as (typeof FORM_CLASS_ORDER)[number],
   )
   return i === -1 ? FORM_CLASS_ORDER.length + letter.charCodeAt(0) : i
+}
+
+/** True for form classes like 7R (Chinese remedial / 補底班). */
+export function isRemedialFormClass(name: string): boolean {
+  return /^(\d+)R$/i.test(name)
+}
+
+/** R-class subtitle for class cards (e.g. 7R → 補底班 · 7A、7L). */
+export function remedialClassNote(name: string): string | null {
+  const m = name.match(/^(\d+)R$/i)
+  if (!m) return null
+  return `補底班 · ${m[1]}A、${m[1]}L`
+}
+
+type RosterStudent = { classId: string; teachingGroup?: string }
+
+/**
+ * Chinese-teaching roster: R streams use teaching_group (e.g. 7R-LWT);
+ * A/L exclude students assigned to that grade's R stream.
+ */
+export function rosterForChineseClass<T extends RosterStudent>(
+  classId: string,
+  className: string,
+  students: T[],
+): T[] {
+  const grade = gradeNumberFromClassName(className)
+  const letter = className.slice(-1).toUpperCase()
+  if (grade != null && letter === 'R') {
+    const prefix = `${grade}R`
+    return students.filter((s) =>
+      s.teachingGroup?.toUpperCase().startsWith(prefix),
+    )
+  }
+  return students.filter((s) => {
+    if (s.classId !== classId) return false
+    if (grade == null) return true
+    const tg = s.teachingGroup?.toUpperCase() ?? ''
+    if (
+      (letter === 'A' || letter === 'L') &&
+      tg.startsWith(`${grade}R`)
+    ) {
+      return false
+    }
+    return true
+  })
 }

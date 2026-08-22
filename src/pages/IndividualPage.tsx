@@ -20,10 +20,25 @@ import {
 } from '../data/yearScoring'
 import type { Student, YearRecord } from '../types'
 
-type SortKey = 'className' | 'classNumber' | 'progress' | 'correctRate'
+type SortKey =
+  | 'className'
+  | 'classNumber'
+  | 'progress'
+  | 'readingScore'
+  | 'correctRate'
+  | 'totalScore'
 type SortDir = 'asc' | 'desc'
 
 const ROSTER_GRADE_OPTIONS = [7, 8, 9, 10, 11, 12] as const
+
+/** CA + 閱讀 + 寫作加權分（與 Excel 總分一致）。 */
+function weightedTotal(s: Pick<Student, 'progress' | 'readingScore' | 'correctRate'>): number {
+  return Math.round((s.progress + s.readingScore + s.correctRate) * 10) / 10
+}
+
+function formatScore(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
 
 function YearHistoryCharts({
   records,
@@ -224,22 +239,25 @@ function StudentFileCard({
             </div>
           </dl>
         </div>
-        <div className="file-score">
-          <span>{student.progress}%</span>
-          <small>平時分</small>
-        </div>
+        <dl className="file-stats file-stats-inline">
+          <div>
+            <dt>CA</dt>
+            <dd>{formatScore(student.progress)}</dd>
+          </div>
+          <div>
+            <dt>閱讀</dt>
+            <dd>{formatScore(student.readingScore)}</dd>
+          </div>
+          <div>
+            <dt>寫作</dt>
+            <dd>{formatScore(student.correctRate)}</dd>
+          </div>
+          <div>
+            <dt>總分</dt>
+            <dd>{formatScore(weightedTotal(student))}</dd>
+          </div>
+        </dl>
       </div>
-
-      <dl className="file-stats">
-        <div>
-          <dt>閱讀</dt>
-          <dd>{student.readingScore}%</dd>
-        </div>
-        <div>
-          <dt>寫作</dt>
-          <dd>{student.correctRate}%</dd>
-        </div>
-      </dl>
 
       <section className="file-section">
         <div className="file-section-head">
@@ -390,6 +408,8 @@ export function IndividualPage() {
         )
       } else if (sortKey === 'classNumber') {
         cmp = a.classNumber - b.classNumber
+      } else if (sortKey === 'totalScore') {
+        cmp = weightedTotal(a) - weightedTotal(b)
       } else {
         cmp = a[sortKey] - b[sortKey]
       }
@@ -574,8 +594,18 @@ export function IndividualPage() {
               <div className="roster-col metric" role="columnheader">
                 <SortHeader
                   as="div"
-                  label="平時分"
+                  label="CA"
                   column="progress"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={onSort}
+                />
+              </div>
+              <div className="roster-col metric" role="columnheader">
+                <SortHeader
+                  as="div"
+                  label="閱讀"
+                  column="readingScore"
                   activeKey={sortKey}
                   dir={sortDir}
                   onSort={onSort}
@@ -586,6 +616,16 @@ export function IndividualPage() {
                   as="div"
                   label="寫作"
                   column="correctRate"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={onSort}
+                />
+              </div>
+              <div className="roster-col metric total" role="columnheader">
+                <SortHeader
+                  as="div"
+                  label="總分"
+                  column="totalScore"
                   activeKey={sortKey}
                   dir={sortDir}
                   onSort={onSort}
@@ -615,8 +655,18 @@ export function IndividualPage() {
                         {String(s.classNumber).padStart(2, '0')}
                       </span>
                       <span className="roster-col name">{s.name}</span>
-                      <span className="roster-col metric">{s.progress}%</span>
-                      <span className="roster-col metric">{s.correctRate}%</span>
+                      <span className="roster-col metric">
+                        {formatScore(s.progress)}
+                      </span>
+                      <span className="roster-col metric">
+                        {formatScore(s.readingScore)}
+                      </span>
+                      <span className="roster-col metric">
+                        {formatScore(s.correctRate)}
+                      </span>
+                      <span className="roster-col metric total">
+                        {formatScore(weightedTotal(s))}
+                      </span>
                     </label>
                   </li>
                 )

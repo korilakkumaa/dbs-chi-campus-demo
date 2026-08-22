@@ -18,15 +18,19 @@ export function academicYearStartYear(date = new Date()): number {
   return date.getMonth() >= 8 ? date.getFullYear() : date.getFullYear() - 1
 }
 
-/**
- * Newest academic year offered as the default.
- * Follows the Sep-1 calendar rule, and never older than the latest
- * published year in the product (currently 2026/27).
- */
-const LATEST_PUBLISHED_START_YEAR = 2026
+/** Academic year start year for an ISO date (YYYY-MM-DD). */
+export function academicYearStartFromIso(iso: string): number {
+  const parts = iso.split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    return academicYearStartYear()
+  }
+  const [y, m, d] = parts
+  return academicYearStartYear(new Date(y, m - 1, d))
+}
 
+/** Default academic year for `date` (pure calendar rule, no floor). */
 export function defaultAcademicYearStart(date = new Date()): number {
-  return Math.max(academicYearStartYear(date), LATEST_PUBLISHED_START_YEAR)
+  return academicYearStartYear(date)
 }
 
 export function toAcademicYear(startYear: number): AcademicYear {
@@ -37,13 +41,12 @@ export function toAcademicYear(startYear: number): AcademicYear {
 }
 
 /**
- * Selectable years: newest first, from the default/latest down a few years.
+ * Selectable years: current academic year first, then nearby years.
  */
 export function listAcademicYearStarts(date = new Date()): number[] {
-  const latest = defaultAcademicYearStart(date)
-  const min = latest - 4
+  const current = academicYearStartYear(date)
   const years: number[] = []
-  for (let y = latest; y >= min; y--) years.push(y)
+  for (let y = current + 1; y >= current - 4; y--) years.push(y)
   return years
 }
 
