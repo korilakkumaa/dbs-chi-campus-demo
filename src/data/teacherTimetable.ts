@@ -260,6 +260,21 @@ export function hasTimetableForSchoolYear(startYear: number): boolean {
   return map != null && Object.keys(map).length > 0
 }
 
+/** Academic years with imported weekly timetables (newest first). */
+export function listTimetableAcademicYearStarts(): number[] {
+  return Object.keys(TIMETABLES_BY_YEAR)
+    .map(Number)
+    .filter((y) => hasTimetableForSchoolYear(y))
+    .sort((a, b) => b - a)
+}
+
+/** All imported teacher grids for one academic year. */
+export function weeklyTimetablesForYear(
+  startYear: number,
+): Record<string, TeacherTimetableEntry> {
+  return TIMETABLES_BY_YEAR[startYear] ?? {}
+}
+
 /**
  * Default week for the personal timetable view.
  * Before 1 Sep, open the upcoming year's first school week when it has fuller imports.
@@ -291,6 +306,8 @@ export function timetableViewStartYear(weekMonday: string): number {
 }
 
 /** Default export: 2026/27 grids (used by grade distribution views). */
+export const DEFAULT_TIMETABLE_ACADEMIC_YEAR_START = 2026
+
 export const TEACHER_WEEKLY_TIMETABLES: Record<string, TeacherTimetableEntry> =
   TEACHER_WEEKLY_2627
 

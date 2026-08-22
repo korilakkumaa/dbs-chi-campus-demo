@@ -1,11 +1,12 @@
 import {
   formClassLetterRank,
-  teacherWhitelist,
+  teacherInitialFromUserId,
+  teacherWhitelistForYear,
 } from './teacherWhitelist'
-import { formatAcademicYearLabel, academicYearStartFromIso } from './academicYear'
-import { isoDateLocal } from './calendarEvents'
+import { formatAcademicYearLabel } from './academicYear'
 import {
-  TEACHER_WEEKLY_TIMETABLES,
+  DEFAULT_TIMETABLE_ACADEMIC_YEAR_START,
+  weeklyTimetablesForYear,
   type SchoolWeekday,
 } from './teacherTimetable'
 
@@ -34,7 +35,7 @@ export type GradeChineseLesson = {
   subject: string
   group: string
   room: string
-  /** Normalized class codes belonging to this grade within the group. */
+  /** Whitelist teaching-group codes for this grade (e.g. G7D, G10G). */
   classes: string[]
 }
 
@@ -60,12 +61,38 @@ export type GradeClassTeacherPair = {
 
 const WEEKDAYS: SchoolWeekday[] = [1, 2, 3, 4, 5]
 
-const TEACHER_META = Object.fromEntries(
-  teacherWhitelist.map((t) => [
-    `u-${t.initial.toLowerCase()}`,
-    { initial: t.initial, name: t.name },
-  ]),
-)
+function whitelistForTimetable(startYear: number) {
+  return teacherWhitelistForYear(startYear)
+}
+
+function whitelistClassCodesForTeacherGrade(
+  teacherId: string,
+  grade: GradeLevel,
+  startYear: number,
+): string[] {
+  const initial = teacherInitialFromUserId(teacherId)
+  if (!initial) return []
+  const entry = whitelistForTimetable(startYear).find((t) => t.initial === initial)
+  if (!entry) return []
+  return entry.classes
+    .map(whitelistClassToCode)
+    .filter((c): c is string => c != null && gradeFromClassCode(c) === grade)
+    .sort((a, b) => compareClassCodes(a, b, startYear))
+}
+
+function listWhitelistClassCodesForGrade(
+  grade: GradeLevel,
+  startYear: number,
+): string[] {
+  const set = new Set<string>()
+  for (const teacher of whitelistForTimetable(startYear)) {
+    for (const name of teacher.classes) {
+      const code = whitelistClassToCode(name)
+      if (code && gradeFromClassCode(code) === grade) set.add(code)
+    }
+  }
+  return [...set].sort((a, b) => compareClassCodes(a, b, startYear))
+}
 
 /** Chinese / EC subjects shown on the grade distribution grid (excludes PTH & CHIS). */
 export function isChineseSubject(subject: string): boolean {
@@ -110,7 +137,7 @@ export function gradeFromClassCode(code: string): GradeLevel | null {
 
 function shortClassLabel(code: string): string {
   const ec = code.match(/^G(\d+)\s*EC$/i)
-  if (ec) return `${ec[1]}EC`
+  if (ec) return `G${ec[1]} EC`
   const form = code.match(/^G(\d+)([A-Z]+)$/i)
   if (form) return `${form[1]}${form[2]}`
   return code
@@ -120,31 +147,59 @@ export function classDisplayLabel(code: string): string {
   return shortClassLabel(code)
 }
 
-function teacherMeta(teacherId: string) {
-  return (
-    TEACHER_META[teacherId] ?? {
-      initial: teacherId.replace(/^u-/i, '').toUpperCase(),
-      name: teacherId,
-    }
-  )
+/** Cell label for a lesson row on the grade timetable grid. */
+export function lessonCellClassLabel(
+  lesson: GradeChineseLesson,
+  grade: GradeLevel,
+): string {
+  const subject = lesson.subject.trim().toUpperCase()
+  if (subject === 'EC') return `G${grade} EC`
+  if (subject === 'CHIN-R') return `${grade}R`
+  return lesson.classes.map(classDisplayLabel).join(' · ')
 }
 
-function collectGradeLessons(grade: GradeLevel): GradeChineseLesson[] {
+function lessonSortKey(lesson: GradeChineseLesson): number {
+  const subject = lesson.subject.trim().toUpperCase()
+  if (subject === 'EC') return 2
+  if (subject === 'CHIN-R') return 1
+  return 0
+}
+
+function teacherMeta(teacherId: string, startYear: number) {
+  const initial = teacherId.replace(/^u-/i, '').toUpperCase()
+  const entry = whitelistForTimetable(startYear).find((t) => t.initial === initial)
+  if (entry) return { initial: entry.initial, name: entry.name }
+  return { initial, name: teacherId }
+}
+
+function collectGradeLessons(
+  grade: GradeLevel,
+  startYear: number,
+): GradeChineseLesson[] {
   const out: GradeChineseLesson[] = []
 
-  for (const [teacherId, entry] of Object.entries(TEACHER_WEEKLY_TIMETABLES)) {
-    const meta = teacherMeta(teacherId)
+  for (const [teacherId, entry] of Object.entries(
+    weeklyTimetablesForYear(startYear),
+  )) {
+    const meta = teacherMeta(teacherId, startYear)
 
     for (const day of WEEKDAYS) {
       for (const period of entry.weekly[day]) {
         if (period.type !== 'lesson') continue
         if (!isChineseSubject(period.subject)) continue
 
-        const classes = splitGroupTokens(period.group)
+        const parsedFromGroup = splitGroupTokens(period.group)
           .map(normalizeClassCode)
           .filter((c): c is string => c != null && gradeFromClassCode(c) === grade)
 
-        if (classes.length === 0) continue
+        if (parsedFromGroup.length === 0) continue
+
+        const fromWhitelist = whitelistClassCodesForTeacherGrade(
+          teacherId,
+          grade,
+          startYear,
+        )
+        if (fromWhitelist.length === 0) continue
 
         out.push({
           teacherId,
@@ -156,7 +211,7 @@ function collectGradeLessons(grade: GradeLevel): GradeChineseLesson[] {
           subject: period.subject,
           group: period.group,
           room: period.room,
-          classes: [...new Set(classes)].sort(compareClassCodes),
+          classes: fromWhitelist,
         })
       }
     }
@@ -165,7 +220,11 @@ function collectGradeLessons(grade: GradeLevel): GradeChineseLesson[] {
   return out
 }
 
-export function compareClassCodes(a: string, b: string): number {
+export function compareClassCodes(
+  a: string,
+  b: string,
+  academicYearStart = DEFAULT_TIMETABLE_ACADEMIC_YEAR_START,
+): number {
   const rank = (code: string) => {
     const ec = code.match(/^G(\d+)\s*EC$/i)
     if (ec) return { g: Number(ec[1]), form: 10_000, ec: 1 }
@@ -173,7 +232,7 @@ export function compareClassCodes(a: string, b: string): number {
     if (form) {
       return {
         g: Number(form[1]),
-        form: formClassLetterRank(form[2], Number(form[1])),
+        form: formClassLetterRank(form[2], Number(form[1]), academicYearStart),
         ec: 0,
       }
     }
@@ -187,8 +246,9 @@ export function compareClassCodes(a: string, b: string): number {
 function chinTeacherForClass(
   classCode: string,
   lessons: GradeChineseLesson[],
+  startYear: number,
 ): { teacherId: string; initial: string; name: string } | null {
-  const fromWhitelist = teacherWhitelist.find((t) =>
+  const fromWhitelist = whitelistForTimetable(startYear).find((t) =>
     t.classes.some((c) => whitelistClassToCode(c) === classCode),
   )
   if (fromWhitelist) {
@@ -227,11 +287,12 @@ function chinTeacherForClass(
  */
 export function listGradeClassTeacherPairs(
   grade: GradeLevel,
+  startYear: number,
 ): GradeClassTeacherPair[] {
-  const lessons = collectGradeLessons(grade)
-  const classes = listGradeClasses(grade)
+  const lessons = collectGradeLessons(grade, startYear)
+  const classes = listGradeClasses(grade, startYear)
   return classes.map((classCode) => {
-    const teacher = chinTeacherForClass(classCode, lessons)
+    const teacher = chinTeacherForClass(classCode, lessons, startYear)
     return {
       classCode,
       teacherId: teacher?.teacherId ?? null,
@@ -246,14 +307,17 @@ export function listGradeClassTeacherPairs(
  * anyone with a CHIN* lesson for this grade. EC-only teachers are excluded.
  * Ordered by first paired form class (school letter order).
  */
-export function listGradeCommonFreeTeachers(grade: GradeLevel): {
+export function listGradeCommonFreeTeachers(
+  grade: GradeLevel,
+  startYear: number,
+): {
   teacherId: string
   initial: string
   name: string
 }[] {
-  const pairs = listGradeClassTeacherPairs(grade)
+  const pairs = listGradeClassTeacherPairs(grade, startYear)
   const chinTeacherIds = new Set(
-    collectGradeLessons(grade)
+    collectGradeLessons(grade, startYear)
       .filter((l) => isChinSubject(l.subject))
       .map((l) => l.teacherId),
   )
@@ -274,7 +338,7 @@ export function listGradeCommonFreeTeachers(grade: GradeLevel): {
 
   for (const teacherId of chinTeacherIds) {
     if (seen.has(teacherId)) continue
-    const meta = teacherMeta(teacherId)
+    const meta = teacherMeta(teacherId, startYear)
     ordered.push({
       teacherId,
       initial: meta.initial,
@@ -290,8 +354,9 @@ function isTeacherFreeAt(
   day: SchoolWeekday,
   start: string,
   end: string,
+  startYear: number,
 ): boolean {
-  const entry = TEACHER_WEEKLY_TIMETABLES[teacherId]
+  const entry = weeklyTimetablesForYear(startYear)[teacherId]
   if (!entry) return false
   const period = entry.weekly[day].find(
     (p) => p.start === start && p.end === end,
@@ -299,17 +364,19 @@ function isTeacherFreeAt(
   return period?.type === 'free'
 }
 
-export function listGradeClasses(grade: GradeLevel): string[] {
-  const set = new Set<string>()
-  for (const lesson of collectGradeLessons(grade)) {
-    for (const c of lesson.classes) set.add(c)
-  }
-  return [...set].sort(compareClassCodes)
+export function listGradeClasses(
+  grade: GradeLevel,
+  startYear: number,
+): string[] {
+  return listWhitelistClassCodesForGrade(grade, startYear)
 }
 
-export function getGradeSlotGrid(grade: GradeLevel): GradeSlotCell[] {
-  const lessons = collectGradeLessons(grade)
-  const commonFreeTeachers = listGradeCommonFreeTeachers(grade).map(
+export function getGradeSlotGrid(
+  grade: GradeLevel,
+  startYear: number,
+): GradeSlotCell[] {
+  const lessons = collectGradeLessons(grade, startYear)
+  const commonFreeTeachers = listGradeCommonFreeTeachers(grade, startYear).map(
     (t) => t.teacherId,
   )
   const cells: GradeSlotCell[] = []
@@ -321,17 +388,19 @@ export function getGradeSlotGrid(grade: GradeLevel): GradeSlotCell[] {
           (l) => l.day === day && l.start === slot.start && l.end === slot.end,
         )
         .sort((a, b) => {
+          const tier = lessonSortKey(a) - lessonSortKey(b)
+          if (tier !== 0) return tier
           const ca = a.classes[0] ?? a.group
           const cb = b.classes[0] ?? b.group
           return (
-            compareClassCodes(ca, cb) ||
+            compareClassCodes(ca, cb, startYear) ||
             a.teacherInitial.localeCompare(b.teacherInitial)
           )
         })
       const isCommonFree =
         commonFreeTeachers.length > 0 &&
         commonFreeTeachers.every((teacherId) =>
-          isTeacherFreeAt(teacherId, day, slot.start, slot.end),
+          isTeacherFreeAt(teacherId, day, slot.start, slot.end, startYear),
         )
 
       cells.push({
@@ -347,10 +416,13 @@ export function getGradeSlotGrid(grade: GradeLevel): GradeSlotCell[] {
   return cells
 }
 
-export function listCommonFreeSlots(grade: GradeLevel): GradeSlotCell[] {
-  return getGradeSlotGrid(grade).filter((c) => c.isCommonFree)
+export function listCommonFreeSlots(
+  grade: GradeLevel,
+  startYear: number,
+): GradeSlotCell[] {
+  return getGradeSlotGrid(grade, startYear).filter((c) => c.isCommonFree)
 }
 
-export function academicYearLabelForGradeTimetable(): string {
-  return formatAcademicYearLabel(academicYearStartFromIso(isoDateLocal()))
+export function academicYearLabelForGradeTimetable(startYear: number): string {
+  return formatAcademicYearLabel(startYear)
 }
