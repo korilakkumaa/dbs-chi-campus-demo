@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && cp docs/index.html docs/404.html",
     "lint": "oxlint",
     "preview": "vite preview",
     "import:scores": "tsx scripts/import-chinese-scores.ts",
