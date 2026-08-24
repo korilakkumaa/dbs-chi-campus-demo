@@ -3,12 +3,14 @@ import { GlassPanel } from '../components/GlassPanel'
 import { MiniCalendar } from '../components/calendar/MiniCalendar'
 import { MiniCalendarDetails } from '../components/calendar/MiniCalendarDetails'
 import { QuickEventInput } from '../components/calendar/QuickEventInput'
+import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 
 export function ProgressPage() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [monthIndex, setMonthIndex] = useState(now.getMonth())
+  const { user } = useAuth()
   const {
     calendarEvents,
     addCalendarEvent,
@@ -40,6 +42,7 @@ export function ProgressPage() {
             year={year}
             monthIndex={monthIndex}
             events={calendarEvents}
+            user={user}
             onUpdateTitle={(id, title) => updateCalendarEvent(id, { title })}
             onDelete={deleteCalendarEvent}
           />

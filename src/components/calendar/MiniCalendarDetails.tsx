@@ -13,12 +13,14 @@ import {
   formatEventDateLabel,
   isCalendarStatusKind,
 } from '../../data/calendarEvents'
-import type { CalendarEvent, CalendarEventKind } from '../../types'
+import { canMutateCalendarEvent } from '../../data/calendarStore'
+import type { CalendarEvent, CalendarEventKind, User } from '../../types'
 
 type Props = {
   year: number
   monthIndex: number
   events: CalendarEvent[]
+  user?: User | null
   onUpdateTitle: (id: string, title: string) => void
   onDelete: (id: string) => void
 }
@@ -55,6 +57,7 @@ export function MiniCalendarDetails({
   year,
   monthIndex,
   events,
+  user,
   onUpdateTitle,
   onDelete,
 }: Props) {
@@ -107,6 +110,7 @@ export function MiniCalendarDetails({
   }, [listEvents, selectedId])
 
   const startEdit = (event: CalendarEvent) => {
+    if (!canMutateCalendarEvent(user, event)) return
     setSelectedId(event.id)
     setEditingId(event.id)
     setDraft(event.title)
@@ -195,6 +199,7 @@ export function MiniCalendarDetails({
                   const meta = EVENT_KIND_META[event.kind]
                   const selected = event.id === selectedId
                   const editing = event.id === editingId
+                  const mutable = canMutateCalendarEvent(user, event)
                   return (
                     <li
                       key={event.id}
@@ -230,7 +235,7 @@ export function MiniCalendarDetails({
                           }}
                           onClick={(e) => e.stopPropagation()}
                         />
-                      ) : (
+                      ) : mutable ? (
                         <button
                           type="button"
                           className={`cal-detail-title${event.title.trim() ? '' : ' empty'}`}
@@ -241,7 +246,17 @@ export function MiniCalendarDetails({
                               ? `${event.lesson.group} · ${event.lesson.subject}`
                               : meta.label)}
                         </button>
+                      ) : (
+                        <span
+                          className={`cal-detail-title${event.title.trim() ? '' : ' empty'}`}
+                        >
+                          {event.title.trim() ||
+                            (event.lesson
+                              ? `${event.lesson.group} · ${event.lesson.subject}`
+                              : meta.label)}
+                        </span>
                       )}
+                      {mutable && (
                       <button
                         type="button"
                         className="cal-detail-delete"
@@ -253,6 +268,7 @@ export function MiniCalendarDetails({
                       >
                         ×
                       </button>
+                      )}
                     </li>
                   )
                 })}

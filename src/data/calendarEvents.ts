@@ -7,7 +7,7 @@ import {
 } from './schoolCalendar2627'
 
 /** Bump when seed calendar changes so stale localStorage does not hide updates. */
-export const CALENDAR_EVENTS_KEY = 'campus-calendar-events-v7'
+export const CALENDAR_EVENTS_KEY = 'campus-calendar-events-v8'
 
 export const SCHOOL_CALENDAR_YEAR_KEY = 'campus-calendar-school-year-v1'
 
@@ -64,11 +64,6 @@ export function buildSeedCalendarEvents(): CalendarEvent[] {
 
 export const seedCalendarEvents: CalendarEvent[] = buildSeedCalendarEvents()
 
-const SEED_EVENT_IDS = new Set(seedCalendarEvents.map((e) => e.id))
-
-/** Legacy seed ids from single-year storage (v5 and earlier). */
-const LEGACY_SEED_ID = /^ce-sy-\d{3}$/
-
 export function resolveEventSchoolYearStart(event: CalendarEvent): number {
   if (event.schoolYearStart != null) return event.schoolYearStart
   return academicYearStartFromIso(event.date)
@@ -86,30 +81,6 @@ export function filterEventsBySchoolYear(
   schoolYearStart: number,
 ): CalendarEvent[] {
   return events.filter((e) => eventInSchoolYear(e, schoolYearStart))
-}
-
-export function loadCalendarEvents(): CalendarEvent[] {
-  const seed = buildSeedCalendarEvents()
-  try {
-    const raw = localStorage.getItem(CALENDAR_EVENTS_KEY)
-    if (!raw) return seed
-    const parsed = JSON.parse(raw) as CalendarEvent[]
-    if (!Array.isArray(parsed)) return seed
-    const userEvents = parsed.filter(
-      (e) => !SEED_EVENT_IDS.has(e.id) && !LEGACY_SEED_ID.test(e.id),
-    )
-    return [...seed, ...userEvents]
-  } catch {
-    return seed
-  }
-}
-
-export function saveCalendarEvents(events: CalendarEvent[]) {
-  try {
-    localStorage.setItem(CALENDAR_EVENTS_KEY, JSON.stringify(events))
-  } catch {
-    /* ignore quota / private mode */
-  }
 }
 
 export function newCalendarEventId(): string {

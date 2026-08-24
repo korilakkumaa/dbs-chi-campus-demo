@@ -8,11 +8,28 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  buildSeedCalendarEvents,
   expandIsoDateRange,
-  loadCalendarEvents,
   newCalendarEventId,
-  saveCalendarEvents,
 } from '../data/calendarEvents'
+import {
+  applyRemoteRowToOverlay,
+  assembleCalendarEvents,
+  canMutateCalendarEvent,
+  defaultCalendarAudience,
+  isSharedCalendarEvent,
+  loadSharedOverlay,
+  overlayFromRemoteRows,
+  persistCalendarState,
+  saveSharedOverlay,
+} from '../data/calendarStore'
+import {
+  fetchSharedCalendarRows,
+  pushSharedOverlayToRemote,
+  subscribeSharedCalendar,
+  tombstoneSharedCalendarEvent,
+  upsertSharedCalendarEvent,
+} from '../data/supabaseCalendar'
 import { academicYearStartFromIso, formatAcademicYearLabel } from '../data/academicYear'
 import {
   CAMPUS_SCORES_ACADEMIC_YEAR_START,
@@ -206,7 +223,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     emptyGradeDeadlines,
   )
   const [allCalendarEvents, setAllCalendarEvents] = useState<CalendarEvent[]>(
-    () => loadCalendarEvents(),
+    () => assembleCalendarEvents(user?.id),
   )
   const [selectionReady, setSelectionReady] = useState(false)
 
@@ -376,8 +393,30 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   }, [user, selectionReady, selectedSubjects])
 
   useEffect(() => {
-    saveCalendarEvents(allCalendarEvents)
-  }, [allCalendarEvents])
+    setAllCalendarEvents(assembleCalendarEvents(user?.id))
+    let cancelled = false
+    ;(async () => {
+      const remote = await fetchSharedCalendarRows()
+      if (cancelled || remote == null) return
+      if (remote.length > 0) {
+        saveSharedOverlay(overlayFromRemoteRows(remote))
+      } else {
+        await pushSharedOverlayToRemote(
+          loadSharedOverlay(),
+          buildSeedCalendarEvents(),
+        )
+      }
+      if (!cancelled) setAllCalendarEvents(assembleCalendarEvents(user?.id))
+    })()
+    const unsubscribe = subscribeSharedCalendar((row) => {
+      applyRemoteRowToOverlay(row)
+      setAllCalendarEvents(assembleCalendarEvents(user?.id))
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [user?.id])
 
   const selectedStudents = useMemo(
     () => students.filter((s) => selectedClassIds.includes(s.classId)),
@@ -576,28 +615,41 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           kind,
           schoolYearStart: academicYearStartFromIso(date),
           createdBy: user.id,
-          audience:
-            audience ??
-            ({ type: 'personal', ownerId: user.id } satisfies CalendarAudience),
+          audience: audience ?? defaultCalendarAudience(user, lesson),
           ...(lesson ? { lesson } : {}),
         }
-        setAllCalendarEvents((prev) => [...prev, event])
+        const next = [...allCalendarEvents, event]
+        setAllCalendarEvents(next)
+        persistCalendarState(next, user.id, user.role)
+        if (isSharedCalendarEvent(event)) {
+          void upsertSharedCalendarEvent(event)
+        }
         return event.id
       },
       updateCalendarEvent: (id, patch) => {
-        setAllCalendarEvents((prev) =>
-          prev.map((e) => {
-            if (e.id !== id) return e
-            return {
-              ...e,
-              ...patch,
-              title: patch.title != null ? patch.title.trim() : e.title,
-            }
-          }),
-        )
+        const current = allCalendarEvents.find((e) => e.id === id)
+        if (!current || !canMutateCalendarEvent(user, current)) return
+        const updated: CalendarEvent = {
+          ...current,
+          ...patch,
+          title: patch.title != null ? patch.title.trim() : current.title,
+        }
+        const next = allCalendarEvents.map((e) => (e.id === id ? updated : e))
+        setAllCalendarEvents(next)
+        persistCalendarState(next, user?.id, user?.role)
+        if (isSharedCalendarEvent(updated)) {
+          void upsertSharedCalendarEvent(updated)
+        }
       },
       deleteCalendarEvent: (id) => {
-        setAllCalendarEvents((prev) => prev.filter((e) => e.id !== id))
+        const current = allCalendarEvents.find((e) => e.id === id)
+        if (!current || !canMutateCalendarEvent(user, current)) return
+        const next = allCalendarEvents.filter((e) => e.id !== id)
+        setAllCalendarEvents(next)
+        persistCalendarState(next, user?.id, user?.role)
+        if (isSharedCalendarEvent(current)) {
+          void tombstoneSharedCalendarEvent(current)
+        }
       },
       addCalendarEventsBatch: ({
         date,
@@ -628,7 +680,14 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           createdBy: user.id,
           audience,
         }))
-        setAllCalendarEvents((prev) => [...prev, ...created])
+        const next = [...allCalendarEvents, ...created]
+        setAllCalendarEvents(next)
+        persistCalendarState(next, user.id, user.role)
+        for (const event of created) {
+          if (isSharedCalendarEvent(event)) {
+            void upsertSharedCalendarEvent(event)
+          }
+        }
         return created.length
       },
     }),
@@ -649,6 +708,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       relevantDeadlines,
       taughtGradeNumbers,
       calendarEvents,
+      allCalendarEvents,
       user,
       campusDataLoading,
       campusDataError,

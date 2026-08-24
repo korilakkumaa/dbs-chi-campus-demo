@@ -11,6 +11,7 @@ import {
   formatEventDateLabel,
   isoDateLocal,
 } from '../data/calendarEvents'
+import { canMutateCalendarEvent } from '../data/calendarStore'
 import { resolveTimetableTeacherId, listTeachersWithTimetables } from '../data/teacherTimetable'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
@@ -710,6 +711,7 @@ export function CalendarPage() {
                 const meta = EVENT_KIND_META[event.kind]
                 const editing = event.id === editingId
                 const displayTitle = event.title.trim()
+                const mutable = canMutateCalendarEvent(user, event)
                 return (
                   <li
                     key={event.id}
@@ -758,7 +760,7 @@ export function CalendarPage() {
                           }
                         }}
                       />
-                    ) : (
+                    ) : mutable ? (
                       <button
                         type="button"
                         className={`detail-cal-side-title${displayTitle ? '' : ' empty'}`}
@@ -767,7 +769,14 @@ export function CalendarPage() {
                       >
                         {displayTitle || '\u00a0'}
                       </button>
+                    ) : (
+                      <span
+                        className={`detail-cal-side-title${displayTitle ? '' : ' empty'}`}
+                      >
+                        {displayTitle || '\u00a0'}
+                      </span>
                     )}
+                    {mutable && (
                     <button
                       type="button"
                       className="detail-cal-side-delete"
@@ -776,6 +785,7 @@ export function CalendarPage() {
                     >
                       ×
                     </button>
+                    )}
                   </li>
                 )
               })}

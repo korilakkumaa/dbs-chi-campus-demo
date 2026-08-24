@@ -1,7 +1,8 @@
 import type { CalendarEventKind } from '../types'
+import schoolCalendar2627Csv from './school-calendar-2627-events.csv?raw'
 
 /**
- * DBS 2026/27 school calendar — derived from official school calendar (Aug 2026).
+ * DBS 2026/27 school calendar — from official full events table.
  * Period: 2026-09-01 – 2027-08-31 · 190 school days.
  */
 export type SchoolCalendarRow = {
@@ -10,14 +11,57 @@ export type SchoolCalendarRow = {
   kind: CalendarEventKind
 }
 
-/** Named days within a range override the range default title. */
-type RangeRow = {
+type CsvEvent = {
+  date: string
+  dayOfWeek: string
+  event: string
+  category: string
+  notes: string
+  isHoliday: boolean
+}
+
+/** Fill unnamed days inside official holiday blocks (CSV only lists named / start days). */
+const HOLIDAY_FILL_RANGES: {
   from: string
   to: string
   title: string
-  kind: CalendarEventKind
-  named?: Record<string, string>
-}
+}[] = [
+  {
+    from: '2026-12-21',
+    to: '2027-01-03',
+    title: 'Christmas & New Year Holiday',
+  },
+  {
+    from: '2027-02-02',
+    to: '2027-02-10',
+    title: 'Lunar New Year Holiday',
+  },
+  {
+    from: '2027-03-26',
+    to: '2027-03-31',
+    title: 'Easter Holiday',
+  },
+  {
+    from: '2027-04-01',
+    to: '2027-04-05',
+    title: 'Ching Ming Holiday',
+  },
+  {
+    from: '2027-07-13',
+    to: '2027-08-31',
+    title: 'Summer Holiday',
+  },
+]
+
+const WEEKDAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const
 
 function expandIsoDateRange(from: string, to: string): string[] {
   if (!from) return []
@@ -38,188 +82,162 @@ function expandIsoDateRange(from: string, to: string): string[] {
   return out
 }
 
-const SINGLE_ROWS: SchoolCalendarRow[] = [
-  {
-    date: '2026-09-04',
-    title:
-      'Beginning of School Year Staff Development Day and Commissioning Service',
-    kind: 'non-school-day',
-  },
-  {
-    date: '2026-09-15',
-    title: 'Inter-House Swimming Finals',
-    kind: 'event',
-  },
-  {
-    date: '2026-09-26',
-    title: 'The day following the Chinese Mid-Autumn Festival',
-    kind: 'holiday',
-  },
-  { date: '2026-10-01', title: 'National Day', kind: 'holiday' },
-  {
-    date: '2026-10-07',
-    title: 'Wednesday adopts Friday timetable',
-    kind: 'timetable',
-  },
-  {
-    date: '2026-10-09',
-    title: 'Apple Race / G7 Character Building Programme (Day 2)',
-    kind: 'event',
-  },
-  {
-    date: '2026-10-19',
-    title: 'The day following the Chinese Chung Yeung Festival',
-    kind: 'holiday',
-  },
-  {
-    date: '2026-11-09',
-    title: 'The day following Garden Fete',
-    kind: 'holiday',
-  },
-  {
-    date: '2026-11-10',
-    title: 'Staff Development Day',
-    kind: 'non-school-day',
-  },
-  {
-    date: '2026-11-12',
-    title: 'Thursday adopts Tuesday timetable',
-    kind: 'timetable',
-  },
-  {
-    date: '2026-11-20',
-    title: 'Inter-House Swimming Competition Holiday',
-    kind: 'holiday',
-  },
-  {
-    date: '2026-12-17',
-    title: 'BS Formal Dinner (Christmas Dinner)',
-    kind: 'event',
-  },
-  { date: '2026-12-18', title: 'Christmas Service', kind: 'event' },
-  {
-    date: '2027-01-01',
-    title: 'The first day of January',
-    kind: 'holiday',
-  },
-  {
-    date: '2027-01-06',
-    title: 'G7 Character Building Programme (Day 3)',
-    kind: 'event',
-  },
-  {
-    date: '2027-03-02',
-    title: 'Tuesday adopts Friday timetable',
-    kind: 'timetable',
-  },
-  { date: '2027-03-25', title: 'Easter Service', kind: 'event' },
-  {
-    date: '2027-05-01',
-    title: 'Labour Day',
-    kind: 'holiday',
-  },
-  {
-    date: '2027-05-10',
-    title: 'Monday adopts Thursday timetable',
-    kind: 'timetable',
-  },
-  {
-    date: '2027-05-12',
-    title: 'Staff Development Day',
-    kind: 'non-school-day',
-  },
-  {
-    date: '2027-05-13',
-    title: 'The Birthday of the Buddha',
-    kind: 'holiday',
-  },
-  { date: '2027-06-09', title: 'Tuen Ng Festival', kind: 'holiday' },
-  {
-    date: '2027-07-01',
-    title: 'Hong Kong Special Administrative Region Establishment Day',
-    kind: 'holiday',
-  },
-  {
-    date: '2027-07-12',
-    title: 'End of School Year Service',
-    kind: 'event',
-  },
-]
-
-const RANGE_ROWS: RangeRow[] = [
-  {
-    from: '2026-12-21',
-    to: '2026-12-27',
-    title: 'Christmas & New Year Holiday',
-    kind: 'holiday',
-    named: {
-      '2026-12-25': 'Christmas Day',
-      '2026-12-26': 'The first weekday after Christmas Day',
-    },
-  },
-  {
-    from: '2027-02-03',
-    to: '2027-02-10',
-    title: 'Lunar New Year Holiday',
-    kind: 'holiday',
-    named: {
-      '2027-02-06': "Lunar New Year's Day",
-      '2027-02-07': 'The second day of Lunar New Year',
-      '2027-02-08': 'The third day of Lunar New Year',
-      '2027-02-09': 'The fourth day of Lunar New Year',
-    },
-  },
-  {
-    from: '2027-03-26',
-    to: '2027-03-31',
-    title: 'Easter Holiday',
-    kind: 'holiday',
-    named: {
-      '2027-03-26': 'Good Friday',
-      '2027-03-27': 'The day following Good Friday',
-      '2027-03-29': 'Easter Monday',
-    },
-  },
-  {
-    from: '2027-04-01',
-    to: '2027-04-05',
-    title: 'Ching Ming Holiday',
-    kind: 'holiday',
-    named: {
-      '2027-04-05': 'Ching Ming Festival',
-    },
-  },
-  {
-    from: '2027-07-13',
-    to: '2027-08-31',
-    title: 'Summer Holiday',
-    kind: 'holiday',
-  },
-]
-
-function expandRange(row: RangeRow): SchoolCalendarRow[] {
-  return expandIsoDateRange(row.from, row.to).map((date) => ({
-    date,
-    title: row.named?.[date] ?? row.title,
-    kind: row.kind,
-  }))
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+  const src = text.replace(/^\uFEFF/, '')
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        field += c
+      }
+      continue
+    }
+    if (c === '"') {
+      inQuotes = true
+      continue
+    }
+    if (c === ',') {
+      row.push(field)
+      field = ''
+      continue
+    }
+    if (c === '\n' || c === '\r') {
+      if (c === '\r' && src[i + 1] === '\n') i++
+      row.push(field)
+      field = ''
+      if (row.some((cell) => cell.trim())) rows.push(row)
+      row = []
+      continue
+    }
+    field += c
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field)
+    if (row.some((cell) => cell.trim())) rows.push(row)
+  }
+  return rows
 }
 
-/** Flat 2026/27 school-calendar rows (one per date). */
-export function buildSchoolCalendar2627Rows(): SchoolCalendarRow[] {
-  const byDate = new Map<string, SchoolCalendarRow>()
+function parseCsvEvents(text: string): CsvEvent[] {
+  const table = parseCsv(text)
+  if (table.length < 2) return []
+  const header = table[0].map((h) => h.trim())
+  const index = (name: string) => header.indexOf(name)
+  const dateI = index('Date')
+  const dayI = index('DayOfWeek')
+  const eventI = index('Event')
+  const catI = index('Category')
+  const notesI = index('Notes')
+  const holI = index('IsHoliday')
+  return table.slice(1).flatMap((cols) => {
+    const date = (cols[dateI] ?? '').trim()
+    const event = (cols[eventI] ?? '').trim()
+    if (!date || !event) return []
+    return [
+      {
+        date,
+        dayOfWeek: (cols[dayI] ?? '').trim(),
+        event,
+        category: (cols[catI] ?? '').trim(),
+        notes: (cols[notesI] ?? '').trim(),
+        isHoliday: (cols[holI] ?? '').trim().toLowerCase() === 'yes',
+      },
+    ]
+  })
+}
 
-  for (const row of SINGLE_ROWS) {
-    byDate.set(row.date, row)
+function titleCaseWeekday(value: string): string | null {
+  const key = value.trim().toLowerCase()
+  return WEEKDAY_NAMES.find((name) => name.toLowerCase() === key) ?? null
+}
+
+/** Timetable engine matches `adopts <Weekday> timetable`. */
+function timetableTitle(row: CsvEvent): string {
+  const note = row.notes.match(
+    /(Monday|Tuesday|Wednesday|Thursday|Friday)\s*→\s*(Monday|Tuesday|Wednesday|Thursday|Friday)/i,
+  )
+  const adopted = row.event.match(
+    /Adopt(?:s)?\s+(Monday|Tuesday|Wednesday|Thursday|Friday)/i,
+  )
+  const fromDay =
+    titleCaseWeekday(note?.[1] ?? '') ?? titleCaseWeekday(row.dayOfWeek)
+  const toDay =
+    titleCaseWeekday(note?.[2] ?? '') ?? titleCaseWeekday(adopted?.[1] ?? '')
+  if (fromDay && toDay) return `${fromDay} adopts ${toDay} timetable`
+  return row.event
+}
+
+function kindFromCsv(row: CsvEvent): CalendarEventKind {
+  const category = row.category.toLowerCase()
+  const notes = row.notes.toLowerCase()
+  if (row.isHoliday) return 'holiday'
+  if (category.includes('timetable')) return 'timetable'
+  if (
+    category.includes('staff development') &&
+    notes.includes('students no school')
+  ) {
+    return 'non-school-day'
   }
+  if (/test|exam|sba|tsa|assessment/.test(category)) {
+    return 'assessment'
+  }
+  return 'event'
+}
 
-  for (const range of RANGE_ROWS) {
-    for (const row of expandRange(range)) {
-      if (!byDate.has(row.date)) byDate.set(row.date, row)
+function rowFromCsv(row: CsvEvent): SchoolCalendarRow {
+  const kind = kindFromCsv(row)
+  return {
+    date: row.date,
+    title: kind === 'timetable' ? timetableTitle(row) : row.event,
+    kind,
+  }
+}
+
+const KIND_ORDER: Record<CalendarEventKind, number> = {
+  holiday: 0,
+  'non-school-day': 1,
+  'school-day': 2,
+  timetable: 3,
+  assessment: 4,
+  event: 5,
+  department: 6,
+  progress: 7,
+}
+
+function sortRows(a: SchoolCalendarRow, b: SchoolCalendarRow): number {
+  return (
+    a.date.localeCompare(b.date) ||
+    KIND_ORDER[a.kind] - KIND_ORDER[b.kind] ||
+    a.title.localeCompare(b.title, 'en')
+  )
+}
+
+/** Flat 2026/27 school-calendar rows (multiple events per date). */
+export function buildSchoolCalendar2627Rows(): SchoolCalendarRow[] {
+  const fromCsv = parseCsvEvents(schoolCalendar2627Csv).map(rowFromCsv)
+  const holidayDates = new Set(
+    fromCsv.filter((row) => row.kind === 'holiday').map((row) => row.date),
+  )
+  const fills: SchoolCalendarRow[] = []
+  for (const range of HOLIDAY_FILL_RANGES) {
+    for (const date of expandIsoDateRange(range.from, range.to)) {
+      if (holidayDates.has(date)) continue
+      holidayDates.add(date)
+      fills.push({ date, title: range.title, kind: 'holiday' })
     }
   }
-
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+  return [...fromCsv, ...fills].sort(sortRows)
 }
 
 export const SCHOOL_YEAR_2627 = {

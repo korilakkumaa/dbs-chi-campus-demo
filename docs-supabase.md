@@ -77,6 +77,12 @@ npm run import:roster:sql
 
 中文科成績仍留在 `semester_records`；大表會補齊沒有入分檔的學生。
 
+## 3c. 校曆（admin 改動同步給教師）
+
+1. 在 SQL Editor 執行 [`supabase/migrations/20260824120000_campus_calendar_events.sql`](supabase/migrations/20260824120000_campus_calendar_events.sql)
+2. 管理員在「詳細日曆」新增、改標題或刪除的**全校活動**會寫入 `campus_calendar_events`，教師重新整理（或即時推送）後即可看到。
+3. 教師自己點課節新增的私人備註仍只顯示在該教師帳戶。
+
 ## 4. 前端
 
 ```bash
