@@ -49,7 +49,7 @@ export function ReadingPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   useEffect(() => {
-    if (gradeFilter !== 'all' && !availableGrades.includes(gradeFilter)) {
+    if (gradeFilter !== 'all' && !availableGrades.some((g) => g === gradeFilter)) {
       setGradeFilter('all')
     }
   }, [availableGrades, gradeFilter])
