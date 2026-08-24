@@ -137,6 +137,8 @@ interface CampusContextValue {
     audience: Exclude<CalendarAudience, { type: 'personal' }>
     /** When true, skip Sat/Sun in a date range. */
     weekdaysOnly?: boolean
+    /** Stamp events onto this academic year calendar (defaults from the date). */
+    schoolYearStart?: number
   }) => number
 }
 
@@ -658,6 +660,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         kind,
         audience,
         weekdaysOnly,
+        schoolYearStart,
       }) => {
         if (!user) return 0
         const trimmed = title.trim()
@@ -676,7 +679,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           date: d,
           title: trimmed,
           kind,
-          schoolYearStart: academicYearStartFromIso(d),
+          schoolYearStart: schoolYearStart ?? academicYearStartFromIso(d),
           createdBy: user.id,
           audience,
         }))

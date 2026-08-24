@@ -1,10 +1,23 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
-import { EVENT_KIND_META, isoDateLocal } from '../data/calendarEvents'
-import { GRADE_LEVELS, gradeLabel } from '../data/teacherWhitelist'
+import { ScoresYearSelect } from '../components/ScoresYearSelect'
+import { EVENT_KIND_META, isoDateLocal, SCHOOL_CALENDAR_YEARS } from '../data/calendarEvents'
+import {
+  academicYearDateRange,
+  formatAcademicYearLabel,
+  isoInAcademicYear,
+} from '../data/academicYear'
+import { buildSchoolClasses } from '../data/schoolClasses'
+import { teachersForYear } from '../data/staffUsers'
+import {
+  GRADE_LEVELS,
+  gradeLabel,
+  latestTeacherWhitelistYear,
+  teacherWhitelistYears,
+} from '../data/teacherWhitelist'
 import type { CalendarAudience, CalendarEventKind, GradeDeadline } from '../types'
 
 type DeadlineDraft = Omit<GradeDeadline, 'submitted'>
@@ -49,6 +62,19 @@ function weekdayLabel(iso: string): string {
   const date = new Date(y, m - 1, d)
   if (Number.isNaN(date.getTime())) return ''
   return WEEKDAYS[date.getDay()]
+}
+
+function listAdminYearStarts(): number[] {
+  return [...new Set([...teacherWhitelistYears(), ...SCHOOL_CALENDAR_YEARS])].sort(
+    (a, b) => b - a,
+  )
+}
+
+function defaultDateForYear(startYear: number): string {
+  const { from, to } = academicYearDateRange(startYear)
+  const today = isoDateLocal()
+  if (today >= from && today <= to) return today
+  return from
 }
 
 function isDeadlineComplete(draft: DeadlineDraft): boolean {
@@ -179,7 +205,6 @@ export function AdminPage() {
   const { user } = useAuth()
   const {
     classes,
-    teachers,
     students,
     assignClassToTeacher,
     gradeDeadlines,
@@ -187,7 +212,28 @@ export function AdminPage() {
     submitGradeDeadlines,
     addCalendarEventsBatch,
     selectedSubjects,
+    scoresAcademicYearStart,
   } = useCampus()
+
+  const yearOptions = useMemo(() => listAdminYearStarts(), [])
+  const defaultStart = useMemo(() => latestTeacherWhitelistYear(), [])
+  const [startYear, setStartYear] = useState(defaultStart)
+  const yearRange = useMemo(
+    () => academicYearDateRange(startYear),
+    [startYear],
+  )
+  const yearLabel = formatAcademicYearLabel(startYear)
+  const yearTeachers = useMemo(() => teachersForYear(startYear), [startYear])
+  const yearClasses = useMemo(() => {
+    const catalog = buildSchoolClasses(startYear)
+    if (startYear !== scoresAcademicYearStart) return catalog
+    const assigned = new Map(classes.map((c) => [c.id, c.teacherId]))
+    return catalog.map((cls) => ({
+      ...cls,
+      teacherId: assigned.get(cls.id) ?? cls.teacherId,
+    }))
+  }, [startYear, scoresAcademicYearStart, classes])
+  const canAssignClasses = startYear === scoresAcademicYearStart
 
   const [drafts, setDrafts] = useState<Record<number, DeadlineDraft>>(() => {
     const init: Record<number, DeadlineDraft> = {}
@@ -216,7 +262,7 @@ export function AdminPage() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
 
   const [calTitle, setCalTitle] = useState('')
-  const [calDate, setCalDate] = useState(isoDateLocal)
+  const [calDate, setCalDate] = useState(() => defaultDateForYear(defaultStart))
   const [calDateEnd, setCalDateEnd] = useState('')
   const [calKind, setCalKind] = useState<CalendarEventKind>('department')
   const [calAudienceMode, setCalAudienceMode] =
@@ -227,12 +273,27 @@ export function AdminPage() {
 
   if (user?.role !== 'admin') return <Navigate to="/progress" replace />
 
-  const teacherCards = teachers.map((t) => {
-    const owned = classes.filter(
+  const teacherCards = yearTeachers.map((t) => {
+    const owned = yearClasses.filter(
       (c) => c.teacherId === t.id || t.classIds.includes(c.id),
     )
     return { teacher: t, owned }
   })
+
+  const onSelectYear = (next: number) => {
+    setStartYear(next)
+    setCalTeacherIds(new Set())
+    setCalNotice(null)
+    const range = academicYearDateRange(next)
+    setCalDate((prev) =>
+      isoInAcademicYear(prev, next) ? prev : defaultDateForYear(next),
+    )
+    setCalDateEnd((prev) => {
+      if (!prev) return prev
+      if (isoInAcademicYear(prev, next) && prev >= range.from) return prev
+      return ''
+    })
+  }
 
   const submitCalendarBatch = () => {
     const trimmed = calTitle.trim()
@@ -250,6 +311,15 @@ export function AdminPage() {
     }
     if (calAudienceMode === 'teachers' && calTeacherIds.size === 0) {
       setCalNotice('請至少選一位教師。')
+      return
+    }
+    if (
+      !isoInAcademicYear(calDate, startYear) ||
+      (calDateEnd && !isoInAcademicYear(calDateEnd, startYear))
+    ) {
+      setCalNotice(
+        `日期須屬於 ${yearLabel} 學年（${yearRange.from} 至 ${yearRange.to}）。`,
+      )
       return
     }
     let audience: Exclude<CalendarAudience, { type: 'personal' }>
@@ -273,10 +343,15 @@ export function AdminPage() {
       dateEnd: calDateEnd || undefined,
       kind: calKind,
       audience,
+      schoolYearStart: startYear,
     })
     setCalTitle('')
     setCalDateEnd('')
-    setCalNotice(count > 1 ? `已加入 ${count} 天的月曆事件。` : '已加入月曆事件。')
+    setCalNotice(
+      count > 1
+        ? `已加入 ${yearLabel} 學年日曆 ${count} 天。`
+        : `已加入 ${yearLabel} 學年日曆。`,
+    )
   }
 
   const patchDraft = (grade: number, patch: Partial<DeadlineDraft>) => {
@@ -412,15 +487,27 @@ export function AdminPage() {
 
   return (
     <div className="page admin-page">
-      <header className="page-header reveal-up">
-        <h1>分派</h1>
-        <p>將班級分配予教師；亦可為各年級統一設定截止日期。</p>
+      <header className="page-header year-ov-header reveal-up">
+        <div className="year-ov-header-text">
+          <h1>分派</h1>
+          <p>
+            {yearLabel}學年 · 檢視該年教師與任教班別；批量加入的活動會進入該學年日曆（
+            {yearRange.from} 至 {yearRange.to}）。
+          </p>
+        </div>
+        <ScoresYearSelect
+          startYear={startYear}
+          defaultStart={defaultStart}
+          yearOptions={yearOptions}
+          onSelectYear={onSelectYear}
+          id="admin-academic-year"
+        />
       </header>
 
       <div className="metric-row reveal-up delay-1">
         <GlassPanel className="metric">
           <p className="metric-label">教師人數</p>
-          <p className="metric-value">{teachers.length}</p>
+          <p className="metric-value">{yearTeachers.length}</p>
         </GlassPanel>
         <GlassPanel className="metric">
           <p className="metric-label">任教多班</p>
@@ -430,7 +517,7 @@ export function AdminPage() {
         </GlassPanel>
         <GlassPanel className="metric">
           <p className="metric-label">班級總數</p>
-          <p className="metric-value">{classes.length}</p>
+          <p className="metric-value">{yearClasses.length}</p>
         </GlassPanel>
       </div>
 
@@ -446,7 +533,7 @@ export function AdminPage() {
           </button>
         </div>
         <p className="deadline-admin-lead">
-          一次將事件推送到全部教師、指定年級，或個別教師的月曆。
+          一次將事件推送到 {yearLabel} 學年的全部教師、指定年級，或該年任教老師的月曆。
         </p>
         <div className="cal-admin-form">
           <label className="cal-admin-field">
@@ -469,6 +556,8 @@ export function AdminPage() {
                 type="date"
                 className="deadline-input"
                 value={calDate}
+                min={yearRange.from}
+                max={yearRange.to}
                 onChange={(e) => setCalDate(e.target.value)}
               />
             </label>
@@ -478,6 +567,8 @@ export function AdminPage() {
                 type="date"
                 className="deadline-input"
                 value={calDateEnd}
+                min={yearRange.from}
+                max={yearRange.to}
                 onChange={(e) => setCalDateEnd(e.target.value)}
               />
             </label>
@@ -549,7 +640,7 @@ export function AdminPage() {
             )}
             {calAudienceMode === 'teachers' && (
               <div className="cal-admin-chips">
-                {teachers.map((t) => {
+                {yearTeachers.map((t) => {
                   const on = calTeacherIds.has(t.id)
                   return (
                     <button
@@ -685,6 +776,12 @@ export function AdminPage() {
       <div className="admin-layout reveal-up delay-2">
         <GlassPanel className="table-panel">
           <h2>班級分派</h2>
+          {!canAssignClasses && (
+            <p className="deadline-admin-lead">
+              此學年任教班別依白名單顯示；班級教師下拉僅在成績學年（
+              {formatAcademicYearLabel(scoresAcademicYearStart)}）可改。
+            </p>
+          )}
           <div className="table-wrap">
             <table>
               <thead>
@@ -696,14 +793,20 @@ export function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {classes.map((cls) => (
+                {yearClasses.map((cls) => {
+                  const rosterCount = canAssignClasses
+                    ? students.filter((s) => s.classId === cls.id).length
+                    : null
+                  const teacherName =
+                    yearTeachers.find((t) => t.id === cls.teacherId)?.name ??
+                    '未分派'
+                  return (
                   <tr key={cls.id}>
                     <td>{cls.name}</td>
                     <td>{cls.grade}</td>
+                    <td>{rosterCount == null ? '—' : rosterCount}</td>
                     <td>
-                      {students.filter((s) => s.classId === cls.id).length}
-                    </td>
-                    <td>
+                      {canAssignClasses ? (
                       <select
                         className="assign-select"
                         value={cls.teacherId ?? ''}
@@ -715,15 +818,19 @@ export function AdminPage() {
                         }
                       >
                         <option value="">未分派</option>
-                        {teachers.map((t) => (
+                        {yearTeachers.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.name}
                           </option>
                         ))}
                       </select>
+                      ) : (
+                        teacherName
+                      )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

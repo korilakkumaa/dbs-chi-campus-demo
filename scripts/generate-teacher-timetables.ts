@@ -1,17 +1,47 @@
 /**
- * Regenerates src/data/teacherWeekly2627.generated.ts from the CLS export.
+ * Regenerates teacher weekly timetable modules from a CLS Excel export.
  *
- *   node --import tsx scripts/generate-teacher-timetables.ts [path.xlsx]
+ *   npx tsx scripts/generate-teacher-timetables.ts --year 2026 [path.xlsx]
+ *   npx tsx scripts/generate-teacher-timetables.ts --year 2025 [path.xlsx]
+ *
+ * Default (no --year) is 2026/27 so existing generate:timetables stays unchanged.
  */
 import { writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import xlsx from 'xlsx'
 
 const XLSX = xlsx
-const DEFAULT =
-  '/Users/apple/Downloads/CHNESETeacher_3Aug2026.xlsx'
-const OUT =
-  'src/data/teacherWeekly2627.generated.ts'
+
+type YearPreset = {
+  label: string
+  validFrom: string
+  validTo: string
+  teachingUntil: string
+  out: string
+  exportName: string
+  defaultXlsx: string
+}
+
+const YEAR_PRESETS: Record<number, YearPreset> = {
+  2025: {
+    label: '2025/26',
+    validFrom: '2025-09-01',
+    validTo: '2026-08-31',
+    teachingUntil: '2026-07-15',
+    out: 'src/data/teacherWeekly2526.generated.ts',
+    exportName: 'TEACHER_WEEKLY_2526',
+    defaultXlsx: '/Users/apple/Downloads/CHINESETeacher_V7_20250903.xlsx',
+  },
+  2026: {
+    label: '2026/27',
+    validFrom: '2026-09-01',
+    validTo: '2027-08-31',
+    teachingUntil: '2027-07-12',
+    out: 'src/data/teacherWeekly2627.generated.ts',
+    exportName: 'TEACHER_WEEKLY_2627',
+    defaultXlsx: '/Users/apple/Downloads/CHNESETeacher_3Aug2026.xlsx',
+  },
+}
 
 type Period =
   | { type: 'lesson'; start: string; end: string; subject: string; group: string; room: string }
@@ -41,10 +71,30 @@ function rowKind(row: unknown[]): 'assembly' | 'recess' | 'lunch' | 'slot' {
   return 'slot'
 }
 
-function parseLesson(text: string): Period | null {
+function tidyGroup(raw: string): string {
+  return raw.replace(/,/g, ', ').replace(/,\s+/g, ', ')
+}
+
+/** Token is one teacher initial, or a comma-separated list of them (CLP slots). */
+function looksLikeTeacherToken(token: string, initials: Set<string>): boolean {
+  const bits = token
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+  if (bits.length === 0) return false
+  return bits.every((b) => initials.has(b))
+}
+
+/**
+ * CLS cells are either:
+ *   Group Subject Room                  (2026/27)
+ *   Group Subject Teacher Room          (2025/26)
+ *   Group Subject Teacher[,Teacher…]    (CLP / meetings, no room)
+ */
+function parseLesson(text: string, initials: Set<string>): Period | null {
   const t = text.trim()
   if (!t) return null
-  const parts = t.split(/\s+/)
+  const parts = t.split(/\s+/).filter(Boolean)
   if (parts.length === 1) {
     return { type: 'lesson', start: '', end: '', subject: '', group: parts[0], room: '' }
   }
@@ -53,26 +103,52 @@ function parseLesson(text: string): Period | null {
       type: 'lesson',
       start: '',
       end: '',
-      group: parts[0].replace(/,/g, ', ').replace(/,\s+/g, ', '),
+      group: tidyGroup(parts[0]),
       subject: parts[1],
       room: '',
     }
   }
-  const room = parts[parts.length - 1]
-  const subject = parts[parts.length - 2]
-  const group = parts
-    .slice(0, -2)
-    .join(' ')
-    .replace(/,/g, ', ')
-    .replace(/,\s+/g, ', ')
-  return { type: 'lesson', start: '', end: '', group, subject, room }
+
+  let room = ''
+  let subject = ''
+  let groupParts: string[]
+
+  if (looksLikeTeacherToken(parts[parts.length - 1], initials)) {
+    room = ''
+    subject = parts[parts.length - 2]
+    groupParts = parts.slice(0, -2)
+  } else if (
+    parts.length >= 4 &&
+    looksLikeTeacherToken(parts[parts.length - 2], initials)
+  ) {
+    room = parts[parts.length - 1]
+    subject = parts[parts.length - 3]
+    groupParts = parts.slice(0, -3)
+  } else {
+    room = parts[parts.length - 1]
+    subject = parts[parts.length - 2]
+    groupParts = parts.slice(0, -2)
+  }
+
+  return {
+    type: 'lesson',
+    start: '',
+    end: '',
+    group: tidyGroup(groupParts.join(' ')),
+    subject,
+    room,
+  }
 }
 
 function esc(s: string) {
   return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
 
-function parseSheet(wb: XLSX.WorkBook, name: string): Record<1 | 2 | 3 | 4 | 5, Period[]> {
+function parseSheet(
+  wb: XLSX.WorkBook,
+  name: string,
+  initials: Set<string>,
+): Record<1 | 2 | 3 | 4 | 5, Period[]> {
   const sheet = wb.Sheets[name]
   const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
     header: 1,
@@ -121,7 +197,7 @@ function parseSheet(wb: XLSX.WorkBook, name: string): Record<1 | 2 | 3 | 4 | 5, 
         weekly[day].push({ type: 'free', start, end })
         continue
       }
-      const parsed = parseLesson(String(cell))
+      const parsed = parseLesson(String(cell), initials)
       if (!parsed || parsed.type !== 'lesson') {
         weekly[day].push({ type: 'free', start, end })
       } else {
@@ -139,25 +215,52 @@ function parseSheet(wb: XLSX.WorkBook, name: string): Record<1 | 2 | 3 | 4 | 5, 
   return weekly
 }
 
+function parseArgs(): { year: number; file: string } {
+  const args = process.argv.slice(2)
+  let year = 2026
+  let file: string | undefined
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]
+    if (a === '--year') {
+      const raw = args[++i]
+      const n = Number(raw)
+      if (!YEAR_PRESETS[n]) {
+        throw new Error(`Unknown --year ${raw}. Use ${Object.keys(YEAR_PRESETS).join(' or ')}.`)
+      }
+      year = n
+      continue
+    }
+    if (a.startsWith('-')) {
+      throw new Error(`Unknown flag ${a}`)
+    }
+    file = a
+  }
+  const preset = YEAR_PRESETS[year]
+  return { year, file: file ?? preset.defaultXlsx }
+}
+
 function main() {
-  const file = process.argv[2] ?? DEFAULT
+  const { year, file } = parseArgs()
+  const preset = YEAR_PRESETS[year]
+  if (!preset) throw new Error(`Missing preset for ${year}`)
   const wb = XLSX.readFile(file, { cellDates: false })
+  const initials = new Set(wb.SheetNames.map((n) => n.trim().toUpperCase()))
   const all: Record<string, Record<1 | 2 | 3 | 4 | 5, Period[]>> = {}
   for (const name of wb.SheetNames) {
-    all[name] = parseSheet(wb, name)
+    all[name] = parseSheet(wb, name, initials)
     const lessons = Object.values(all[name]).flat().filter((p) => p.type === 'lesson').length
     console.log(name, 'lessons', lessons)
   }
 
   const lines: string[] = [
-    `/** Auto-generated from ${basename(file)} — 2026/27. Do not edit by hand. */`,
+    `/** Auto-generated from ${basename(file)} — ${preset.label}. Do not edit by hand. */`,
     `import type { DayPeriod, SchoolWeekday } from './teacherTimetable'`,
     '',
     'const YEAR = {',
-    "  label: '2026/27',",
-    "  validFrom: '2026-09-01',",
-    "  validTo: '2027-08-31',",
-    "  teachingUntil: '2027-07-12',",
+    `  label: '${preset.label}',`,
+    `  validFrom: '${preset.validFrom}',`,
+    `  validTo: '${preset.validTo}',`,
+    `  teachingUntil: '${preset.teachingUntil}',`,
     '} as const',
     '',
     'function L(start: string, end: string, subject: string, group: string, room: string): DayPeriod {',
@@ -198,7 +301,7 @@ function main() {
     lines.push('')
   }
 
-  lines.push('export const TEACHER_WEEKLY_2627: Record<')
+  lines.push(`export const ${preset.exportName}: Record<`)
   lines.push('  string,')
   lines.push('  { academicYear: typeof YEAR; weekly: Record<SchoolWeekday, DayPeriod[]> }')
   lines.push('> = {')
@@ -210,8 +313,8 @@ function main() {
   lines.push('}')
   lines.push('')
 
-  writeFileSync(OUT, lines.join('\n'), 'utf8')
-  console.log('Wrote', OUT)
+  writeFileSync(preset.out, lines.join('\n'), 'utf8')
+  console.log('Wrote', preset.out)
 }
 
 main()

@@ -1,8 +1,9 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useCampus } from '../../context/CampusContext'
 import {
   formatAcademicYearLabel,
   academicYearStartFromIso,
+  academicYearDateRange,
 } from '../../data/academicYear'
 import {
   formatEventDateLabel,
@@ -22,6 +23,7 @@ import {
   weekdayLabel,
   calendarEventTargetsTeacher,
   defaultTimetableWeekMonday,
+  listTimetableAcademicYearStarts,
   timetableViewStartYear,
   type DayPeriod,
   type DayTimetableResult,
@@ -346,6 +348,21 @@ export function WeeklyTimetablePanel({
   const { calendarEvents } = useCampus()
 
   const [weekMonday, setWeekMonday] = useState(() => defaultTimetableWeekMonday())
+  const jumpDateRef = useRef<HTMLInputElement>(null)
+
+  const jumpRange = useMemo(() => {
+    const years = listTimetableAcademicYearStarts()
+    if (years.length === 0) return { min: undefined as string | undefined, max: undefined as string | undefined }
+    return {
+      min: academicYearDateRange(Math.min(...years)).from,
+      max: academicYearDateRange(Math.max(...years)).to,
+    }
+  }, [])
+
+  const jumpToIso = (iso: string) => {
+    if (!iso) return
+    setWeekMonday(mondayOfWeekIso(iso))
+  }
 
   const viewStartYear = useMemo(
     () => timetableViewStartYear(weekMonday),
@@ -538,6 +555,23 @@ export function WeeklyTimetablePanel({
             本週
           </button>
         )}
+        <label
+          className="personal-tt-week-btn personal-tt-jump"
+          onClick={() => jumpDateRef.current?.showPicker?.()}
+        >
+          跳至日期
+          <input
+            ref={jumpDateRef}
+            type="date"
+            className="personal-tt-jump-native"
+            value={weekMonday}
+            min={jumpRange.min}
+            max={jumpRange.max}
+            aria-label="選擇日期，跳至該週時間表"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => jumpToIso(e.target.value)}
+          />
+        </label>
       </div>
 
       <div className="personal-tt-layout">

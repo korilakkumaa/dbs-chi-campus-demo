@@ -12,7 +12,8 @@
     "import:scores:sql": "tsx scripts/import-chinese-scores.ts --sql",
     "import:roster": "tsx scripts/import-student-roster.ts",
     "import:roster:sql": "tsx scripts/import-student-roster.ts --sql",
-    "generate:timetables": "tsx scripts/generate-teacher-timetables.ts",
+    "generate:timetables": "tsx scripts/generate-teacher-timetables.ts --year 2026",
+    "generate:timetables:2526": "tsx scripts/generate-teacher-timetables.ts --year 2025",
     "import:assessment-duty": "tsx scripts/import-assessment-duty.ts"
   },
   "dependencies": {

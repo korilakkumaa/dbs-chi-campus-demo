@@ -60,6 +60,11 @@ const CLASS_HIGHLIGHTS: Record<string, ClassHighlight> = {
     soft: 'rgba(138, 82, 52, 0.22)',
     text: '#4a2e20',
   },
+  'G11P, G11M': {
+    accent: '#8a5234',
+    soft: 'rgba(138, 82, 52, 0.22)',
+    text: '#4a2e20',
+  },
   G11M: { accent: '#a85a2e', soft: 'rgba(168, 90, 46, 0.22)', text: '#5c3218' },
   G11P: { accent: '#8a5c42', soft: 'rgba(138, 92, 66, 0.22)', text: '#4a3228' },
   'G9 EC': {
