@@ -1,3 +1,4 @@
+import type { SchoolClass } from '../types'
 import { CAMPUS_SCORES_ACADEMIC_YEAR_START } from './campusScoresYear'
 
 export interface WhitelistTeacher {
@@ -119,6 +120,38 @@ export function classIdsForTeacherInYear(
     (t) => t.initial === initial,
   )
   return entry?.classes.map(classNameToId) ?? []
+}
+
+/**
+ * Classes a teacher taught in `startYear`, drawn from that year's whitelist.
+ * Extra names (e.g. next-year codes not in the catalog) are appended so
+ * timetable / calendar filters can still match by id.
+ */
+export function accessibleClassesForTeacherYear(
+  teacher: { id: string; username: string },
+  catalog: SchoolClass[],
+  startYear: number,
+): SchoolClass[] {
+  const entry = findWhitelistTeacherByEmail(teacher.username, startYear)
+  const yearClassIds = new Set(
+    entry?.classes.map(classNameToId) ??
+      classIdsForTeacherInYear(teacher.id, startYear),
+  )
+  const existing = catalog.filter((c) => yearClassIds.has(c.id))
+  const have = new Set(existing.map((c) => c.id))
+  const extras: SchoolClass[] = []
+  for (const name of entry?.classes ?? []) {
+    const id = classNameToId(name)
+    if (have.has(id)) continue
+    const gradeNum = gradeNumberFromClassName(name)
+    extras.push({
+      id,
+      name,
+      grade: gradeNum != null ? gradeLabel(gradeNum) : '其他',
+      teacherId: null,
+    })
+  }
+  return extras.length > 0 ? [...existing, ...extras] : existing
 }
 
 export function parseClassMeta(name: string): { grade: string; kind: 'form' | 'ec' } {

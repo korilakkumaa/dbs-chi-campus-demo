@@ -12,6 +12,7 @@ export function OverviewPage() {
   const { user } = useAuth()
   const {
     accessibleClasses,
+    accessibleStudents,
     selectedStudents,
     selectedClassIds,
     getTeacherNamesForClass,
@@ -22,16 +23,20 @@ export function OverviewPage() {
   const scopeStudents =
     user?.role === 'admin' && selectedClassIds.length === 0
       ? students
-      : selectedStudents
+      : user?.role === 'teacher'
+        ? accessibleStudents
+        : selectedStudents
 
   const scopeClasses =
     user?.role === 'admin' && selectedClassIds.length === 0
       ? classes
-      : accessibleClasses.filter((c) =>
-          selectedClassIds.length === 0
-            ? true
-            : selectedClassIds.includes(c.id),
-        )
+      : user?.role === 'teacher'
+        ? accessibleClasses
+        : accessibleClasses.filter((c) =>
+            selectedClassIds.length === 0
+              ? true
+              : selectedClassIds.includes(c.id),
+          )
 
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')

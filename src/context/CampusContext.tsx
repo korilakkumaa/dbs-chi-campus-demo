@@ -36,10 +36,7 @@ import {
   type CampusSubject,
 } from '../data/campusSubjects'
 import {
-  classNameToId,
-  classIdsForTeacherInYear,
-  findWhitelistTeacherByEmail,
-  gradeLabel,
+  accessibleClassesForTeacherYear,
   gradeNumberFromClassName,
   latestTeacherWhitelistYear,
   rosterForChineseClass,
@@ -278,38 +275,39 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     }
   }, [scoresAcademicYearStart])
 
+  /** Score pages: classes this teacher taught in the selected scores year. */
   const accessibleClasses = useMemo(() => {
     if (!user) return []
     if (user.role === 'admin') return classes
-    const year = latestTeacherWhitelistYear()
-    const entry = findWhitelistTeacherByEmail(user.username, year)
-    const yearClassIds = new Set(
-      entry?.classes.map(classNameToId) ??
-        classIdsForTeacherInYear(user.id, year),
+    return accessibleClassesForTeacherYear(
+      user,
+      classes,
+      scoresAcademicYearStart,
     )
-    const existing = classes.filter((c) => yearClassIds.has(c.id))
-    const have = new Set(existing.map((c) => c.id))
-    const extras: SchoolClass[] = []
-    for (const name of entry?.classes ?? []) {
-      const id = classNameToId(name)
-      if (have.has(id)) continue
-      const gradeNum = gradeNumberFromClassName(name)
-      extras.push({
-        id,
-        name,
-        grade: gradeNum != null ? gradeLabel(gradeNum) : '其他',
-        teacherId: null,
-      })
-    }
-    return extras.length > 0 ? [...existing, ...extras] : existing
-  }, [user, classes])
+  }, [user, classes, scoresAcademicYearStart])
+
+  /**
+   * Timetable / calendar / nav subjects: current teaching year (latest whitelist).
+   * Must not be mixed with 分數 year — 2025/26 scores ≠ 2026/27 assignments.
+   */
+  const teachingAccessibleClasses = useMemo(() => {
+    if (!user) return []
+    if (user.role === 'admin') return classes
+    return accessibleClassesForTeacherYear(user, classes, teachingYearStart)
+  }, [user, classes, teachingYearStart])
 
   const accessibleSubjects = useMemo(
-    () => subjectsForUser(user, accessibleClasses, classes, teachingYearStart),
-    [user, accessibleClasses, classes, teachingYearStart],
+    () =>
+      subjectsForUser(
+        user,
+        teachingAccessibleClasses,
+        classes,
+        teachingYearStart,
+      ),
+    [user, teachingAccessibleClasses, classes, teachingYearStart],
   )
 
-  const accessibleIdKey = accessibleClasses.map((c) => c.id).join('|')
+  const accessibleIdKey = teachingAccessibleClasses.map((c) => c.id).join('|')
   const accessibleSubjectsKey = accessibleSubjects.join('|')
 
   useEffect(() => {
@@ -357,7 +355,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     const ids = classIdsForSubjects(
       selectedSubjects,
       user,
-      accessibleClasses,
+      teachingAccessibleClasses,
       classes,
       teachingYearStart,
     )
@@ -365,7 +363,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
   }, [
     selectedSubjects,
     user,
-    accessibleClasses,
+    teachingAccessibleClasses,
     classes,
     selectionReady,
     accessibleIdKey,
@@ -424,14 +422,14 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     const scope =
       selectedClassIds.length > 0
         ? classes.filter((c) => selectedClassIds.includes(c.id))
-        : accessibleClasses
+        : teachingAccessibleClasses
     const grades = new Set<number>()
     for (const cls of scope) {
       const n = gradeNumberFromClassName(cls.name)
       if (n != null) grades.add(n)
     }
     return [...grades].sort((a, b) => a - b)
-  }, [classes, selectedClassIds, accessibleClasses])
+  }, [classes, selectedClassIds, teachingAccessibleClasses])
 
   const relevantDeadlines = useMemo(
     () =>
@@ -446,12 +444,12 @@ export function CampusProvider({ children }: { children: ReactNode }) {
 
   const calendarVisibilityCtx = useMemo(
     () => ({
-      accessibleClasses,
+      accessibleClasses: teachingAccessibleClasses,
       allClasses: classes,
       selectedSubjects,
       scoresAcademicYearStart: teachingYearStart,
     }),
-    [accessibleClasses, classes, selectedSubjects, teachingYearStart],
+    [teachingAccessibleClasses, classes, selectedSubjects, teachingYearStart],
   )
 
   const calendarEvents = useMemo(() => {
@@ -512,7 +510,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           classIdsForSubjects(
             selectedSubjects,
             user,
-            accessibleClasses,
+            teachingAccessibleClasses,
             classes,
             teachingYearStart,
           ),
@@ -639,6 +637,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       students,
       teachers,
       accessibleClasses,
+      teachingAccessibleClasses,
       selectedSubjects,
       accessibleSubjects,
       selectedClassIds,

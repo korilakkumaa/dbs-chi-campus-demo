@@ -27,7 +27,8 @@ export function ReadingPage() {
     getClassName,
   } = useCampus()
   const scopeStudents =
-    user?.role === 'admin' && selectedClassIds.length === 0
+    user?.role === 'teacher' ||
+    (user?.role === 'admin' && selectedClassIds.length === 0)
       ? accessibleStudents
       : selectedStudents
   const baseList = searchQuery.trim() ? filteredStudents : scopeStudents
