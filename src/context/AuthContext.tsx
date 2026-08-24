@@ -6,7 +6,7 @@ import {
   type Context,
   type ReactNode,
 } from 'react'
-import { users } from '../data/mockData'
+import { staffUsers } from '../data/staffUsers'
 import type { Role, User } from '../types'
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -39,7 +39,7 @@ function loadUser(): User | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as { id: string }
-    return users.find((u) => u.id === parsed.id) ?? null
+    return staffUsers.find((u) => u.id === parsed.id) ?? null
   } catch {
     return null
   }
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       login: (username, password, role) => {
-        const found = users.find(
+        const found = staffUsers.find(
           (u) =>
             u.username.toLowerCase() === username.trim().toLowerCase() &&
             u.password === password,

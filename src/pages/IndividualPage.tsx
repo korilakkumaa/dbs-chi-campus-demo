@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { formatAcademicYearLabel } from '../data/academicYear'
+import { formatScore } from '../lib/format'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'
 import { SortHeader } from '../components/SortHeader'
@@ -17,6 +18,7 @@ import {
   percentileRank,
   quartileFromPercentile,
   semesterPoints,
+  semesterWeightedTotal,
   subjectEarned,
   yearPoints,
   type SubjectKey,
@@ -33,15 +35,6 @@ type SortKey =
 type SortDir = 'asc' | 'desc'
 
 const ROSTER_GRADE_OPTIONS = [7, 8, 9, 10, 11, 12] as const
-
-/** CA + 閱讀 + 寫作加權分（與 Excel 總分一致）。 */
-function weightedTotal(s: Pick<Student, 'progress' | 'readingScore' | 'correctRate'>): number {
-  return Math.round((s.progress + s.readingScore + s.correctRate) * 10) / 10
-}
-
-function formatScore(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
-}
 
 function YearHistoryCharts({
   records,
@@ -257,7 +250,7 @@ function StudentFileCard({
           </div>
           <div>
             <dt>總分</dt>
-            <dd>{formatScore(weightedTotal(student))}</dd>
+            <dd>{formatScore(semesterWeightedTotal(student))}</dd>
           </div>
         </dl>
       </div>
@@ -423,7 +416,7 @@ export function IndividualPage() {
       } else if (sortKey === 'classNumber') {
         cmp = a.classNumber - b.classNumber
       } else if (sortKey === 'totalScore') {
-        cmp = weightedTotal(a) - weightedTotal(b)
+        cmp = semesterWeightedTotal(a) - semesterWeightedTotal(b)
       } else {
         cmp = a[sortKey] - b[sortKey]
       }
@@ -700,7 +693,7 @@ export function IndividualPage() {
                         {formatScore(s.correctRate)}
                       </span>
                       <span className="roster-col metric total">
-                        {formatScore(weightedTotal(s))}
+                        {formatScore(semesterWeightedTotal(s))}
                       </span>
                     </label>
                   </li>

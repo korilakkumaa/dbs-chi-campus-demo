@@ -6,29 +6,20 @@ import { defaultPath, ROLE_LABEL, useAuth } from '../context/AuthContext'
 import { TextSizeControl } from '../components/TextSizeControl'
 import type { Role } from '../types'
 
-const DEMO_MODES: {
+const LOGIN_ROLES: {
   role: Role
-  username: string
   features: string[]
   hint: string
 }[] = [
   {
     role: 'admin',
-    username: 'admin',
     features: ['全校班級', '首頁、日曆、時間表、分數、其他資料', '分派教師與截止日期'],
-    hint: '示範帳戶 admin',
+    hint: '管理員帳戶',
   },
   {
     role: 'teacher',
-    username: 'dbsyln@dbs.edu.hk',
     features: ['所任教班級', '首頁、日曆、時間表、分數、其他資料'],
-    hint: '教師電郵（如 dbsyln@dbs.edu.hk）',
-  },
-  {
-    role: 'student',
-    username: 'student',
-    features: ['勇者之塔'],
-    hint: '示範帳戶 student',
+    hint: '教師電郵（學校電郵）',
   },
 ]
 
@@ -43,12 +34,10 @@ export function LoginPage() {
 
   if (user) return <Navigate to={defaultPath(user.role)} replace />
 
-  const selected = DEMO_MODES.find((item) => item.role === mode) ?? null
+  const selected = LOGIN_ROLES.find((item) => item.role === mode) ?? null
 
-  const pickMode = (next: (typeof DEMO_MODES)[number]) => {
-    setMode(next.role)
-    setUsername(next.username)
-    setPassword('campus')
+  const pickMode = (role: Role) => {
+    setMode(role)
     setError(null)
   }
 
@@ -96,13 +85,13 @@ export function LoginPage() {
           <p className="login-card-title">登入</p>
           <p className="login-mode-label">選擇身份</p>
           <div className="login-modes" role="group" aria-label="登入身份">
-            {DEMO_MODES.map((item) => (
+            {LOGIN_ROLES.map((item) => (
               <button
                 key={item.role}
                 type="button"
                 className={`login-mode${mode === item.role ? ' active' : ''}`}
                 aria-pressed={mode === item.role}
-                onClick={() => pickMode(item)}
+                onClick={() => pickMode(item.role)}
               >
                 {ROLE_LABEL[item.role]}
               </button>
@@ -120,9 +109,7 @@ export function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder={
-                selected
-                  ? selected.hint
-                  : '請先選擇管理員、教師或學生'
+                selected ? selected.hint : '請先選擇管理員或教師'
               }
             />
           </label>
@@ -140,11 +127,6 @@ export function LoginPage() {
           <button type="submit" className="primary-btn">
             進入校園
           </button>
-          <p className="login-hint">
-            {selected
-              ? `${selected.hint}，密碼皆為 campus`
-              : '請先選擇身分，再以對應帳戶登入'}
-          </p>
         </form>
       </div>
     </div>

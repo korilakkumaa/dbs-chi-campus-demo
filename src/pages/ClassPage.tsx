@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatAcademicYearLabel } from '../data/academicYear'
-import { average } from '../data/mockData'
+import { average } from '../lib/stats'
+import { formatScore } from '../lib/format'
 import {
   semesterMaxForGrade,
   semesterWeightedTotal,
@@ -24,10 +25,6 @@ import {
   useScoresAcademicYear,
   withScoresYearQuery,
 } from '../hooks/useScoresAcademicYear'
-
-function formatScore(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
-}
 
 function sortClassesForDisplay(
   a: SchoolClass,

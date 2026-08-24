@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { average } from '../data/mockData'
+import { average } from '../lib/stats'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import { GlassPanel } from '../components/GlassPanel'

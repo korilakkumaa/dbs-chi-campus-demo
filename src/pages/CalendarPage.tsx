@@ -107,13 +107,11 @@ export function CalendarPage() {
   const isAdmin = user?.role === 'admin'
 
   const teachersWithTimetable = useMemo(() => listTeachersWithTimetables(), [])
-  const defaultTeacherId =
-    resolveTimetableTeacherId(user?.id, user?.role) ??
-    teachersWithTimetable[0]?.teacherId ??
-    null
-  const [timetableTeacherId, setTimetableTeacherId] = useState<string | null>(
-    defaultTeacherId,
-  )
+  const ownTeacherId = resolveTimetableTeacherId(user?.id, user?.role)
+  const [adminTimetableTeacherId, setAdminTimetableTeacherId] = useState<
+    string | null
+  >(() => teachersWithTimetable[0]?.teacherId ?? null)
+  const timetableTeacherId = isAdmin ? adminTimetableTeacherId : ownTeacherId
   const timetableTeacherName = useMemo(() => {
     if (!timetableTeacherId) return '教師'
     const match = teachersWithTimetable.find(
@@ -515,14 +513,14 @@ export function CalendarPage() {
         )}
 
         <GlassPanel className="detail-cal-timetable">
-          {teachersWithTimetable.length > 1 && (
+          {isAdmin && teachersWithTimetable.length > 1 && (
             <label className="detail-cal-teacher-pick">
               <span>時間表</span>
               <select
                 className="detail-cal-teacher-select"
                 value={timetableTeacherId ?? ''}
                 onChange={(e) =>
-                  setTimetableTeacherId(e.target.value || null)
+                  setAdminTimetableTeacherId(e.target.value || null)
                 }
               >
                 {teachersWithTimetable.map((t) => (

@@ -298,7 +298,7 @@ code {
 
 .login-modes {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
   margin-bottom: 1rem;
 }
@@ -1634,8 +1634,13 @@ code {
   min-height: 18rem;
 }
 
-.home-col-left {
+.panel.home-col-left {
   gap: 0.75rem;
+  background: rgba(255, 252, 248, 0.7);
+  border-color: var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  -webkit-backdrop-filter: blur(calc(var(--blur) + 8px));
+  backdrop-filter: blur(calc(var(--blur) + 8px));
 }
 
 .home-col-placeholder {
@@ -1879,8 +1884,11 @@ code {
   gap: 0.15rem 0.5rem;
   padding: 0.45rem 0.5rem;
   border-radius: var(--radius-control);
-  background: rgba(255, 252, 248, 0.82);
-  border: 1px solid var(--line);
+  background: rgba(255, 252, 248, 0.55);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  -webkit-backdrop-filter: blur(calc(var(--blur) - 6px));
+  backdrop-filter: blur(calc(var(--blur) - 6px));
 }
 
 .cal-detail-summary-kind {
@@ -2377,17 +2385,23 @@ code {
 }
 
 .detail-cal-timetable {
-  padding: 1.05rem 1rem 1.15rem;
+  padding: 0.85rem 0.9rem 0.95rem;
   position: sticky;
   top: 5.5rem;
-  min-height: 22rem;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 17rem);
+  max-height: calc(100dvh - 17rem);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .detail-cal-teacher-pick {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.45rem;
+  flex-shrink: 0;
   font-size: var(--text-caption);
   font-weight: 600;
   color: var(--ink-soft);
@@ -2760,6 +2774,26 @@ code {
   min-height: 18rem;
 }
 
+.detail-cal-timetable .day-tt {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  gap: 0.4rem;
+}
+
+.detail-cal-timetable .day-tt-head {
+  gap: 0.06rem;
+  flex-shrink: 0;
+}
+
+.detail-cal-timetable .day-tt-date {
+  font-size: calc(1.05rem + 1pt);
+}
+
+.detail-cal-timetable .day-tt-weekline {
+  flex-shrink: 0;
+}
+
 .day-tt-idle {
   justify-content: center;
   align-items: center;
@@ -2850,6 +2884,16 @@ code {
   margin: 0.5rem 0 0;
   color: var(--ink-soft);
   font-size: var(--text-ui);
+}
+
+.detail-cal-timetable .day-tt-note,
+.detail-cal-timetable .day-tt-holiday {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  margin-top: 0;
 }
 
 .day-tt-holiday {
@@ -2994,6 +3038,90 @@ code {
   overflow: auto;
   user-select: none;
   touch-action: none;
+}
+
+.detail-cal-timetable .day-tt-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-top: 0.2rem;
+  gap: 0.1rem;
+  overflow: hidden;
+}
+
+.detail-cal-timetable .day-tt-row,
+.detail-cal-timetable .day-tt-row.lesson,
+.detail-cal-timetable .day-tt-row.break.interactive,
+.detail-cal-timetable .day-tt-row.free.interactive {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detail-cal-timetable .day-tt-row.lunch-gap {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.detail-cal-timetable .day-tt-lesson-hit,
+.detail-cal-timetable .day-tt-slot-hit {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  align-items: center;
+}
+
+.detail-cal-timetable .day-tt-lesson-hit {
+  padding: 0.12rem 0.4rem;
+  gap: 0.3rem 0.4rem;
+}
+
+.detail-cal-timetable .day-tt-slot-hit.compact {
+  padding: 0.08rem 0.35rem;
+}
+
+.detail-cal-timetable .day-tt-body {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.28rem 0.4rem;
+  min-width: 0;
+}
+
+.detail-cal-timetable .day-tt-line {
+  overflow: visible;
+  flex: 0 1 auto;
+}
+
+.detail-cal-timetable .day-tt-line.meta {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.detail-cal-timetable .day-tt-subject {
+  font-size: calc(0.76rem + 1pt);
+  line-height: 1.15;
+}
+
+.detail-cal-timetable .day-tt-group,
+.detail-cal-timetable .day-tt-room {
+  font-size: calc(0.58rem + 1pt);
+  line-height: 1.15;
+}
+
+.detail-cal-timetable .day-tt-time-start {
+  font-size: calc(0.62rem + 1pt);
+}
+
+.detail-cal-timetable .day-tt-time-end {
+  font-size: calc(0.55rem + 1pt);
+}
+
+.detail-cal-timetable .day-tt-linked-mark {
+  margin-top: 0.02rem;
+  font-size: calc(0.46rem + 1pt);
 }
 
 .day-tt-row {
@@ -4466,6 +4594,10 @@ tbody tr.table-row-link:focus-visible {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.85rem;
+}
+
+.reading-grades {
+  margin-bottom: 0.95rem;
 }
 
 .class-page-grades .class-tt-grade {
@@ -6418,6 +6550,9 @@ tbody tr.table-row-link:focus-visible {
 
   .detail-cal-timetable {
     position: static;
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .detail-cal-admin {
@@ -7684,10 +7819,16 @@ tbody tr.table-row-link:focus-visible {
 .personal-tt-day-head {
   position: relative;
   vertical-align: top;
+  overflow: visible;
 }
 
 .personal-tt-day-head.has-events .personal-tt-day-head-inner {
   cursor: help;
+}
+
+.personal-tt-day-head.has-events:hover,
+.personal-tt-day-head.has-events:focus-within {
+  z-index: 6;
 }
 
 .personal-tt-day-head-inner {
@@ -7703,34 +7844,44 @@ tbody tr.table-row-link:focus-visible {
 }
 
 .personal-tt-day-preview {
-  max-height: 0;
-  margin-top: 0;
-  overflow: hidden;
+  position: absolute;
+  top: calc(100% + 0.22rem);
+  left: 0;
+  right: 0;
+  z-index: 7;
+  margin: 0;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transform: translateY(-0.18rem);
   transition:
-    max-height 0.2s var(--ease-out),
-    opacity 0.15s var(--ease-out),
-    margin-top 0.15s var(--ease-out);
+    opacity 0.16s var(--ease-out),
+    transform 0.16s var(--ease-out),
+    visibility 0.16s var(--ease-out);
 }
 
 .personal-tt-day-head.has-events:hover .personal-tt-day-preview,
 .personal-tt-day-head.has-events:focus-within .personal-tt-day-preview {
-  max-height: 14rem;
-  margin-top: 0.35rem;
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transform: none;
 }
 
 .personal-tt-day-preview-list {
   list-style: none;
   margin: 0;
-  padding: 0.35rem 0.4rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.4rem 0.45rem;
   border-radius: var(--radius-control);
-  background: #2f2418;
-  color: #fff8ef;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  color: var(--ink);
   text-align: left;
-  box-shadow: 0 8px 20px rgba(40, 26, 14, 0.22);
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
 }
 
 .personal-tt-day-preview-row {
@@ -7744,7 +7895,7 @@ tbody tr.table-row-link:focus-visible {
 }
 
 .personal-tt-day-preview-row + .personal-tt-day-preview-row {
-  border-top: 1px solid rgba(255, 248, 239, 0.12);
+  border-top: 1px solid var(--line);
 }
 
 .personal-tt-preview-mark {
@@ -7772,7 +7923,7 @@ tbody tr.table-row-link:focus-visible {
 .personal-tt-day-preview-kind {
   font-weight: 700;
   white-space: nowrap;
-  color: rgba(255, 248, 239, 0.72);
+  color: var(--ink-soft);
 }
 
 .personal-tt-day-preview-title {
@@ -7853,6 +8004,7 @@ tbody tr.table-row-link:focus-visible {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  overflow-y: visible;
   overscroll-behavior-x: contain;
 }
 
@@ -7862,6 +8014,12 @@ tbody tr.table-row-link:focus-visible {
   border-collapse: collapse;
   table-layout: fixed;
   font-size: var(--text-ui-md);
+  position: relative;
+}
+
+.personal-tt-table thead {
+  position: relative;
+  z-index: 3;
 }
 
 .personal-tt-table thead th {
@@ -7872,6 +8030,7 @@ tbody tr.table-row-link:focus-visible {
   font-weight: 600;
   color: var(--ink);
   border-bottom: 1px solid var(--line-strong);
+  overflow: visible;
 }
 
 .personal-tt-time-head {

@@ -286,7 +286,6 @@ export async function fetchCampusStudentsFromSupabase(
       correctRate: writingScore,
       recentScores: recentFromComponents(latestRow?.components ?? null),
       yearHistory,
-      strengths: [],
       notes: noteParts.join(' · '),
     } satisfies Student
   })

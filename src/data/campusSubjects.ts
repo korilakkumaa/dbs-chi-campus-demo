@@ -8,8 +8,8 @@ import {
 } from './teacherTimetable'
 import {
   classIdsForTeacherInYear,
-  classNameToId,
   gradeNumberFromClassName,
+  isEcFormClassName,
   teacherWhitelistForYear,
 } from './teacherWhitelist'
 
@@ -24,10 +24,6 @@ export const CAMPUS_SUBJECT_OPTIONS: {
   { id: 'CHIS', label: '中史' },
   { id: 'PTH', label: 'PTH' },
 ]
-
-export function isEcClassName(name: string): boolean {
-  return /^G\d+\s*EC$/i.test(name.trim())
-}
 
 function subjectKind(subject: string): CampusSubject | 'OTHER' {
   const s = subject.trim().toUpperCase()
@@ -215,10 +211,10 @@ export function classIdsForSubject(
 
   if (user.role === 'admin') {
     if (subject === 'CHIN') {
-      return allClasses.filter((c) => !isEcClassName(c.name)).map((c) => c.id)
+      return allClasses.filter((c) => !isEcFormClassName(c.name)).map((c) => c.id)
     }
     if (subject === 'EC') {
-      return allClasses.filter((c) => isEcClassName(c.name)).map((c) => c.id)
+      return allClasses.filter((c) => isEcFormClassName(c.name)).map((c) => c.id)
     }
     return classIdsFromCodes(
       classCodesFromAllTimetables(subject, startYear),
@@ -234,11 +230,11 @@ export function classIdsForSubject(
   if (ids.length === 0) {
     if (subject === 'CHIN') {
       ids = accessibleClasses
-        .filter((c) => !isEcClassName(c.name))
+        .filter((c) => !isEcFormClassName(c.name))
         .map((c) => c.id)
     } else if (subject === 'EC') {
       ids = accessibleClasses
-        .filter((c) => isEcClassName(c.name))
+        .filter((c) => isEcFormClassName(c.name))
         .map((c) => c.id)
     }
   }
@@ -267,11 +263,11 @@ export function subjectsForUser(
   const fromTimetable = subjectsFromTimetable(user.id, startYear)
   const merged = new Set<CampusSubject>(fromTimetable)
 
-  if (accessibleClasses.some((c) => !isEcClassName(c.name))) {
+  if (accessibleClasses.some((c) => !isEcFormClassName(c.name))) {
     merged.add('CHIN')
   }
   if (
-    accessibleClasses.some((c) => isEcClassName(c.name)) ||
+    accessibleClasses.some((c) => isEcFormClassName(c.name)) ||
     teacherHasEcAssignment(user, startYear) ||
     fromTimetable.includes('EC')
   ) {
@@ -279,11 +275,6 @@ export function subjectsForUser(
   }
 
   return CAMPUS_SUBJECT_OPTIONS.map((o) => o.id).filter((id) => merged.has(id))
-}
-
-/** Whitelist class name → id (for tests / helpers). */
-export function classIdFromName(name: string): string {
-  return classNameToId(name)
 }
 
 export { isCampusSubject }

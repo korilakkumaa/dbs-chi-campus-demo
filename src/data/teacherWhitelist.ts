@@ -62,8 +62,30 @@ const WHITELIST_BY_YEAR: Record<number, WhitelistTeacher[]> = {
   2026: TEACHER_WHITELIST_2627,
 }
 
+export function teacherWhitelistYears(): number[] {
+  return Object.keys(WHITELIST_BY_YEAR)
+    .map(Number)
+    .sort((a, b) => a - b)
+}
+
 export function teacherWhitelistForYear(startYear: number): WhitelistTeacher[] {
   return WHITELIST_BY_YEAR[startYear] ?? TEACHER_WHITELIST_2526
+}
+
+/** Newest imported teacher whitelist year (currently 2026/27). */
+export function latestTeacherWhitelistYear(): number {
+  return Math.max(...teacherWhitelistYears())
+}
+
+export function findWhitelistTeacherByEmail(
+  email: string,
+  startYear: number = latestTeacherWhitelistYear(),
+): WhitelistTeacher | undefined {
+  const needle = email.trim().toLowerCase()
+  if (!needle) return undefined
+  return teacherWhitelistForYear(startYear).find(
+    (t) => t.email.toLowerCase() === needle,
+  )
 }
 
 /** Default whitelist — aligned with campus scores (2025/26). */
@@ -73,6 +95,10 @@ export const teacherWhitelist = teacherWhitelistForYear(
 
 export function classNameToId(name: string): string {
   return `c-${name.toLowerCase().replace(/\s+/g, '-')}`
+}
+
+export function teacherUserIdFromInitial(initial: string): string {
+  return `u-${initial.toLowerCase()}`
 }
 
 /** Teacher user id (u-fyc) → whitelist initial (FYC). */
@@ -122,6 +148,9 @@ export function gradeNumberFromClassName(name: string): number | null {
 
 export const GRADE_LEVELS = [7, 8, 9, 10, 11, 12] as const
 
+/** Enrichment Chinese classes (G7–G10). */
+export const EC_CLASS_NAMES = ['G7 EC', 'G8 EC', 'G9 EC', 'G10 EC'] as const
+
 /**
  * Junior form-class order (G7–G9): A is a normal form class; R is 補底班.
  */
@@ -149,9 +178,6 @@ export const SENIOR_FORM_CLASS_ORDER = [
   'J',
   'T',
 ] as const
-
-/** @deprecated Use JUNIOR_FORM_CLASS_ORDER / formClassLettersForGrade instead. */
-export const FORM_CLASS_ORDER = JUNIOR_FORM_CLASS_ORDER
 
 /**
  * Trailing A form class after T (e.g. 10A in 2526; 10A + 11A in 2627).

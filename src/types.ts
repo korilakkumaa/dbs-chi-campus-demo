@@ -31,7 +31,6 @@ export interface Student {
   recentScores: { label: string; score: number }[]
   /** Academic history from G7 through current grade. */
   yearHistory: YearRecord[]
-  strengths: string[]
   notes: string
 }
 
