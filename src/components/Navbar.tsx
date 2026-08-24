@@ -56,6 +56,7 @@ const navItems: NavItem[] = [
     label: '其他資料',
     children: [
       { to: '/resources/papers', label: '出卷' },
+      { to: '/resources/duties', label: '職責' },
       { to: '/resources/scope', label: '測考範圍' },
       { to: '/reading', label: '廣泛閱讀' },
     ],

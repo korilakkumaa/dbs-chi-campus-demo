@@ -110,11 +110,29 @@ export function semesterPoints(scores: SemesterScores, grade: number): number {
   )
 }
 
+export function recordHasSemester(
+  record: YearRecord,
+  semester: SemesterKey,
+): boolean {
+  if (semester === 'first') return record.hasFirst !== false
+  return record.hasSecond !== false
+}
+
 export function yearPoints(record: YearRecord): number {
-  return Math.round(
-    semesterPoints(record.first, record.grade) * YEAR_WEIGHTS.first +
-      semesterPoints(record.second, record.grade) * YEAR_WEIGHTS.second,
-  )
+  const hasFirst = recordHasSemester(record, 'first')
+  const hasSecond = recordHasSemester(record, 'second')
+  const first = hasFirst
+    ? semesterPoints(record.first, record.grade)
+    : null
+  const second = hasSecond
+    ? semesterPoints(record.second, record.grade)
+    : null
+  if (first != null && second != null) {
+    return Math.round(first * YEAR_WEIGHTS.first + second * YEAR_WEIGHTS.second)
+  }
+  if (first != null) return first
+  if (second != null) return second
+  return 0
 }
 
 export function semesterTotal(scores: SemesterScores, grade: number): number {
@@ -199,6 +217,7 @@ export function buildScorePools(students: Student[]) {
       const { grade } = record
       push(sameYearTotal, String(grade), yearPoints(record))
       for (const semester of ['first', 'second'] as const) {
+        if (!recordHasSemester(record, semester)) continue
         push(
           sameYearSemester,
           `${grade}-${semester}`,

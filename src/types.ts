@@ -46,6 +46,9 @@ export interface YearRecord {
   className: string
   first: SemesterScores
   second: SemesterScores
+  /** When false, that semester has not been imported (do not treat zeros as marks). */
+  hasFirst?: boolean
+  hasSecond?: boolean
 }
 
 /** Admin-assigned deadlines, unified per grade (7–12). */

@@ -9,6 +9,7 @@ import { OverviewPage } from './pages/OverviewPage'
 import { CalendarPage } from './pages/CalendarPage'
 import { YearOverviewPage } from './pages/YearOverviewPage'
 import { PapersPage } from './pages/PapersPage'
+import { DutiesPage } from './pages/DutiesPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { ClassTimetablePage } from './pages/ClassTimetablePage'
 import { PersonalTimetablePage } from './pages/PersonalTimetablePage'
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="/class/individual" element={<IndividualPage />} />
           <Route path="/resources" element={<Navigate to="/resources/papers" replace />} />
           <Route path="/resources/papers" element={<PapersPage />} />
+          <Route path="/resources/duties" element={<DutiesPage />} />
           <Route
             path="/resources/scope"
             element={

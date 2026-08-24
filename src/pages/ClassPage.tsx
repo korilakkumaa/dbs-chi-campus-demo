@@ -37,12 +37,13 @@ function sortClassesForDisplay(
   if (metaA.kind === 'form') {
     const gradeA = gradeNumberFromClassName(a.name)
     const gradeB = gradeNumberFromClassName(b.name)
-    const letterA = a.name.slice(-1)
-    const letterB = b.name.slice(-1)
-    return (
+    const letterA = a.name.match(/^(\d+)R/i) ? 'R' : a.name.slice(-1)
+    const letterB = b.name.match(/^(\d+)R/i) ? 'R' : b.name.slice(-1)
+    const rank =
       formClassLetterRank(letterA, gradeA ?? undefined, academicYearStart) -
       formClassLetterRank(letterB, gradeB ?? undefined, academicYearStart)
-    )
+    if (rank !== 0) return rank
+    return a.name.localeCompare(b.name, 'en')
   }
   return a.name.localeCompare(b.name, 'zh-Hant')
 }
@@ -65,11 +66,16 @@ export function ClassPage() {
     getTeacherNamesForClass,
   } = useCampus()
 
-  const pool = useMemo(
-    () =>
-      accessibleClasses.filter((c) => parseClassMeta(c.name).kind === 'form'),
-    [accessibleClasses],
-  )
+  const pool = useMemo(() => {
+    const form = accessibleClasses.filter(
+      (c) => parseClassMeta(c.name).kind === 'form',
+    )
+    if (students.length === 0) return form
+    return form.filter(
+      (c) =>
+        rosterForChineseClass(c.id, c.name, students, startYear).length > 0,
+    )
+  }, [accessibleClasses, students, startYear])
 
   const availableGrades = useMemo(() => {
     const grades = new Set<number>()

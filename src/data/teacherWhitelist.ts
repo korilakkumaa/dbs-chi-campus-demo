@@ -69,8 +69,13 @@ export function teacherWhitelistYears(): number[] {
     .sort((a, b) => a - b)
 }
 
+export function hasTeacherWhitelistYear(startYear: number): boolean {
+  return Object.prototype.hasOwnProperty.call(WHITELIST_BY_YEAR, startYear)
+}
+
+/** Chinese-teaching whitelist for `startYear` only — never fall back to another year. */
 export function teacherWhitelistForYear(startYear: number): WhitelistTeacher[] {
-  return WHITELIST_BY_YEAR[startYear] ?? TEACHER_WHITELIST_2526
+  return WHITELIST_BY_YEAR[startYear] ?? []
 }
 
 /** Newest imported teacher whitelist year (currently 2026/27). */
@@ -159,6 +164,10 @@ export function parseClassMeta(name: string): { grade: string; kind: 'form' | 'e
   if (ec) {
     const n = Number(ec[1])
     return { grade: gradeLabel(n), kind: 'ec' }
+  }
+  const rSplit = name.match(/^(\d+)R_[A-Z]$/i)
+  if (rSplit) {
+    return { grade: gradeLabel(Number(rSplit[1])), kind: 'form' }
   }
   const form = name.match(/^(\d+)([A-Z])$/i)
   if (form) {
@@ -272,7 +281,7 @@ export function formClassLetterRank(
 
 /** True for form classes like 7R–9R (Chinese remedial / 補底班). */
 export function isRemedialFormClass(name: string): boolean {
-  return /^(\d+)R$/i.test(name)
+  return /^(\d+)R(_[A-Z])?$/i.test(name)
 }
 
 /** R-class subtitle for class cards (e.g. 7R → 補底班 · 7A、7L). */
@@ -280,6 +289,8 @@ export function remedialClassNote(
   name: string,
   _academicYearStart: number = CAMPUS_SCORES_ACADEMIC_YEAR_START,
 ): string | null {
+  const split = name.match(/^(\d+)R_([A-Z])$/i)
+  if (split) return `補底班 · ${split[2].toUpperCase()}組`
   const m = name.match(/^(\d+)R$/i)
   if (m) return `補底班 · ${m[1]}A、${m[1]}L`
   return null

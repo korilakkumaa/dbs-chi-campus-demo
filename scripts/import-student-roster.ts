@@ -1,23 +1,42 @@
 /**
- * Import official 2025/26 student name list (ALL sheet) into Supabase.
+ * Import official student name list (ALL sheet) into Supabase.
  *
- *   node --import tsx scripts/import-student-roster.ts --sql
- *   SUPABASE_SERVICE_ROLE_KEY=... node --import tsx scripts/import-student-roster.ts
+ * 2025/26 uses raw STID as students.student_no (existing PK).
+ * Other years store `y{year}-{stid}` so they never overwrite another year.
+ *
+ *   npm run import:roster
+ *   npm run import:roster:2425
+ *   node --import tsx scripts/import-student-roster.ts --year=2024 --sql
  */
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import xlsx from 'xlsx'
+import { storedStudentNo } from '../src/data/campusScoresYear'
 
 const XLSX = xlsx
 
 config({ path: '.env.local' })
 config()
 
-const ACADEMIC_YEAR_START = 2025 // 2025/26 roster only — see src/data/campusScoresYear.ts
-const DEFAULT_PATH =
-  '/Users/apple/Downloads/Student Name List 2025-26_27Feb26 (ALL Only).xlsx'
+const PATHS: Record<number, string> = {
+  2024: '/Users/apple/Downloads/Student Name List 2024-25_27Jun25 (ALL only).xlsx',
+  2025: '/Users/apple/Downloads/Student Name List 2025-26_27Feb26 (ALL Only).xlsx',
+}
+
+function resolveImportAcademicYear(): number {
+  const flag = process.argv.find((a) => a.startsWith('--year='))
+  const raw = flag?.slice('--year='.length) ?? process.env.ROSTER_IMPORT_YEAR
+  const year = raw ? Number(raw) : 2025
+  if (!Number.isFinite(year) || year < 2000 || year > 2100) {
+    throw new Error(`Invalid roster year: ${raw}`)
+  }
+  return Math.trunc(year)
+}
+
+const ACADEMIC_YEAR_START = resolveImportAcademicYear()
+const DEFAULT_PATH = PATHS[ACADEMIC_YEAR_START]
 
 type ClassRow = { id: string; name: string; grade: number }
 type StudentRow = {
@@ -109,7 +128,10 @@ function parseAllSheet(filePath: string): {
     if (!nameZh) continue
 
     students.push({
-      student_no: String(Math.trunc(Number(stid)) || stid),
+      student_no: storedStudentNo(
+        ACADEMIC_YEAR_START,
+        String(Math.trunc(Number(stid)) || stid),
+      ),
       class_id: id,
       class_number: toNum(row[1]) ?? 0,
       name_zh: nameZh,
@@ -121,7 +143,9 @@ function parseAllSheet(filePath: string): {
     })
   }
 
-  appendChineseStreamClasses(classMap)
+  if (ACADEMIC_YEAR_START === 2025) {
+    appendChineseStreamClasses(classMap)
+  }
 
   return {
     classes: [...classMap.values()].sort((a, b) =>
@@ -133,7 +157,7 @@ function parseAllSheet(filePath: string): {
 
 function buildSql(classes: ClassRow[], students: StudentRow[]): string {
   const lines: string[] = [
-    '-- Official 2025/26 student name list (ALL)',
+    '-- Official student name list (ALL)',
     '-- Run AFTER 20260822013000_student_roster_fields.sql',
     '',
     'insert into public.classes (id, name, grade) values',
@@ -184,7 +208,15 @@ async function upsertChunks<T extends Record<string, unknown>>(
 
 async function main() {
   const filePath = process.argv.find((a) => a.endsWith('.xlsx')) ?? DEFAULT_PATH
+  if (!filePath) {
+    throw new Error(
+      `No default name-list path for ${ACADEMIC_YEAR_START}; pass an .xlsx path`,
+    )
+  }
   const sqlOnly = process.argv.includes('--sql')
+  console.log(
+    `Academic year ${ACADEMIC_YEAR_START}/${String(ACADEMIC_YEAR_START + 1).slice(-2)}`,
+  )
   console.log('Reading', basename(filePath))
   const { classes, students } = parseAllSheet(filePath)
   console.log(`classes=${classes.length} students=${students.length}`)
@@ -201,7 +233,7 @@ async function main() {
     writeFileSync(
       `${partDir}/00-classes.sql`,
       [
-        '-- Official 2025/26 classes from student name list',
+        '-- Official classes from student name list',
         '-- Run AFTER 20260822013000_student_roster_fields.sql',
         '',
         'insert into public.classes (id, name, grade) values',

@@ -17,10 +17,12 @@ import {
   lookupPercentile,
   percentileRank,
   quartileFromPercentile,
+  recordHasSemester,
   semesterPoints,
   semesterWeightedTotal,
   subjectEarned,
   yearPoints,
+  type SemesterKey,
   type SubjectKey,
 } from '../data/yearScoring'
 import type { Student, YearRecord } from '../types'
@@ -52,8 +54,14 @@ function YearHistoryCharts({
   return (
     <div className="year-charts" role="list" aria-label="歷年表現">
       {records.map((record) => {
-        const firstTotal = semesterPoints(record.first, record.grade)
-        const secondTotal = semesterPoints(record.second, record.grade)
+        const hasFirst = recordHasSemester(record, 'first')
+        const hasSecond = recordHasSemester(record, 'second')
+        const firstTotal = hasFirst
+          ? semesterPoints(record.first, record.grade)
+          : null
+        const secondTotal = hasSecond
+          ? semesterPoints(record.second, record.grade)
+          : null
         const total = yearPoints(record)
         const yearPool = pools.sameYearTotal.get(String(record.grade)) ?? []
         const firstPool =
@@ -64,13 +72,22 @@ function YearHistoryCharts({
         const yearRank = descendingRank(total, yearPool)
         const yearCohort = yearPool.length
         const yearTop = Math.max(1, 100 - yearPct)
-        const firstPct = percentileRank(firstTotal, firstPool)
-        const firstRank = descendingRank(firstTotal, firstPool)
-        const firstTop = Math.max(1, 100 - firstPct)
-        const secondPct = percentileRank(secondTotal, secondPool)
-        const secondRank = descendingRank(secondTotal, secondPool)
-        const secondTop = Math.max(1, 100 - secondPct)
+        const firstPct =
+          firstTotal == null ? null : percentileRank(firstTotal, firstPool)
+        const firstRank =
+          firstTotal == null ? null : descendingRank(firstTotal, firstPool)
+        const firstTop =
+          firstPct == null ? null : Math.max(1, 100 - firstPct)
+        const secondPct =
+          secondTotal == null ? null : percentileRank(secondTotal, secondPool)
+        const secondRank =
+          secondTotal == null ? null : descendingRank(secondTotal, secondPool)
+        const secondTop =
+          secondPct == null ? null : Math.max(1, 100 - secondPct)
         const yearQuartile = quartileFromPercentile(yearPct)
+        const visiblePapers = PAPER_ROWS.filter((row) =>
+          recordHasSemester(record, row.semester as SemesterKey),
+        )
 
         return (
           <article
@@ -84,7 +101,7 @@ function YearHistoryCharts({
             </header>
 
             <div className="year-chart-bars">
-              {PAPER_ROWS.map(({ semester, subject, label }, index) => {
+              {visiblePapers.map(({ semester, subject, label }, index) => {
                 const raw = record[semester][subject as SubjectKey]
                 const max = subjectMaxForGrade(record.grade)[subject]
                 const earned = subjectEarned(raw, subject, record.grade)
@@ -98,7 +115,7 @@ function YearHistoryCharts({
                 const tone = quartileFromPercentile(sameYear)
                 const fill = max > 0 ? (earned / max) * 100 : 0
                 const showSemesterBreak =
-                  index > 0 && PAPER_ROWS[index - 1].semester !== semester
+                  index > 0 && visiblePapers[index - 1].semester !== semester
                 const sameTop = Math.max(1, 100 - sameYear)
                 return (
                   <div key={`${semester}-${subject}`}>
@@ -131,31 +148,45 @@ function YearHistoryCharts({
               <div
                 className="year-chart-summary-tipwrap"
                 tabIndex={0}
-                aria-label={`${SEMESTER_LABELS.first} ${firstTotal}%，Top ${firstTop}%，級名次 ${firstRank}/${firstPool.length}`}
+                aria-label={
+                  firstTotal == null || firstTop == null || firstRank == null
+                    ? `${SEMESTER_LABELS.first} 尚未匯入`
+                    : `${SEMESTER_LABELS.first} ${firstTotal}%，Top ${firstTop}%，級名次 ${firstRank}/${firstPool.length}`
+                }
               >
                 <dt>{SEMESTER_LABELS.first}</dt>
-                <dd>{firstTotal}%</dd>
-                <span className="year-chart-summary-tip" role="tooltip">
-                  Top {firstTop}%
-                  <br />
-                  級名次：{firstRank}/{firstPool.length}
-                </span>
+                <dd>{firstTotal == null ? '—' : `${firstTotal}%`}</dd>
+                {firstTotal != null && firstTop != null && firstRank != null && (
+                  <span className="year-chart-summary-tip" role="tooltip">
+                    Top {firstTop}%
+                    <br />
+                    級名次：{firstRank}/{firstPool.length}
+                  </span>
+                )}
               </div>
               <div
                 className="year-chart-summary-tipwrap"
                 tabIndex={0}
-                aria-label={`${SEMESTER_LABELS.second} ${secondTotal}%，Top ${secondTop}%，級名次 ${secondRank}/${secondPool.length}`}
+                aria-label={
+                  secondTotal == null || secondTop == null || secondRank == null
+                    ? `${SEMESTER_LABELS.second} 尚未匯入`
+                    : `${SEMESTER_LABELS.second} ${secondTotal}%，Top ${secondTop}%，級名次 ${secondRank}/${secondPool.length}`
+                }
               >
                 <dt>{SEMESTER_LABELS.second}</dt>
-                <dd>{secondTotal}%</dd>
-                <span className="year-chart-summary-tip" role="tooltip">
-                  Top {secondTop}%
-                  <br />
-                  級名次：{secondRank}/{secondPool.length}
-                </span>
+                <dd>{secondTotal == null ? '—' : `${secondTotal}%`}</dd>
+                {secondTotal != null &&
+                  secondTop != null &&
+                  secondRank != null && (
+                    <span className="year-chart-summary-tip" role="tooltip">
+                      Top {secondTop}%
+                      <br />
+                      級名次：{secondRank}/{secondPool.length}
+                    </span>
+                  )}
               </div>
               <div className="year-chart-summary-total">
-                <dt>學年總分</dt>
+                <dt>{hasFirst && hasSecond ? '學年總分' : '學期總分'}</dt>
                 <dd>{total}%</dd>
               </div>
             </dl>

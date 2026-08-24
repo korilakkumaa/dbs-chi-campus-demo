@@ -7735,6 +7735,180 @@ tbody tr.table-row-link:focus-visible {
   }
 }
 
+/* —— Department duties —— */
+.duties-count {
+  font-size: var(--text-caption);
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.duties-mine-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.duties-mine-item {
+  display: grid;
+  grid-template-columns: 2.1rem minmax(0, 1fr) auto;
+  gap: 0.55rem 0.7rem;
+  align-items: start;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--paper) 88%, white);
+}
+
+.duties-mine-num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-ui);
+  color: var(--amber-deep);
+  line-height: 1.3;
+}
+
+.duties-mine-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--text-ui-sm);
+  line-height: 1.4;
+}
+
+.duties-mine-note {
+  margin: 0.18rem 0 0;
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.duties-role {
+  font-size: var(--text-mini);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.duties-role-leader {
+  color: var(--amber-deep);
+  background: rgba(196, 132, 58, 0.14);
+}
+
+.duties-role-member {
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink-soft) 10%, transparent);
+}
+
+.duties-source-note {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.duties-dept-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.duties-dept-table th,
+.duties-dept-table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+  font-size: var(--text-ui-sm);
+  line-height: 1.45;
+}
+
+.duties-dept-table thead th {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.duties-col-num {
+  width: 2.2rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.duties-item-title {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.duties-person-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem 0.45rem;
+}
+
+.duties-person {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.28rem;
+}
+
+.duties-person-name {
+  font-weight: 650;
+}
+
+.duties-person-code {
+  font-size: var(--text-mini);
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
+.duties-person-note {
+  font-size: var(--text-mini);
+  color: var(--amber-deep);
+}
+
+.duties-all {
+  font-weight: 700;
+  color: var(--amber-deep);
+}
+
+.duties-member-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.duties-member-group-label {
+  margin: 0 0 0.15rem;
+  font-size: var(--text-mini);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 720px) {
+  .duties-item-title {
+    white-space: normal;
+  }
+
+  .duties-mine-item {
+    grid-template-columns: 1.7rem minmax(0, 1fr);
+  }
+
+  .duties-mine-item .duties-role {
+    grid-column: 2;
+  }
+}
+
 /* —— Personal weekly timetable —— */
 .personal-tt {
   padding: 0.85rem 0.95rem 1rem;

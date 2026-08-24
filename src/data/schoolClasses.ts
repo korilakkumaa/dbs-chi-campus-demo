@@ -23,19 +23,27 @@ function classFromName(
   }
 }
 
-/** Official form / EC / whitelist classes for an academic year. */
-export function buildSchoolClasses(academicYearStart: number): SchoolClass[] {
-  const teachers = teacherWhitelistForYear(academicYearStart)
-  const teacherIdByName = new Map<string, string>()
-  for (const teacher of teachers) {
+function teacherIdByClassName(academicYearStart: number): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const teacher of teacherWhitelistForYear(academicYearStart)) {
     const teacherId = teacherUserIdFromInitial(teacher.initial)
     for (const className of teacher.classes) {
-      if (!teacherIdByName.has(className)) {
-        teacherIdByName.set(className, teacherId)
-      }
+      if (!map.has(className)) map.set(className, teacherId)
     }
   }
+  return map
+}
 
+/**
+ * Chinese class catalog for an academic year.
+ * Only that year's teacher whitelist is used — never another year's assignments.
+ * Years without a whitelist start empty; the name-list roster fills form classes.
+ */
+export function buildSchoolClasses(academicYearStart: number): SchoolClass[] {
+  const teachers = teacherWhitelistForYear(academicYearStart)
+  if (teachers.length === 0) return []
+
+  const teacherIdByName = teacherIdByClassName(academicYearStart)
   const names: string[] = []
   const seen = new Set<string>()
   const add = (name: string) => {
@@ -59,7 +67,56 @@ export function buildSchoolClasses(academicYearStart: number): SchoolClass[] {
   )
 }
 
-/** Overlay Supabase class rows onto the whitelist catalog; keep homeroom from catalog. */
+function classNameFromId(
+  classId: string,
+  nameById: Map<string, string>,
+): string {
+  const named = nameById.get(classId)
+  if (named) return named
+  const raw = classId.replace(/^c-/, '').replace(/-/g, ' ')
+  const ec = raw.match(/^g(\d+)\s*ec$/i)
+  if (ec) return `G${ec[1]} EC`
+  if (/^\d+[a-z](?:_[a-z])?$/i.test(raw)) return raw.toUpperCase()
+  return raw.toUpperCase()
+}
+
+function chinesePulloutClassNames(teachingGroup?: string): string[] {
+  if (!teachingGroup) return []
+  const prefix = teachingGroup.split('-')[0]?.trim().toUpperCase() ?? ''
+  if (!prefix || prefix === '#N/A') return []
+  const remedial = prefix.match(/^(\d+)R/)
+  if (remedial) return [`${remedial[1]}R`]
+  const compact = prefix.replace(/\s+/g, '')
+  if (compact === 'IBEC') return ['IBEC']
+  const ec = compact.match(/^G(\d+)EC$/)
+  if (ec) return [`G${ec[1]} EC`]
+  return []
+}
+
+/** Add this year's name-list form classes and Chinese pull-outs (R / EC). */
+export function addClassesFromRoster(
+  catalog: SchoolClass[],
+  academicYearStart: number,
+  students: { classId: string; teachingGroup?: string }[],
+  nameById: Map<string, string>,
+): SchoolClass[] {
+  const teacherIdByName = teacherIdByClassName(academicYearStart)
+  const byId = new Map(catalog.map((c) => [c.id, c]))
+  const ensure = (name: string) => {
+    const id = classNameToId(name)
+    if (byId.has(id)) return
+    byId.set(id, classFromName(name, teacherIdByName.get(name) ?? null))
+  }
+  for (const student of students) {
+    ensure(classNameFromId(student.classId, nameById))
+    for (const name of chinesePulloutClassNames(student.teachingGroup)) {
+      ensure(name)
+    }
+  }
+  return [...byId.values()]
+}
+
+/** Overlay remote class names/teachers onto the year catalog; never add other-year extras. */
 export function mergeRemoteClasses(
   catalog: SchoolClass[],
   remote: SchoolClass[],
@@ -67,9 +124,11 @@ export function mergeRemoteClasses(
   const byId = new Map(catalog.map((c) => [c.id, c]))
   for (const row of remote) {
     const existing = byId.get(row.id)
+    if (!existing) continue
     byId.set(row.id, {
-      ...row,
-      teacherId: existing?.teacherId ?? row.teacherId,
+      ...existing,
+      name: existing.name || row.name,
+      teacherId: existing.teacherId ?? row.teacherId,
     })
   }
   return [...byId.values()]

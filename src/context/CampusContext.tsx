@@ -36,6 +36,7 @@ import {
 } from '../data/campusScoresYear'
 import { emptyGradeDeadlines } from '../data/gradeDeadlines'
 import {
+  addClassesFromRoster,
   buildSchoolClasses,
   mergeRemoteClasses,
 } from '../data/schoolClasses'
@@ -250,6 +251,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     setCampusDataLoading(true)
     setCampusDataError(null)
+    setStudents([])
     ;(async () => {
       try {
         const [remoteClasses, remoteStudents] = await Promise.all([
@@ -263,10 +265,16 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           setCampusDataLoading(false)
           return
         }
+        const nameById = new Map(remoteClasses.map((c) => [c.id, c.name]))
         setClasses(
-          mergeRemoteClasses(
-            buildSchoolClasses(scoresAcademicYearStart),
-            remoteClasses,
+          addClassesFromRoster(
+            mergeRemoteClasses(
+              buildSchoolClasses(scoresAcademicYearStart),
+              remoteClasses,
+            ),
+            scoresAcademicYearStart,
+            remoteStudents,
+            nameById,
           ),
         )
         if (remoteStudents.length > 0) {
@@ -275,7 +283,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         } else {
           setStudents([])
           setCampusDataError(
-            `尚未匯入 ${formatAcademicYearLabel(scoresAcademicYearStart)} 學年成績。`,
+            `尚未匯入 ${formatAcademicYearLabel(scoresAcademicYearStart)} 學年名冊。`,
           )
         }
       } catch (err) {

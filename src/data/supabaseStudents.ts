@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SemesterScores, Student, YearRecord } from '../types'
+import {
+  officialStudentNo,
+  SCORES_IMPORTED_ACADEMIC_YEARS,
+} from './campusScoresYear'
 import { subjectMaxForGrade } from './yearScoring'
 import { supabase } from '../lib/supabase'
 
@@ -168,34 +172,160 @@ function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
   }
 }
 
+const EMPTY_SCORES: SemesterScores = { daily: 0, reading: 0, writing: 0 }
+
+function normalizeZhName(name: string): string {
+  return name.normalize('NFKC').replace(/[\s\u3000]+/g, '').trim()
+}
+
+function normalizeEnName(name: string): string {
+  return name.normalize('NFKC').toUpperCase().replace(/[^A-Z]/g, '')
+}
+
+/** Bilingual name key for rows that do not share a stored student_no. */
+function identityKey(nameZh: string, nameEn: string): string | null {
+  const zh = normalizeZhName(nameZh)
+  const en = normalizeEnName(nameEn)
+  if (zh && en) return `ze:${zh}|${en}`
+  if (en.length >= 4) return `e:${en}`
+  if (zh) return `z:${zh}`
+  return null
+}
+
+function englishKey(nameEn: string): string | null {
+  const en = normalizeEnName(nameEn)
+  return en.length >= 4 ? `e:${en}` : null
+}
+
+function gradeFromClassId(classId: string): number | null {
+  const match = classId.match(/^c-g?(\d+)/i)
+  if (!match) return null
+  const n = Number(match[1])
+  return Number.isFinite(n) ? n : null
+}
+
+function isExpectedGrade(roster: StudentRow, hit: StudentRow): boolean {
+  const from = gradeFromClassId(roster.class_id)
+  const to = gradeFromClassId(hit.class_id)
+  if (from == null || to == null) return true
+  return to === from + (hit.academic_year_start - roster.academic_year_start)
+}
+
+function rowsWithKey(
+  rows: StudentRow[],
+  keyOf: (row: StudentRow) => string | null,
+  key: string,
+): StudentRow[] {
+  return rows.filter((row) => keyOf(row) === key)
+}
+
+function pickByExpectedGrade(
+  roster: StudentRow,
+  hits: StudentRow[],
+): StudentRow | null {
+  const expected = hits.filter((hit) => isExpectedGrade(roster, hit))
+  if (expected.length === 1) return expected[0]
+  if (expected.length > 1) {
+    const form = expected.filter((hit) => !/r_/i.test(hit.class_id))
+    if (form.length === 1) return form[0]
+  }
+  return null
+}
+
+function matchStudentInYear(
+  roster: StudentRow,
+  yearRows: StudentRow[],
+  rosterYearRows: StudentRow[],
+): StudentRow | null {
+  const idKey = identityKey(roster.name_zh, roster.name_en)
+  if (idKey) {
+    const hit = pickByExpectedGrade(
+      roster,
+      rowsWithKey(yearRows, (row) => identityKey(row.name_zh, row.name_en), idKey),
+    )
+    if (hit) return hit
+  }
+
+  const rosterEn = englishKey(roster.name_en)
+  if (!rosterEn) return null
+  if (
+    rowsWithKey(rosterYearRows, (row) => englishKey(row.name_en), rosterEn)
+      .length !== 1
+  ) {
+    return null
+  }
+  return pickByExpectedGrade(
+    roster,
+    rowsWithKey(yearRows, (row) => englishKey(row.name_en), rosterEn),
+  )
+}
+
+function linkedStudentNos(
+  roster: StudentRow,
+  rowsByYear: Map<number, StudentRow[]>,
+): string[] {
+  const nos = new Set<string>([roster.student_no])
+  const official = officialStudentNo(roster.student_no)
+  const rosterYearRows = rowsByYear.get(roster.academic_year_start) ?? []
+  for (const [year, rows] of rowsByYear) {
+    if (year === roster.academic_year_start || rows.length === 0) continue
+    const byOfficial = rows.filter(
+      (row) => officialStudentNo(row.student_no) === official,
+    )
+    if (byOfficial.length === 1) {
+      nos.add(byOfficial[0].student_no)
+      continue
+    }
+    const hit = matchStudentInYear(roster, rows, rosterYearRows)
+    if (hit) nos.add(hit.student_no)
+  }
+  return [...nos]
+}
+
 function buildYearHistory(
-  studentNo: string,
-  className: string,
+  linkedNos: Set<string>,
   records: SemesterRow[],
+  classNameByStudentYear: Map<string, string>,
+  fallbackClassName: string,
 ): YearRecord[] {
   const byGrade = new Map<
     number,
-    { first?: SemesterScores; second?: SemesterScores }
+    {
+      first?: SemesterScores
+      second?: SemesterScores
+      className?: string
+    }
   >()
 
   for (const r of records) {
-    if (r.student_no !== studentNo) continue
+    if (!linkedNos.has(r.student_no)) continue
     const slot = byGrade.get(r.grade) ?? {}
     const scores = scoresFromSemesterRow(r)
     if (r.semester === 'first') slot.first = scores
     else slot.second = scores
+    const named = classNameByStudentYear.get(
+      `${r.student_no}|${r.academic_year_start}`,
+    )
+    if (named) slot.className = named
     byGrade.set(r.grade, slot)
   }
 
-  const empty: SemesterScores = { daily: 0, reading: 0, writing: 0 }
   return [...byGrade.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([grade, slot]) => ({
       grade,
-      className,
-      first: slot.first ?? empty,
-      second: slot.second ?? empty,
+      className: slot.className ?? fallbackClassName,
+      first: slot.first ?? EMPTY_SCORES,
+      second: slot.second ?? EMPTY_SCORES,
+      hasFirst: slot.first != null,
+      hasSecond: slot.second != null,
     }))
+}
+
+function studentFetchYears(academicYearStart: number): number[] {
+  const imported = [...SCORES_IMPORTED_ACADEMIC_YEARS]
+  if (imported.some((year) => year === academicYearStart)) return imported
+  return [academicYearStart]
 }
 
 export async function fetchCampusStudentsFromSupabase(
@@ -203,15 +333,16 @@ export async function fetchCampusStudentsFromSupabase(
 ): Promise<Student[] | null> {
   if (!supabase) return null
   const client: SupabaseClient = supabase
+  const years = studentFetchYears(academicYearStart)
 
-  const { data: studentRows, error: studentError } =
+  const { data: allStudentRows, error: studentError } =
     await fetchAllRows<StudentRow>((from, to) =>
       client
         .from('students')
         .select(
           'student_no, class_id, class_number, name_zh, name_en, teaching_group, academic_year_start, house, french, roster_remarks',
         )
-        .eq('academic_year_start', academicYearStart)
+        .in('academic_year_start', years)
         .order('class_id')
         .order('class_number')
         .range(from, to),
@@ -221,7 +352,11 @@ export async function fetchCampusStudentsFromSupabase(
     console.error('Supabase students:', studentError)
     return null
   }
-  if (!studentRows?.length) return []
+
+  const studentRows = (allStudentRows ?? []).filter(
+    (s) => s.academic_year_start === academicYearStart,
+  )
+  if (!studentRows.length) return []
 
   const { data: classRows } = await client.from('classes').select('id, name')
   const classNameById = new Map(
@@ -235,7 +370,7 @@ export async function fetchCampusStudentsFromSupabase(
         .select(
           'student_no, academic_year_start, grade, semester, daily, reading, writing, components, attitude_grade, remarks',
         )
-        .eq('academic_year_start', academicYearStart)
+        .in('academic_year_start', years)
         .order('student_no')
         .order('grade')
         .order('semester')
@@ -247,20 +382,35 @@ export async function fetchCampusStudentsFromSupabase(
     return null
   }
 
-  const byStudent = new Map<string, SemesterRow[]>()
-  for (const row of semesterRows ?? []) {
-    const list = byStudent.get(row.student_no) ?? []
+  const rowsByYear = new Map<number, StudentRow[]>()
+  const classNameByStudentYear = new Map<string, string>()
+  for (const row of allStudentRows ?? []) {
+    const list = rowsByYear.get(row.academic_year_start) ?? []
     list.push(row)
-    byStudent.set(row.student_no, list)
+    rowsByYear.set(row.academic_year_start, list)
+    classNameByStudentYear.set(
+      `${row.student_no}|${row.academic_year_start}`,
+      classNameById.get(row.class_id) ?? row.class_id,
+    )
   }
 
   return studentRows.map((s) => {
     const className = classNameById.get(s.class_id) ?? s.class_id
-    const records = byStudent.get(s.student_no) ?? []
-    const yearHistory = buildYearHistory(s.student_no, className, records)
+    const linkedNos = new Set(linkedStudentNos(s, rowsByYear))
+    const yearHistory = buildYearHistory(
+      linkedNos,
+      semesterRows ?? [],
+      classNameByStudentYear,
+      className,
+    )
+    const rosterRecords = (semesterRows ?? []).filter(
+      (r) =>
+        r.student_no === s.student_no &&
+        r.academic_year_start === academicYearStart,
+    )
     const latestRow =
-      records.find((r) => r.semester === 'second') ??
-      records.find((r) => r.semester === 'first')
+      rosterRecords.find((r) => r.semester === 'second') ??
+      rosterRecords.find((r) => r.semester === 'first')
     const latestScores = latestRow
       ? weightedScoresFromSemesterRow(latestRow)
       : { daily: 0, reading: 0, writing: 0 }
