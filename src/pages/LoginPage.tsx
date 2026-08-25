@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import campus from '../assets/school-campus.png'
 import crest from '../assets/dbs-crest.png'
 import { defaultPath, useAuth } from '../context/AuthContext'
@@ -38,11 +38,7 @@ export function AuthBootScreen() {
 }
 
 export function LoginPage() {
-  const { user, ready, login, loginWithGoogle, authError, clearAuthError } =
-    useAuth()
-  const navigate = useNavigate()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const { user, ready, loginWithGoogle, authError, clearAuthError } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [shaking, setShaking] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
@@ -70,16 +66,6 @@ export function LoginPage() {
     }
   }
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    const result = login(username, password)
-    if (typeof result === 'string') {
-      fail(result)
-      return
-    }
-    navigate(defaultPath(result.role))
-  }
-
   return (
     <div className="login-page">
       <img className="login-bg" src={campus} alt="" aria-hidden />
@@ -97,9 +83,8 @@ export function LoginPage() {
           <h1 className="login-headline">好書是最好的朋友，今天是，永遠都是。</h1>
         </header>
 
-        <form
+        <div
           className={`login-card glass reveal-up delay-1${shaking ? ' shake' : ''}`}
-          onSubmit={onSubmit}
         >
           <p className="login-card-title">登入</p>
           {error && <p className="form-error">{error}</p>}
@@ -112,32 +97,8 @@ export function LoginPage() {
             <GoogleMark />
             {googleBusy ? '正在前往 Google…' : '以 Google 登入'}
           </button>
-          <details className="login-password">
-            <summary>或以帳戶密碼登入</summary>
-            <label>
-              <span>帳戶</span>
-              <input
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="學校 Google 帳戶（@dbs.edu.hk）"
-              />
-            </label>
-            <label>
-              <span>密碼</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="請輸入密碼"
-              />
-            </label>
-            <button type="submit" className="primary-btn">
-              進入校園
-            </button>
-          </details>
-        </form>
+          <p className="login-google-hint">請使用學校 Google 帳戶（@dbs.edu.hk）</p>
+        </div>
       </div>
     </div>
   )

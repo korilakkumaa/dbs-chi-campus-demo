@@ -118,29 +118,25 @@ function RoleSwitch({
   role: 'admin' | 'teacher'
   onSwitch: (role: 'admin' | 'teacher') => void
 }) {
-  const isAdmin = role === 'admin'
   return (
-    <button
-      type="button"
-      className={`role-switch${isAdmin ? ' is-admin' : ' is-teacher'}`}
-      role="switch"
-      aria-checked={isAdmin}
-      aria-label={
-        isAdmin ? '目前為管理員，切換為老師' : '目前為老師，切換為管理員'
-      }
-      title={isAdmin ? '切換為老師身分' : '切換為管理員身分'}
-      onClick={() => onSwitch(isAdmin ? 'teacher' : 'admin')}
-    >
-      <span className={`role-switch-opt${isAdmin ? ' active' : ''}`}>
+    <div className="role-switch" role="group" aria-label="切換管理員或教師頁面">
+      <button
+        type="button"
+        className={`role-switch-btn${role === 'admin' ? ' active' : ''}`}
+        aria-pressed={role === 'admin'}
+        onClick={() => onSwitch('admin')}
+      >
         管理員
-      </span>
-      <span className="role-switch-track" aria-hidden>
-        <span className="role-switch-thumb" />
-      </span>
-      <span className={`role-switch-opt${!isAdmin ? ' active' : ''}`}>
-        老師
-      </span>
-    </button>
+      </button>
+      <button
+        type="button"
+        className={`role-switch-btn${role === 'teacher' ? ' active' : ''}`}
+        aria-pressed={role === 'teacher'}
+        onClick={() => onSwitch('teacher')}
+      >
+        教師
+      </button>
+    </div>
   )
 }
 
@@ -322,11 +318,13 @@ function StaffNavbar({
             <RoleSwitch
               role={user.role}
               onSwitch={(next) => {
+                if (next === user.role) return
                 switchRole(next)
-                if (
-                  next === 'teacher' &&
-                  location.pathname.startsWith('/admin')
-                ) {
+                if (next === 'admin') {
+                  navigate('/admin', { replace: true })
+                  return
+                }
+                if (location.pathname.startsWith('/admin')) {
                   navigate(defaultPath('teacher'), { replace: true })
                 }
               }}
