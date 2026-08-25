@@ -5,7 +5,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { formatEventDateLabel, dayStatusCustomNote } from '../../data/calendarEvents'
+import { formatEventDateLabel } from '../../data/calendarEvents'
 import {
   getDayTimetable,
   lessonHighlight,
