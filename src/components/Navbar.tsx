@@ -1,5 +1,5 @@
-import { NavLink, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { defaultPath, useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 import {
   CAMPUS_SUBJECT_OPTIONS,
@@ -111,6 +111,39 @@ function SubjectButtons() {
   )
 }
 
+function RoleSwitch({
+  role,
+  onSwitch,
+}: {
+  role: 'admin' | 'teacher'
+  onSwitch: (role: 'admin' | 'teacher') => void
+}) {
+  const isAdmin = role === 'admin'
+  return (
+    <button
+      type="button"
+      className={`role-switch${isAdmin ? ' is-admin' : ' is-teacher'}`}
+      role="switch"
+      aria-checked={isAdmin}
+      aria-label={
+        isAdmin ? '目前為管理員，切換為老師' : '目前為老師，切換為管理員'
+      }
+      title={isAdmin ? '切換為老師身分' : '切換為管理員身分'}
+      onClick={() => onSwitch(isAdmin ? 'teacher' : 'admin')}
+    >
+      <span className={`role-switch-opt${isAdmin ? ' active' : ''}`}>
+        管理員
+      </span>
+      <span className="role-switch-track" aria-hidden>
+        <span className="role-switch-thumb" />
+      </span>
+      <span className={`role-switch-opt${!isAdmin ? ' active' : ''}`}>
+        老師
+      </span>
+    </button>
+  )
+}
+
 function LogoutButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -184,8 +217,9 @@ function StaffNavbar({
   toolsOpen?: boolean
   onToggleTools?: () => void
 }) {
-  const { user, logout } = useAuth()
+  const { user, logout, canSwitchRole, switchRole } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const closeTimerRef = useRef<number | null>(null)
   const linksRef = useRef<HTMLUListElement>(null)
@@ -283,9 +317,25 @@ function StaffNavbar({
         </button>
         <div>
           <p className="brand-name">拔萃男書院中國語文科</p>
-          <p className="brand-sub">
-            {teacherDisplayName(user?.name, user?.role)}
-          </p>
+          {canSwitchRole &&
+          (user?.role === 'admin' || user?.role === 'teacher') ? (
+            <RoleSwitch
+              role={user.role}
+              onSwitch={(next) => {
+                switchRole(next)
+                if (
+                  next === 'teacher' &&
+                  location.pathname.startsWith('/admin')
+                ) {
+                  navigate(defaultPath('teacher'), { replace: true })
+                }
+              }}
+            />
+          ) : (
+            <p className="brand-sub">
+              {teacherDisplayName(user?.name, user?.role)}
+            </p>
+          )}
         </div>
       </div>
 

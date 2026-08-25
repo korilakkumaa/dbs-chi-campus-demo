@@ -2,26 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import campus from '../assets/school-campus.png'
 import crest from '../assets/dbs-crest.png'
-import { defaultPath, ROLE_LABEL, useAuth } from '../context/AuthContext'
+import { defaultPath, useAuth } from '../context/AuthContext'
 import { TextSizeControl } from '../components/TextSizeControl'
-import type { Role } from '../types'
-
-const LOGIN_ROLES: {
-  role: Role
-  features: string[]
-  hint: string
-}[] = [
-  {
-    role: 'admin',
-    features: ['全校班級', '首頁、日曆、時間表、分數、其他資料', '分派教師與截止日期'],
-    hint: 'TWL、LKL 或 YLN 的學校 Google 帳戶',
-  },
-  {
-    role: 'teacher',
-    features: ['所任教班級', '首頁、日曆、時間表、分數、其他資料'],
-    hint: '教師學校 Google 帳戶（@dbs.edu.hk）',
-  },
-]
 
 function GoogleMark() {
   return (
@@ -61,7 +43,6 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<Role | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shaking, setShaking] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
@@ -80,20 +61,9 @@ export function LoginPage() {
 
   if (ready && user) return <Navigate to={defaultPath(user.role)} replace />
 
-  const selected = LOGIN_ROLES.find((item) => item.role === mode) ?? null
-
-  const pickMode = (role: Role) => {
-    setMode(role)
-    setError(null)
-  }
-
   const onGoogle = async () => {
-    if (!mode) {
-      fail('請先選擇登入身分。')
-      return
-    }
     setGoogleBusy(true)
-    const result = await loginWithGoogle(mode)
+    const result = await loginWithGoogle()
     if (result) {
       fail(result)
       setGoogleBusy(false)
@@ -102,11 +72,7 @@ export function LoginPage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!mode) {
-      fail('請先選擇登入身分。')
-      return
-    }
-    const result = login(username, password, mode)
+    const result = login(username, password)
     if (typeof result === 'string') {
       fail(result)
       return
@@ -136,25 +102,6 @@ export function LoginPage() {
           onSubmit={onSubmit}
         >
           <p className="login-card-title">登入</p>
-          <p className="login-mode-label">選擇身份</p>
-          <div className="login-modes" role="group" aria-label="登入身份">
-            {LOGIN_ROLES.map((item) => (
-              <button
-                key={item.role}
-                type="button"
-                className={`login-mode${mode === item.role ? ' active' : ''}`}
-                aria-pressed={mode === item.role}
-                onClick={() => pickMode(item.role)}
-              >
-                {ROLE_LABEL[item.role]}
-              </button>
-            ))}
-          </div>
-          {selected && (
-            <p className="login-role-note">
-              {ROLE_LABEL[selected.role]}可使用：{selected.features.join('、')}
-            </p>
-          )}
           {error && <p className="form-error">{error}</p>}
           <button
             type="button"
@@ -173,9 +120,7 @@ export function LoginPage() {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={
-                  selected ? selected.hint : '請先選擇管理員或教師'
-                }
+                placeholder="學校 Google 帳戶（@dbs.edu.hk）"
               />
             </label>
             <label>

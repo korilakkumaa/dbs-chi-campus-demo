@@ -10,10 +10,9 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
-  inferRoleFromEmail,
   isAdminEmail,
-  findStaffByEmail,
   resolveStaffUser,
+  roleForStaff,
   staffUsers,
 } from '../data/staffUsers'
 import { oauthRedirectTo, supabase } from '../lib/supabase'
@@ -33,8 +32,11 @@ interface AuthContextValue {
   user: User | null
   ready: boolean
   authError: string | null
-  login: (username: string, password: string, role: Role) => User | string
-  loginWithGoogle: (role: Role) => Promise<string | void>
+  /** TWL / LKL / YLN school accounts may toggle 管理員 ↔ 老師 after sign-in. */
+  canSwitchRole: boolean
+  login: (username: string, password: string) => User | string
+  loginWithGoogle: () => Promise<string | void>
+  switchRole: (role: Role) => void
   logout: () => void
   clearAuthError: () => void
 }
@@ -49,7 +51,6 @@ const AuthContext: Context<AuthContextValue | null> =
 const STORAGE_KEY = 'campus-cms-user'
 const ROLE_KEY = 'campus-cms-role'
 const METHOD_KEY = 'campus-cms-auth-method'
-const PENDING_ROLE_KEY = 'campus-oauth-role'
 
 function isRole(value: string | null): value is Role {
   return value === 'admin' || value === 'teacher' || value === 'student'
@@ -62,11 +63,13 @@ function loadUser(): User | null {
     const parsed = JSON.parse(raw) as { id: string }
     const stored = staffUsers.find((u) => u.id === parsed.id) ?? null
     if (!stored) return null
-    const role = readStoredRole() ?? stored.role
     if (stored.username.includes('@')) {
-      return resolveStaffUser(stored.username, role)
+      return resolveStaffUser(
+        stored.username,
+        roleForStaff(stored.username, readStoredRole()),
+      )
     }
-    return stored.role === role ? stored : null
+    return stored
   } catch {
     return null
   }
@@ -95,23 +98,12 @@ function readMethod(): 'google' | 'password' | null {
   return raw === 'google' || raw === 'password' ? raw : null
 }
 
-function consumePendingRole(): Role | null {
-  const raw = sessionStorage.getItem(PENDING_ROLE_KEY)
-  if (raw) sessionStorage.removeItem(PENDING_ROLE_KEY)
-  return isRole(raw) ? raw : null
-}
-
 function clearPersistedAuth() {
   localStorage.removeItem(STORAGE_KEY)
   persistMethod(null)
 }
 
-function googleAuthError(email: string, role: Role): string {
-  if (findStaffByEmail(email) || isAdminEmail(email)) {
-    return `此帳戶不是${ROLE_LABEL[role]}身分。`
-  }
-  return '此 Google 帳戶不在教師名單內。'
-}
+const GOOGLE_NOT_WHITELISTED = '此 Google 帳戶不在教師名單內。'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -126,10 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const role = consumePendingRole() ?? readStoredRole() ?? inferRoleFromEmail(email)
-    const mapped = resolveStaffUser(email, role)
+    const mapped = resolveStaffUser(
+      email,
+      roleForStaff(email, readStoredRole()),
+    )
     if (!mapped) {
-      setAuthError(googleAuthError(email, role))
+      setAuthError(GOOGLE_NOT_WHITELISTED)
       clearPersistedAuth()
       setUser(null)
       await supabase?.auth.signOut()
@@ -182,19 +176,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       authError,
-      login: (username, password, role) => {
+      canSwitchRole: Boolean(user && isAdminEmail(user.username)),
+      login: (username, password) => {
         const found = staffUsers.find(
           (u) =>
             u.username.toLowerCase() === username.trim().toLowerCase() &&
             u.password === password,
         )
         if (!found) return '帳戶或密碼不正確。'
-        const resolved = username.includes('@')
-          ? resolveStaffUser(found.username, role)
-          : found.role === role
-            ? found
-            : null
-        if (!resolved) return `此帳戶不是${ROLE_LABEL[role]}身分。`
+        const resolved = found.username.includes('@')
+          ? resolveStaffUser(
+              found.username,
+              roleForStaff(found.username, readStoredRole()),
+            )
+          : found
+        if (!resolved) return '此帳戶無法登入。'
         persistUser(resolved)
         persistRole(resolved.role)
         persistMethod('password')
@@ -202,10 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(resolved)
         return resolved
       },
-      loginWithGoogle: async (role) => {
+      loginWithGoogle: async () => {
         if (!supabase) return '尚未連接 Google 登入（缺少 Supabase 設定）。'
-        sessionStorage.setItem(PENDING_ROLE_KEY, role)
-        persistRole(role)
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -216,10 +210,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
           },
         })
-        if (error) {
-          sessionStorage.removeItem(PENDING_ROLE_KEY)
-          return error.message
-        }
+        if (error) return error.message
+      },
+      switchRole: (role) => {
+        if (!user || (role !== 'admin' && role !== 'teacher')) return
+        if (!isAdminEmail(user.username)) return
+        const mapped = resolveStaffUser(user.username, role)
+        if (!mapped || mapped.role === user.role) return
+        persistUser(mapped)
+        persistRole(mapped.role)
+        setUser(mapped)
       },
       logout: () => {
         setUser(null)

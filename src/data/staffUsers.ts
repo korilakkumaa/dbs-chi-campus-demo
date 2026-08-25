@@ -76,6 +76,13 @@ export function inferRoleFromEmail(email: string): Role {
   return isAdminEmail(email) ? 'admin' : 'teacher'
 }
 
+/** Keep a remembered role only if this account is allowed to use it. */
+export function roleForStaff(email: string, preferred?: Role | null): Role {
+  if (preferred === 'admin' && isAdminEmail(email)) return 'admin'
+  if (preferred === 'teacher') return 'teacher'
+  return inferRoleFromEmail(email)
+}
+
 /** Map a verified Google / school email to the campus user for the chosen role. */
 export function resolveStaffUser(email: string, role: Role): User | null {
   const teacher = findStaffByEmail(email)
