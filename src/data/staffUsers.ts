@@ -1,4 +1,4 @@
-import type { User } from '../types'
+import type { Role, User } from '../types'
 import {
   classNameToId,
   teacherUserIdFromInitial,
@@ -8,6 +8,9 @@ import {
 } from './teacherWhitelist'
 
 const STAFF_PASSWORD = 'campus'
+
+/** Department heads who may sign in as 管理員 via their school Google account. */
+export const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN'] as const
 
 export const ADMIN_USER: User = {
   id: 'u-admin',
@@ -44,3 +47,42 @@ export const staffUsers: User[] = (() => {
   }
   return [...byId.values()]
 })()
+
+export function findStaffByEmail(email: string): User | undefined {
+  const needle = email.trim().toLowerCase()
+  if (!needle) return undefined
+  return staffUsers.find(
+    (u) => u.role === 'teacher' && u.username.toLowerCase() === needle,
+  )
+}
+
+export function isAdminEmail(email: string): boolean {
+  const needle = email.trim().toLowerCase()
+  if (!needle) return false
+  for (const year of teacherWhitelistYears()) {
+    for (const teacher of teacherWhitelistForYear(year)) {
+      if (
+        (ADMIN_INITIALS as readonly string[]).includes(teacher.initial) &&
+        teacher.email.toLowerCase() === needle
+      ) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+export function inferRoleFromEmail(email: string): Role {
+  return isAdminEmail(email) ? 'admin' : 'teacher'
+}
+
+/** Map a verified Google / school email to the campus user for the chosen role. */
+export function resolveStaffUser(email: string, role: Role): User | null {
+  const teacher = findStaffByEmail(email)
+  if (!teacher) return null
+  if (role === 'teacher') return teacher
+  if (role === 'admin' && isAdminEmail(email)) {
+    return { ...teacher, role: 'admin' }
+  }
+  return null
+}

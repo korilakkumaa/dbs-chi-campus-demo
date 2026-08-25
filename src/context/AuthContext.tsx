@@ -1,12 +1,22 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type Context,
   type ReactNode,
 } from 'react'
-import { staffUsers } from '../data/staffUsers'
+import type { Session } from '@supabase/supabase-js'
+import {
+  inferRoleFromEmail,
+  isAdminEmail,
+  findStaffByEmail,
+  resolveStaffUser,
+  staffUsers,
+} from '../data/staffUsers'
+import { oauthRedirectTo, supabase } from '../lib/supabase'
 import type { Role, User } from '../types'
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -21,8 +31,12 @@ export function defaultPath(role?: Role) {
 
 interface AuthContextValue {
   user: User | null
+  ready: boolean
+  authError: string | null
   login: (username: string, password: string, role: Role) => User | string
+  loginWithGoogle: (role: Role) => Promise<string | void>
   logout: () => void
+  clearAuthError: () => void
 }
 
 const globalKey = '__campusAuthContext'
@@ -33,24 +47,141 @@ const AuthContext: Context<AuthContextValue | null> =
 ;(globalThis as Record<string, unknown>)[globalKey] = AuthContext
 
 const STORAGE_KEY = 'campus-cms-user'
+const ROLE_KEY = 'campus-cms-role'
+const METHOD_KEY = 'campus-cms-auth-method'
+const PENDING_ROLE_KEY = 'campus-oauth-role'
+
+function isRole(value: string | null): value is Role {
+  return value === 'admin' || value === 'teacher' || value === 'student'
+}
 
 function loadUser(): User | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as { id: string }
-    return staffUsers.find((u) => u.id === parsed.id) ?? null
+    const stored = staffUsers.find((u) => u.id === parsed.id) ?? null
+    if (!stored) return null
+    const role = readStoredRole() ?? stored.role
+    if (stored.username.includes('@')) {
+      return resolveStaffUser(stored.username, role)
+    }
+    return stored.role === role ? stored : null
   } catch {
     return null
   }
 }
 
+function persistUser(user: User) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: user.id }))
+}
+
+function persistRole(role: Role) {
+  localStorage.setItem(ROLE_KEY, role)
+}
+
+function readStoredRole(): Role | null {
+  const raw = localStorage.getItem(ROLE_KEY)
+  return isRole(raw) ? raw : null
+}
+
+function persistMethod(method: 'google' | 'password' | null) {
+  if (!method) localStorage.removeItem(METHOD_KEY)
+  else localStorage.setItem(METHOD_KEY, method)
+}
+
+function readMethod(): 'google' | 'password' | null {
+  const raw = localStorage.getItem(METHOD_KEY)
+  return raw === 'google' || raw === 'password' ? raw : null
+}
+
+function consumePendingRole(): Role | null {
+  const raw = sessionStorage.getItem(PENDING_ROLE_KEY)
+  if (raw) sessionStorage.removeItem(PENDING_ROLE_KEY)
+  return isRole(raw) ? raw : null
+}
+
+function clearPersistedAuth() {
+  localStorage.removeItem(STORAGE_KEY)
+  persistMethod(null)
+}
+
+function googleAuthError(email: string, role: Role): string {
+  if (findStaffByEmail(email) || isAdminEmail(email)) {
+    return `此帳戶不是${ROLE_LABEL[role]}身分。`
+  }
+  return '此 Google 帳戶不在教師名單內。'
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => loadUser())
+  const [user, setUser] = useState<User | null>(null)
+  const [ready, setReady] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  const applySession = useCallback(async (session: Session | null) => {
+    const email = session?.user?.email
+    if (!email) {
+      if (readMethod() === 'password') setUser(loadUser())
+      else setUser(null)
+      return
+    }
+
+    const role = consumePendingRole() ?? readStoredRole() ?? inferRoleFromEmail(email)
+    const mapped = resolveStaffUser(email, role)
+    if (!mapped) {
+      setAuthError(googleAuthError(email, role))
+      clearPersistedAuth()
+      setUser(null)
+      await supabase?.auth.signOut()
+      return
+    }
+
+    setAuthError(null)
+    persistUser(mapped)
+    persistRole(mapped.role)
+    persistMethod('google')
+    setUser(mapped)
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) {
+      setUser(readMethod() === 'google' ? null : loadUser())
+      setReady(true)
+      return
+    }
+
+    let cancelled = false
+
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return
+        return applySession(data.session)
+      })
+      .catch((error) => {
+        console.error(error)
+        if (!cancelled) setUser(null)
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true)
+      })
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return
+      void applySession(session)
+    })
+
+    return () => {
+      cancelled = true
+      data.subscription.unsubscribe()
+    }
+  }, [applySession])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      ready,
+      authError,
       login: (username, password, role) => {
         const found = staffUsers.find(
           (u) =>
@@ -58,19 +189,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             u.password === password,
         )
         if (!found) return '帳戶或密碼不正確。'
-        if (found.role !== role) {
-          return `此帳戶不是${ROLE_LABEL[role]}身分。`
+        const resolved = username.includes('@')
+          ? resolveStaffUser(found.username, role)
+          : found.role === role
+            ? found
+            : null
+        if (!resolved) return `此帳戶不是${ROLE_LABEL[role]}身分。`
+        persistUser(resolved)
+        persistRole(resolved.role)
+        persistMethod('password')
+        setAuthError(null)
+        setUser(resolved)
+        return resolved
+      },
+      loginWithGoogle: async (role) => {
+        if (!supabase) return '尚未連接 Google 登入（缺少 Supabase 設定）。'
+        sessionStorage.setItem(PENDING_ROLE_KEY, role)
+        persistRole(role)
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: oauthRedirectTo(),
+            queryParams: {
+              hd: 'dbs.edu.hk',
+              prompt: 'select_account',
+            },
+          },
+        })
+        if (error) {
+          sessionStorage.removeItem(PENDING_ROLE_KEY)
+          return error.message
         }
-        setUser(found)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: found.id }))
-        return found
       },
       logout: () => {
         setUser(null)
-        localStorage.removeItem(STORAGE_KEY)
+        clearPersistedAuth()
+        localStorage.removeItem(ROLE_KEY)
+        void supabase?.auth.signOut()
       },
+      clearAuthError: () => setAuthError(null),
     }),
-    [user],
+    [user, ready, authError],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

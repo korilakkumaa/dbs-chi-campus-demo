@@ -4,7 +4,7 @@ import { defaultPath, useAuth } from './context/AuthContext'
 import { AdminPage } from './pages/AdminPage'
 import { ClassPage } from './pages/ClassPage'
 import { IndividualPage } from './pages/IndividualPage'
-import { LoginPage } from './pages/LoginPage'
+import { AuthBootScreen, LoginPage } from './pages/LoginPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { CalendarPage } from './pages/CalendarPage'
 import { YearOverviewPage } from './pages/YearOverviewPage'
@@ -18,8 +18,10 @@ import { ReadingPage } from './pages/ReadingPage'
 import { TowerPage } from './pages/TowerPage'
 
 function HomeRedirect() {
-  const { user } = useAuth()
-  return <Navigate to={defaultPath(user?.role)} replace />
+  const { user, ready } = useAuth()
+  if (!ready) return <AuthBootScreen />
+  if (!user) return <Navigate to="/login" replace />
+  return <Navigate to={defaultPath(user.role)} replace />
 }
 
 function StaffRoutes() {
