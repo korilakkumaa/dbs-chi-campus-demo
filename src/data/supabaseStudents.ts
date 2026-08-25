@@ -267,8 +267,9 @@ function linkedStudentNos(
   const nos = new Set<string>([roster.student_no])
   const official = officialStudentNo(roster.student_no)
   const rosterYearRows = rowsByYear.get(roster.academic_year_start) ?? []
+  // Only earlier years: 2025/26 may include 2024/25 history, never the reverse.
   for (const [year, rows] of rowsByYear) {
-    if (year === roster.academic_year_start || rows.length === 0) continue
+    if (year >= roster.academic_year_start || rows.length === 0) continue
     const byOfficial = rows.filter(
       (row) => officialStudentNo(row.student_no) === official,
     )
@@ -287,6 +288,7 @@ function buildYearHistory(
   records: SemesterRow[],
   classNameByStudentYear: Map<string, string>,
   fallbackClassName: string,
+  rosterYear: number,
 ): YearRecord[] {
   const byGrade = new Map<
     number,
@@ -299,6 +301,7 @@ function buildYearHistory(
 
   for (const r of records) {
     if (!linkedNos.has(r.student_no)) continue
+    if (r.academic_year_start > rosterYear) continue
     const slot = byGrade.get(r.grade) ?? {}
     const scores = scoresFromSemesterRow(r)
     if (r.semester === 'first') slot.first = scores
@@ -324,8 +327,10 @@ function buildYearHistory(
 
 function studentFetchYears(academicYearStart: number): number[] {
   const imported = [...SCORES_IMPORTED_ACADEMIC_YEARS]
-  if (imported.some((year) => year === academicYearStart)) return imported
-  return [academicYearStart]
+  if (!imported.some((year) => year === academicYearStart)) {
+    return [academicYearStart]
+  }
+  return imported.filter((year) => year <= academicYearStart)
 }
 
 export async function fetchCampusStudentsFromSupabase(
@@ -402,6 +407,7 @@ export async function fetchCampusStudentsFromSupabase(
       semesterRows ?? [],
       classNameByStudentYear,
       className,
+      academicYearStart,
     )
     const rosterRecords = (semesterRows ?? []).filter(
       (r) =>

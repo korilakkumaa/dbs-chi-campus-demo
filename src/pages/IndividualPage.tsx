@@ -521,7 +521,7 @@ export function IndividualPage() {
             </div>
           </div>
           <p>
-            {formatAcademicYearLabel(startYear)}學年 · 勾選名冊學生以對比檔案；名冊年級篩選獨立於頂部班級選擇。
+            {formatAcademicYearLabel(startYear)}學年名冊 · 追蹤圖只帶入過往學年成績。勾選名冊學生以對比檔案；名冊年級篩選獨立於頂部班級選擇。
           </p>
           {campusDataError && (
             <p className="campus-data-notice" role="status">
