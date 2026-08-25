@@ -14,6 +14,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { ClassTimetablePage } from './pages/ClassTimetablePage'
 import { PersonalTimetablePage } from './pages/PersonalTimetablePage'
 import { ProgressPage } from './pages/ProgressPage'
+import { HomeworkAbsMailPage } from './pages/HomeworkAbsMailPage'
 import { ReadingPage } from './pages/ReadingPage'
 import { TowerPage } from './pages/TowerPage'
 
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/" element={<HomeRedirect />} />
         <Route element={<StaffRoutes />}>
           <Route path="/progress" element={<ProgressPage />} />
+          <Route path="/progress/abs-mail" element={<HomeworkAbsMailPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/calendar/year" element={<YearOverviewPage />} />
           <Route path="/timetable" element={<PersonalTimetablePage />} />

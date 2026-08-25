@@ -134,6 +134,43 @@ export function isCalendarStatusKind(
   return (CALENDAR_STATUS_KINDS as readonly CalendarEventKind[]).includes(kind)
 }
 
+/** Default titles auto-filled when admins leave 說明 empty (should not show as chip text). */
+const DAY_STATUS_PLACEHOLDER_TITLES: ReadonlySet<string> = new Set([
+  '假期',
+  '非正常上課日',
+  '正常上課日',
+  EVENT_KIND_META.holiday.label,
+  EVENT_KIND_META['non-school-day'].label,
+  EVENT_KIND_META['school-day'].label,
+])
+
+/**
+ * Custom note for holiday / non-school-day marks.
+ * Empty or placeholder titles mean “colour highlight only” on teacher calendars.
+ */
+export function dayStatusCustomNote(
+  event: Pick<CalendarEvent, 'kind' | 'title'>,
+): string | null {
+  if (event.kind !== 'holiday' && event.kind !== 'non-school-day') {
+    const trimmed = event.title.trim()
+    return trimmed || null
+  }
+  const trimmed = event.title.trim()
+  if (!trimmed) return null
+  if (DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)) return null
+  return trimmed
+}
+
+/** True when the mark should only tint the day, with no event chip text. */
+export function isColourOnlyDayStatus(
+  event: Pick<CalendarEvent, 'kind' | 'title'>,
+): boolean {
+  return (
+    (event.kind === 'holiday' || event.kind === 'non-school-day') &&
+    dayStatusCustomNote(event) == null
+  )
+}
+
 /** Collapse same-month dates into `1日、7日、22–24日`. */
 export function formatCompactMonthDates(isos: string[]): string {
   const days = [...new Set(isos)]

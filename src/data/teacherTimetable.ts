@@ -3,7 +3,7 @@ import {
   academicYearStartFromIso,
   formatAcademicYearLabel,
 } from './academicYear'
-import { isoDateLocal, mondayOfWeekIso, schoolWeekDates } from './calendarEvents'
+import { isoDateLocal, mondayOfWeekIso, schoolWeekDates, dayStatusCustomNote } from './calendarEvents'
 import { SCHOOL_YEAR_2526 } from './schoolCalendar2526'
 import { SCHOOL_YEAR_2627 } from './schoolCalendar2627'
 import { teacherWhitelist, teacherWhitelistForYear } from './teacherWhitelist'
@@ -89,45 +89,50 @@ const FALLBACK_HIGHLIGHTS: ClassHighlight[] = [
   { accent: '#2f7a5c', soft: 'rgba(47, 122, 92, 0.22)', text: '#1e4a38' },
 ]
 
-/** Vivid swatches for grade × subject family (personal week grid). */
+/**
+ * Grade × subject family swatches for personal timetable.
+ * Within each grade, subjects sit far apart on the hue wheel; yellows /
+ * golds are used as anchors so neighbouring grades (esp. G9 vs G10 CHIN)
+ * never share a near-identical pink/red.
+ */
 const LESSON_KIND_HIGHLIGHTS: Record<string, ClassHighlight> = {
-  // G7
-  '7-CHIN': { accent: '#e03d2a', soft: 'rgba(224, 61, 42, 0.28)', text: '#6e1c14' },
-  '7-CHIS': { accent: '#c45c16', soft: 'rgba(196, 92, 22, 0.28)', text: '#6a2e0c' },
-  '7-PTH': { accent: '#d4890a', soft: 'rgba(212, 137, 10, 0.28)', text: '#6b4708' },
-  '7-EC': { accent: '#b45309', soft: 'rgba(180, 83, 9, 0.28)', text: '#6b3208' },
-  // G8
-  '8-CHIN': { accent: '#0d9488', soft: 'rgba(13, 148, 136, 0.28)', text: '#0f4a44' },
-  '8-CHIS': { accent: '#059669', soft: 'rgba(5, 150, 105, 0.28)', text: '#0a4a36' },
-  '8-PTH': { accent: '#16a34a', soft: 'rgba(22, 163, 74, 0.28)', text: '#14532d' },
-  '8-EC': { accent: '#65a30d', soft: 'rgba(101, 163, 13, 0.28)', text: '#3f6212' },
-  // G9
-  '9-CHIN': { accent: '#2563eb', soft: 'rgba(37, 99, 235, 0.28)', text: '#1e3a8a' },
-  '9-CHIS': { accent: '#4f46e5', soft: 'rgba(79, 70, 229, 0.28)', text: '#312e81' },
-  '9-PTH': { accent: '#7c3aed', soft: 'rgba(124, 58, 237, 0.28)', text: '#4c1d95' },
-  '9-EC': { accent: '#9333ea', soft: 'rgba(147, 51, 234, 0.28)', text: '#581c87' },
-  // G10
-  '10-CHIN': { accent: '#db2777', soft: 'rgba(219, 39, 119, 0.28)', text: '#9d174d' },
-  '10-CHIS': { accent: '#e11d48', soft: 'rgba(225, 29, 72, 0.28)', text: '#9f1239' },
-  '10-PTH': { accent: '#f43f5e', soft: 'rgba(244, 63, 94, 0.26)', text: '#9f1239' },
-  '10-EC': { accent: '#be185d', soft: 'rgba(190, 24, 93, 0.28)', text: '#9d174d' },
-  // G11
-  '11-CHIN': { accent: '#7c3aed', soft: 'rgba(124, 58, 237, 0.26)', text: '#4c1d95' },
-  '11-CHIS': { accent: '#6366f1', soft: 'rgba(99, 102, 241, 0.28)', text: '#3730a3' },
-  '11-PTH': { accent: '#8b5cf6', soft: 'rgba(139, 92, 246, 0.28)', text: '#5b21b6' },
-  '11-EC': { accent: '#a855f7', soft: 'rgba(168, 85, 247, 0.28)', text: '#6b21a8' },
-  // G12
-  '12-CHIN': { accent: '#0ea5e9', soft: 'rgba(14, 165, 233, 0.28)', text: '#075985' },
-  '12-CHIS': { accent: '#0284c7', soft: 'rgba(2, 132, 199, 0.28)', text: '#0c4a6e' },
-  '12-PTH': { accent: '#06b6d4', soft: 'rgba(6, 182, 212, 0.28)', text: '#155e75' },
-  '12-EC': { accent: '#0891b2', soft: 'rgba(8, 145, 178, 0.28)', text: '#155e75' },
+  // G7 — crimson / teal / sunflower / violet
+  '7-CHIN': { accent: '#dc2626', soft: 'rgba(220, 38, 38, 0.32)', text: '#7f1d1d' },
+  '7-CHIS': { accent: '#0d9488', soft: 'rgba(13, 148, 136, 0.32)', text: '#115e59' },
+  '7-PTH': { accent: '#eab308', soft: 'rgba(234, 179, 8, 0.34)', text: '#713f12' },
+  '7-EC': { accent: '#7c3aed', soft: 'rgba(124, 58, 237, 0.32)', text: '#4c1d95' },
+  // G8 — orange / emerald / blue / fuchsia
+  '8-CHIN': { accent: '#ea580c', soft: 'rgba(234, 88, 12, 0.32)', text: '#9a3412' },
+  '8-CHIS': { accent: '#059669', soft: 'rgba(5, 150, 105, 0.32)', text: '#065f46' },
+  '8-PTH': { accent: '#2563eb', soft: 'rgba(37, 99, 235, 0.32)', text: '#1e3a8a' },
+  '8-EC': { accent: '#c026d3', soft: 'rgba(192, 38, 211, 0.32)', text: '#86198f' },
+  // G9 — bright gold / indigo / rose / lime  (CHIN deliberately yellow)
+  '9-CHIN': { accent: '#ca8a04', soft: 'rgba(202, 138, 4, 0.36)', text: '#713f12' },
+  '9-CHIS': { accent: '#4f46e5', soft: 'rgba(79, 70, 229, 0.32)', text: '#312e81' },
+  '9-PTH': { accent: '#e11d48', soft: 'rgba(225, 29, 72, 0.32)', text: '#9f1239' },
+  '9-EC': { accent: '#65a30d', soft: 'rgba(101, 163, 13, 0.32)', text: '#3f6212' },
+  // G10 — deep cyan / pink / bronze / green  (CHIN far from G9 gold)
+  '10-CHIN': { accent: '#0891b2', soft: 'rgba(8, 145, 178, 0.32)', text: '#155e75' },
+  '10-CHIS': { accent: '#db2777', soft: 'rgba(219, 39, 119, 0.32)', text: '#9d174d' },
+  '10-PTH': { accent: '#a16207', soft: 'rgba(161, 98, 7, 0.32)', text: '#713f12' },
+  '10-EC': { accent: '#16a34a', soft: 'rgba(22, 163, 74, 0.32)', text: '#14532d' },
+  // G11 — indigo / coral / forest / lemon
+  '11-CHIN': { accent: '#4338ca', soft: 'rgba(67, 56, 202, 0.32)', text: '#312e81' },
+  '11-CHIS': { accent: '#f97316', soft: 'rgba(249, 115, 22, 0.32)', text: '#9a3412' },
+  '11-PTH': { accent: '#15803d', soft: 'rgba(21, 128, 61, 0.32)', text: '#14532d' },
+  '11-EC': { accent: '#facc15', soft: 'rgba(250, 204, 21, 0.36)', text: '#854d0e' },
+  // G12 — sky / crimson / purple / mustard
+  '12-CHIN': { accent: '#0284c7', soft: 'rgba(2, 132, 199, 0.32)', text: '#0c4a6e' },
+  '12-CHIS': { accent: '#be123c', soft: 'rgba(190, 18, 60, 0.32)', text: '#9f1239' },
+  '12-PTH': { accent: '#6d28d9', soft: 'rgba(109, 40, 217, 0.32)', text: '#4c1d95' },
+  '12-EC': { accent: '#d4a017', soft: 'rgba(212, 160, 23, 0.34)', text: '#713f12' },
 }
 
 const OTHER_LESSON_HIGHLIGHTS: ClassHighlight[] = [
-  { accent: '#ea580c', soft: 'rgba(234, 88, 12, 0.28)', text: '#9a3412' },
-  { accent: '#ca8a04', soft: 'rgba(202, 138, 4, 0.28)', text: '#854d0e' },
-  { accent: '#64748b', soft: 'rgba(100, 116, 139, 0.28)', text: '#334155' },
-  { accent: '#78716c', soft: 'rgba(120, 113, 108, 0.28)', text: '#44403c' },
+  { accent: '#b45309', soft: 'rgba(180, 83, 9, 0.32)', text: '#7c2d12' },
+  { accent: '#0e7490', soft: 'rgba(14, 116, 144, 0.32)', text: '#164e63' },
+  { accent: '#7e22ce', soft: 'rgba(126, 34, 206, 0.32)', text: '#581c87' },
+  { accent: '#4b5563', soft: 'rgba(75, 85, 99, 0.32)', text: '#1f2937' },
 ]
 
 function normalizeGroupKey(group: string) {
@@ -508,11 +513,19 @@ export function getDayTimetable(
   }
 
   const holiday = findDayMark(events, iso, teacherId, 'holiday')
-  if (holiday) return { status: 'holiday', title: holiday.title }
+  if (holiday) {
+    return {
+      status: 'holiday',
+      title: dayStatusCustomNote(holiday) ?? '',
+    }
+  }
 
   const nonSchool = findDayMark(events, iso, teacherId, 'non-school-day')
   if (nonSchool) {
-    return { status: 'non-school-day', title: nonSchool.title }
+    return {
+      status: 'non-school-day',
+      title: dayStatusCustomNote(nonSchool) ?? undefined,
+    }
   }
 
   const forcedSchool = findDayMark(events, iso, teacherId, 'school-day')

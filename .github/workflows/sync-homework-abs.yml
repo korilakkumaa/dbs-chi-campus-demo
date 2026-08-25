@@ -1,0 +1,31 @@
+# Optional: sync Google Sheet ABS → Supabase every 3 days.
+# Requires repo secrets: VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+# HOMEWORK_ABS_SHEET_CSV_URL, and optionally RESEND_API_KEY / HOMEWORK_ABS_FROM_EMAIL.
+
+name: Sync homework ABS
+
+on:
+  schedule:
+    # Every 3 days at 16:00 UTC (00:00 HKT)
+    - cron: '0 16 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Sync Sheet + process mail queue
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          HOMEWORK_ABS_SHEET_CSV_URL: ${{ secrets.HOMEWORK_ABS_SHEET_CSV_URL }}
+          HOMEWORK_ABS_ACADEMIC_YEAR: ${{ secrets.HOMEWORK_ABS_ACADEMIC_YEAR }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          HOMEWORK_ABS_FROM_EMAIL: ${{ secrets.HOMEWORK_ABS_FROM_EMAIL }}
+        run: npm run sync:homework-abs -- --process-mail

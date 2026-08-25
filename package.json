@@ -16,7 +16,9 @@
     "import:roster:sql": "tsx scripts/import-student-roster.ts --year=2025 --sql",
     "generate:timetables": "tsx scripts/generate-teacher-timetables.ts --year 2026",
     "generate:timetables:2526": "tsx scripts/generate-teacher-timetables.ts --year 2025",
-    "import:assessment-duty": "tsx scripts/import-assessment-duty.ts"
+    "import:assessment-duty": "tsx scripts/import-assessment-duty.ts",
+    "sync:homework-abs": "tsx scripts/sync-homework-abs.ts",
+    "process:homework-abs-mail": "tsx scripts/process-homework-abs-emails.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

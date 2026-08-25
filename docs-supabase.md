@@ -83,6 +83,30 @@ npm run import:roster:sql
 2. 管理員在「詳細日曆」新增、改標題或刪除的**全校活動**會寫入 `campus_calendar_events`，教師重新整理（或即時推送）後即可看到。
 3. 教師自己點課節新增的私人備註仍只顯示在該教師帳戶。
 
+## 3d. 欠交習作提醒（首頁右欄）
+
+1. 在 SQL Editor 執行 [`supabase/migrations/20260825120000_homework_abs.sql`](supabase/migrations/20260825120000_homework_abs.sql)
+2. 將 Google Sheet「發佈至網頁」為 CSV，或準備本機 CSV，欄位需含：學生班別、學生組別、任教老師 INITIAL、習作名稱、ABS（大小寫皆可）；建議另加學生編號／學號／姓名以便對名冊。
+3. 在 `.env.local` 設定 `HOMEWORK_ABS_SHEET_CSV_URL`（或 `HOMEWORK_ABS_SHEET_CSV_PATH`）、`SUPABASE_SERVICE_ROLE_KEY`，以及寄信用的 `RESEND_API_KEY`、`HOMEWORK_ABS_FROM_EMAIL`。
+4. 同步（建議每三天跑一次，可用 cron / GitHub Actions）：
+
+```bash
+npm run sync:homework-abs
+# 同步後順便清佇列：
+npm run sync:homework-abs -- --process-mail
+```
+
+5. 部署 Edge Function（點「剔」立刻寄信）：
+
+```bash
+supabase functions deploy send-homework-abs-email
+supabase secrets set RESEND_API_KEY=re_… HOMEWORK_ABS_FROM_EMAIL='Campus CMS <…>'
+```
+
+若 Function 尚未部署，剔仍會寫入佇列，之後可用 `npm run process:homework-abs-mail` 補寄。
+
+6. 首頁右欄依**當前教師白名單組別**顯示欠交；交叉＝永久略過；寄出紀錄在 `/progress/abs-mail`。
+
 ## 4. 前端
 
 ```bash

@@ -3,6 +3,7 @@ import { GlassPanel } from '../components/GlassPanel'
 import { MiniCalendar } from '../components/calendar/MiniCalendar'
 import { MiniCalendarDetails } from '../components/calendar/MiniCalendarDetails'
 import { QuickEventInput } from '../components/calendar/QuickEventInput'
+import { HomeworkAbsPanel } from '../components/homework/HomeworkAbsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
 
@@ -16,6 +17,7 @@ export function ProgressPage() {
     addCalendarEvent,
     updateCalendarEvent,
     deleteCalendarEvent,
+    students,
   } = useCampus()
 
   return (
@@ -23,7 +25,7 @@ export function ProgressPage() {
       <header className="page-header reveal-up">
         <div>
           <h1>首頁</h1>
-          <p>月曆、班級概況與待辦將分欄顯示。</p>
+          <p>月曆、班級概況與欠交習作提醒分欄顯示。</p>
         </div>
       </header>
 
@@ -58,9 +60,8 @@ export function ProgressPage() {
           <p className="home-placeholder-hint">內容稍後設定</p>
         </GlassPanel>
 
-        <GlassPanel className="home-col home-col-right home-col-placeholder">
-          <p className="home-placeholder-label">右欄</p>
-          <p className="home-placeholder-hint">內容稍後設定</p>
+        <GlassPanel className="home-col home-col-right home-col-abs">
+          <HomeworkAbsPanel students={students} />
         </GlassPanel>
       </div>
     </div>

@@ -20,7 +20,7 @@ export const TEACHER_WHITELIST_2526: WhitelistTeacher[] = [
   { initial: 'WKL', name: '王家朗', email: 'dbswkl@dbs.edu.hk', classes: ['G7 EC', 'G9 EC', '9A', '11T'] },
   { initial: 'TWL', name: '梁芷蘊', email: 'dbstwl@dbs.edu.hk', classes: ['8S', '11D', '12J'] },
   { initial: 'LL', name: '李寶玲', email: 'dbsll@dbs.edu.hk', classes: ['8D', '10T', '12M'] },
-  { initial: 'YWL', name: '黎嘉恩', email: 'dbsywl@dbs.edu.hk', classes: ['8G', '8L', '9R'] },
+  { initial: 'YWL', name: '賴耀榮', email: 'dbsywl@dbs.edu.hk', classes: ['8G', '8L', '9R'] },
   { initial: 'CHUC', name: '陳振翔', email: 'dbschuc@dbs.edu.hk', classes: ['8P', '8A', '10A'] },
   { initial: 'TCM', name: '馬太初', email: 'dbstcm@dbs.edu.hk', classes: ['8M'] },
   { initial: 'YCN', name: '吳燕青', email: 'dbsycn@dbs.edu.hk', classes: ['8R', '9M', '9J'] },
@@ -31,6 +31,7 @@ export const TEACHER_WHITELIST_2526: WhitelistTeacher[] = [
   { initial: 'SMC', name: '朱小萌', email: 'dbssmc@dbs.edu.hk', classes: ['9P', '10P', '12G'] },
   { initial: 'HKC', name: '陳曉君', email: 'dbshkc@dbs.edu.hk', classes: ['9G', '9L', '11G'] },
   { initial: 'KIC', name: '朱麒穎', email: 'dbskic@dbs.edu.hk', classes: ['7J', '10L'] },
+  { initial: 'HT', name: '盧曉彤', email: 'dbsht@dbs.edu.hk', classes: [] },
 ]
 
 /** 2026/27 — from teacher-whitelist-2627.csv (timetables / next year only). */
@@ -56,6 +57,7 @@ export const TEACHER_WHITELIST_2627: WhitelistTeacher[] = [
   { initial: 'SMC', name: '朱小萌', email: 'dbssmc@dbs.edu.hk', classes: ['9G', '10M', '11P'] },
   { initial: 'HKC', name: '陳曉君', email: 'dbshkc@dbs.edu.hk', classes: ['9P', '9L', '12G'] },
   { initial: 'KIC', name: '朱麒穎', email: 'dbskic@dbs.edu.hk', classes: ['9J', '10T', '11L'] },
+  { initial: 'HT', name: '盧曉彤', email: 'dbsht@dbs.edu.hk', classes: [] },
 ]
 
 const WHITELIST_BY_YEAR: Record<number, WhitelistTeacher[]> = {

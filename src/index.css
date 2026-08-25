@@ -1760,6 +1760,238 @@ code {
   font-size: var(--text-meta);
 }
 
+.panel.home-col-abs {
+  background: rgba(255, 252, 248, 0.72);
+  border-color: var(--glass-border);
+  min-height: 22rem;
+  gap: 0.65rem;
+}
+
+.homework-abs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-height: 100%;
+}
+
+.homework-abs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.homework-abs-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.homework-abs-sub {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-size: var(--text-meta);
+  line-height: 1.35;
+}
+
+.homework-abs-mail-link {
+  flex-shrink: 0;
+  font-size: var(--text-meta);
+  color: var(--amber-deep);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.homework-abs-mail-link:hover {
+  border-bottom-color: var(--amber-deep);
+}
+
+.homework-abs-empty {
+  margin: 1.5rem 0 0;
+  color: var(--ink-soft);
+  font-size: var(--text-meta);
+  text-align: center;
+}
+
+.homework-abs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: min(70vh, 36rem);
+  overflow: auto;
+}
+
+.homework-abs-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(60, 40, 20, 0.08);
+}
+
+.homework-abs-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.homework-abs-line {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.homework-abs-class {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.homework-abs-sep {
+  margin: 0 0.25rem;
+  opacity: 0.55;
+}
+
+.homework-abs-name {
+  margin: 0.2rem 0 0;
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+
+.homework-abs-assignment {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.homework-abs-msg {
+  margin: 0.35rem 0 0;
+  font-size: var(--text-meta);
+  color: var(--amber-deep);
+}
+
+.homework-abs-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.homework-abs-tick,
+.homework-abs-cross {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(60, 40, 20, 0.12);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  background: rgba(255, 252, 248, 0.9);
+  color: var(--ink);
+  transition:
+    background 0.15s var(--ease-out),
+    transform 0.15s var(--ease-spring);
+}
+
+.homework-abs-tick:hover {
+  background: rgba(70, 140, 90, 0.18);
+  color: #2f6b3c;
+}
+
+.homework-abs-cross:hover {
+  background: rgba(170, 70, 60, 0.14);
+  color: #8a2f28;
+}
+
+.homework-abs-tick:disabled,
+.homework-abs-cross:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.homework-abs-back {
+  margin: 0 0 0.35rem;
+  font-size: var(--text-meta);
+}
+
+.homework-abs-back a {
+  color: var(--amber-deep);
+  text-decoration: none;
+}
+
+.homework-abs-mail-panel {
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.homework-abs-mail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 0.85rem;
+  color: var(--ink-soft);
+  font-size: var(--text-meta);
+}
+
+.homework-abs-mail-table-wrap {
+  overflow: auto;
+}
+
+.homework-abs-mail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.homework-abs-mail-table th,
+.homework-abs-mail-table td {
+  text-align: left;
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid rgba(60, 40, 20, 0.08);
+  vertical-align: top;
+}
+
+.homework-abs-mail-table th {
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: var(--text-meta);
+}
+
+.homework-abs-mail-email {
+  word-break: break-all;
+  font-size: var(--text-meta);
+}
+
+.homework-abs-status {
+  display: inline-block;
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.homework-abs-status-sent {
+  color: #2f6b3c;
+}
+
+.homework-abs-status-failed {
+  color: #8a2f28;
+}
+
+.homework-abs-status-queued {
+  color: var(--amber-deep);
+}
+
+.homework-abs-mail-err {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ink-soft);
+  font-size: var(--text-meta);
+  max-width: 18rem;
+}
+
 .mini-cal-head {
   display: flex;
   align-items: center;
@@ -2561,8 +2793,28 @@ code {
 
 .detail-cal-toolbar-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  justify-content: flex-end;
+  gap: 0.45rem 0.65rem;
+}
+
+.detail-cal-paste-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  color: var(--amber-deep);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.detail-cal-paste-notice {
+  font-size: var(--text-meta);
+  font-weight: 700;
+  color: var(--forest);
 }
 
 .detail-cal-count {
@@ -2785,6 +3037,29 @@ code {
   font-size: var(--text-micro);
   line-height: 1.25;
   color: var(--ink-soft);
+  border-radius: 4px;
+  transition:
+    background 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
+}
+
+.detail-cal-chip.copyable,
+.detail-cal-chip.selectable {
+  cursor: pointer;
+}
+
+.detail-cal-chip.copyable:hover,
+.detail-cal-chip.selectable:hover {
+  background: rgba(184, 104, 42, 0.1);
+}
+
+.detail-cal-chip.selected {
+  background: rgba(184, 104, 42, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(184, 104, 42, 0.35);
+}
+
+.detail-cal-chip.copied {
+  box-shadow: inset 0 0 0 1.5px var(--amber-deep);
 }
 
 .detail-cal-chip-title {
@@ -2793,6 +3068,9 @@ code {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .detail-cal-more {
@@ -3183,8 +3461,9 @@ code {
 }
 
 .detail-cal-timetable .day-tt-line {
-  overflow: visible;
+  overflow: hidden;
   flex: 0 1 auto;
+  min-width: 0;
 }
 
 .detail-cal-timetable .day-tt-line.meta {
@@ -3195,12 +3474,20 @@ code {
 .detail-cal-timetable .day-tt-subject {
   font-size: calc(0.76rem + 1pt);
   line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .detail-cal-timetable .day-tt-group,
 .detail-cal-timetable .day-tt-room {
   font-size: calc(0.58rem + 1pt);
   line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .detail-cal-timetable .day-tt-time-start {
@@ -3448,6 +3735,30 @@ code {
     rgba(255, 252, 248, 0.95),
     rgba(243, 236, 228, 0.35)
   );
+  transition:
+    border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
+  align-items: start;
+}
+
+.detail-cal-side-row.copyable,
+.detail-cal-side-row.selectable {
+  cursor: pointer;
+}
+
+.detail-cal-side-row.copyable:hover,
+.detail-cal-side-row.selectable:hover {
+  border-color: rgba(184, 104, 42, 0.35);
+}
+
+.detail-cal-side-row.selected {
+  border-color: rgba(184, 104, 42, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(184, 104, 42, 0.2);
+}
+
+.detail-cal-side-row.copied {
+  border-color: var(--amber-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(184, 104, 42, 0.45);
 }
 
 .detail-cal-side-row.holiday {
@@ -3459,9 +3770,19 @@ code {
   );
 }
 
-.detail-cal-side-row.holiday .detail-cal-side-title {
-  color: #8f3a26;
-  font-weight: 600;
+.detail-cal-side-row.non-school-day {
+  border-color: rgba(72, 118, 184, 0.28);
+  background: linear-gradient(
+    165deg,
+    rgba(228, 240, 255, 0.95),
+    rgba(186, 214, 248, 0.45)
+  );
+}
+
+.detail-cal-side-row.colour-only .detail-cal-side-title {
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-style: italic;
 }
 
 .detail-cal-side-kind {
@@ -3519,6 +3840,10 @@ code {
   color: var(--ink);
   cursor: text;
   min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .detail-cal-side-title.empty {
@@ -6612,6 +6937,206 @@ tbody tr.table-row-link:focus-visible {
   .individual-layout {
     grid-template-columns: 9.5rem minmax(26rem, 30rem) minmax(0, 1fr);
   }
+
+  /* Half-screen / mid width: calendar + side first so day cells stay readable. */
+  .detail-cal-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
+    gap: 0.8rem;
+  }
+
+  .detail-cal-layout.has-admin-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
+  }
+
+  .detail-cal-admin {
+    grid-column: 1 / -1;
+    position: static;
+    order: 0;
+  }
+
+  .detail-cal-main {
+    order: 2;
+    min-width: 0;
+  }
+
+  .detail-cal-side {
+    order: 3;
+    position: static;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .detail-cal-timetable {
+    grid-column: 1 / -1;
+    order: 4;
+    position: static;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  /* Admin half-screen: show personal timetable above the month grid. */
+  .detail-cal-layout.has-admin-panel .detail-cal-timetable {
+    order: 1;
+  }
+
+  .detail-cal-day {
+    min-height: 5.8rem;
+    padding: 0.3rem 0.32rem 0.38rem;
+    gap: 0.18rem;
+  }
+
+  .detail-cal-chip-title {
+    -webkit-line-clamp: 3;
+  }
+
+  .detail-cal-toolbar {
+    align-items: flex-start;
+  }
+
+  .detail-cal-toolbar-meta {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  /* Stop crushing period rows into the viewport; use natural readable heights. */
+  .detail-cal-timetable .day-tt {
+    flex: none;
+    min-height: 0;
+    height: auto;
+    gap: 0.55rem;
+  }
+
+  .detail-cal-timetable .day-tt-list {
+    flex: none;
+    overflow: visible;
+    max-height: none;
+    gap: 0.22rem;
+    margin-top: 0.35rem;
+  }
+
+  .detail-cal-timetable .day-tt-row,
+  .detail-cal-timetable .day-tt-row.lesson,
+  .detail-cal-timetable .day-tt-row.break.interactive,
+  .detail-cal-timetable .day-tt-row.free.interactive {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .detail-cal-timetable .day-tt-row.lunch-gap {
+    margin-top: 0.45rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .detail-cal-timetable .day-tt-lesson-hit,
+  .detail-cal-timetable .day-tt-slot-hit {
+    flex: none;
+    height: auto;
+    min-height: 2.35rem;
+    align-items: center;
+  }
+
+  .detail-cal-timetable .day-tt-lesson-hit {
+    padding: 0.4rem 0.55rem;
+    gap: 0.35rem 0.5rem;
+  }
+
+  .detail-cal-timetable .day-tt-slot-hit.compact {
+    padding: 0.32rem 0.45rem;
+  }
+
+  .detail-cal-timetable .day-tt-body {
+    flex-wrap: wrap;
+  }
+
+  .detail-cal-timetable .day-tt-subject {
+    font-size: var(--text-ui);
+    line-height: 1.25;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .detail-cal-timetable .day-tt-group,
+  .detail-cal-timetable .day-tt-room {
+    font-size: var(--text-meta);
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .detail-cal-timetable .day-tt-time-start {
+    font-size: var(--text-ui-sm);
+  }
+
+  .detail-cal-timetable .day-tt-time-end {
+    font-size: var(--text-meta);
+  }
+
+  .detail-cal-timetable .day-tt-linked-mark {
+    font-size: var(--text-micro);
+  }
+
+  .detail-cal-timetable .day-tt-free-label,
+  .detail-cal-timetable .day-tt-break-label {
+    font-size: var(--text-ui-sm);
+  }
+
+  .top-nav {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.55rem 0.75rem;
+  }
+
+  .brand-block {
+    max-width: 100%;
+  }
+
+  .brand-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(14rem, 42vw);
+  }
+
+  .nav-links-wrap {
+    justify-self: end;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .nav-links {
+    justify-content: flex-end;
+    row-gap: 0.1rem;
+  }
+
+  .nav-link,
+  .branch-trigger {
+    padding: 0.32rem 0.42rem;
+    font-size: var(--text-ui);
+  }
+
+  .nav-user {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .nav-user .subject-buttons,
+  .nav-user .class-buttons,
+  .nav-user .class-buttons-bar {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .nav-user .class-picker {
+    align-items: flex-start;
+    max-width: 100%;
+    flex: 1 1 auto;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -6621,6 +7146,32 @@ tbody tr.table-row-link:focus-visible {
 
   .student-file-stage {
     grid-column: 1 / -1;
+  }
+
+  .detail-cal-layout,
+  .detail-cal-layout.has-admin-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-cal-side {
+    order: 3;
+  }
+
+  .detail-cal-timetable {
+    order: 4;
+    max-height: none;
+  }
+
+  .detail-cal-layout.has-admin-panel .detail-cal-timetable {
+    order: 1;
+  }
+
+  .detail-cal-day {
+    min-height: 5.4rem;
+  }
+
+  .detail-cal-chip-title {
+    -webkit-line-clamp: 2;
   }
 }
 
@@ -6636,23 +7187,54 @@ tbody tr.table-row-link:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .detail-cal-admin,
+  .detail-cal-main,
+  .detail-cal-side,
+  .detail-cal-timetable {
+    grid-column: 1 / -1;
+    order: unset;
+  }
+
+  .detail-cal-admin {
+    order: 0;
+    position: static;
+  }
+
+  .detail-cal-main {
+    order: 2;
+  }
+
   .detail-cal-side {
+    order: 3;
     position: static;
   }
 
   .detail-cal-timetable {
+    order: 4;
     position: static;
     height: auto;
     max-height: none;
     overflow: visible;
   }
 
-  .detail-cal-admin {
-    position: static;
+  .detail-cal-layout.has-admin-panel .detail-cal-timetable {
+    order: 1;
   }
 
   .detail-cal-day {
     min-height: 5.2rem;
+  }
+
+  .detail-cal-chip-title {
+    -webkit-line-clamp: 2;
+  }
+
+  .detail-cal-side-title {
+    font-size: var(--text-ui-sm);
+  }
+
+  .brand-name {
+    max-width: min(18rem, 70vw);
   }
 
   .tower-page {

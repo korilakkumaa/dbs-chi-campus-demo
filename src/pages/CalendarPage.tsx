@@ -10,8 +10,13 @@ import {
   expandIsoDateRange,
   formatEventDateLabel,
   isoDateLocal,
+  isColourOnlyDayStatus,
+  dayStatusCustomNote,
 } from '../data/calendarEvents'
-import { canMutateCalendarEvent } from '../data/calendarStore'
+import {
+  canMutateCalendarEvent,
+  defaultCalendarAudience,
+} from '../data/calendarStore'
 import { resolveTimetableTeacherId, listTeachersWithTimetables } from '../data/teacherTimetable'
 import { useAuth } from '../context/AuthContext'
 import { useCampus } from '../context/CampusContext'
@@ -66,6 +71,35 @@ function isoRangeInclusive(a: string, b: string): string[] {
   return expandIsoDateRange(b, a)
 }
 
+type EventClipboard = {
+  title: string
+  kind: CalendarEventKind
+  audience: CalendarEvent['audience']
+  lesson?: CalendarEvent['lesson']
+}
+
+function clipboardItemLabel(clip: EventClipboard): string {
+  const title = clip.title.trim()
+  if (title) return title
+  if (clip.lesson?.subject) return clip.lesson.subject
+  return EVENT_KIND_META[clip.kind].label
+}
+
+function clipboardLabel(items: EventClipboard[]): string {
+  if (items.length === 0) return ''
+  if (items.length === 1) return clipboardItemLabel(items[0])
+  return `${clipboardItemLabel(items[0])} 等 ${items.length} 項`
+}
+
+function eventToClipboard(event: CalendarEvent): EventClipboard {
+  return {
+    title: event.title,
+    kind: event.kind,
+    audience: event.audience,
+    ...(event.lesson ? { lesson: event.lesson } : {}),
+  }
+}
+
 function EventMark({ kind }: { kind: CalendarEventKind }) {
   const meta = EVENT_KIND_META[kind]
   if (meta.mode === 'text') {
@@ -101,8 +135,10 @@ export function CalendarPage() {
   const {
     calendarEvents,
     addCalendarEvent,
+    addCalendarEvents,
     updateCalendarEvent,
     deleteCalendarEvent,
+    deleteCalendarEvents,
   } = useCampus()
 
   const isAdmin = user?.role === 'admin'
@@ -142,6 +178,12 @@ export function CalendarPage() {
   const [hoverIso, setHoverIso] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [clipboard, setClipboard] = useState<EventClipboard[] | null>(null)
+  const [lastPasteIds, setLastPasteIds] = useState<string[]>([])
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null)
   const quickInputRef = useRef<HTMLInputElement>(null)
   const sideEditRef = useRef<HTMLInputElement>(null)
   const hoveringDayRef = useRef(false)
@@ -243,6 +285,108 @@ export function CalendarPage() {
     })
   }, [editingId])
 
+  useEffect(() => {
+    if (!pasteNotice) return
+    const timer = window.setTimeout(() => setPasteNotice(null), 2400)
+    return () => window.clearTimeout(timer)
+  }, [pasteNotice])
+
+  const copySelectedEvents = () => {
+    if (!user || (user.role !== 'admin' && user.role !== 'teacher')) return false
+    const sources = [...selectedEventIds]
+      .map(
+        (id) =>
+          calendarEvents.find((ev) => ev.id === id) ??
+          selectedEvents.find((ev) => ev.id === id),
+      )
+      .filter((ev): ev is CalendarEvent => Boolean(ev))
+    if (sources.length === 0) return false
+    setClipboard(sources.map(eventToClipboard))
+    setPasteNotice(`已複製 ${sources.length} 項 — 點選日期後按 ⌘V／Ctrl+V 貼上`)
+    return true
+  }
+
+  const pasteClipboardToDate = (iso: string) => {
+    if (!clipboard?.length || !user) return false
+    const inputs = clipboard.map((item) => {
+      const audience =
+        user.role === 'admin'
+          ? item.audience
+          : defaultCalendarAudience(user, item.lesson)
+      return {
+        date: iso,
+        title: item.title,
+        kind: item.kind,
+        audience,
+        lesson: item.lesson,
+      }
+    })
+    const createdIds = addCalendarEvents(inputs)
+    if (createdIds.length === 0) return false
+    setLastPasteIds(createdIds)
+    setSelectedEventIds(new Set(createdIds))
+    setEditingId(null)
+    setPasteNotice(
+      `已貼上 ${createdIds.length} 項至 ${formatEventDateLabel(iso)}（⌘Z 可復原）`,
+    )
+    return true
+  }
+
+  const undoLastPaste = () => {
+    if (lastPasteIds.length === 0) return false
+    const removed = deleteCalendarEvents(lastPasteIds)
+    setLastPasteIds([])
+    setSelectedEventIds(new Set())
+    setEditingId(null)
+    if (removed === 0) return false
+    setPasteNotice(`已復原貼上（${removed} 項）`)
+    return true
+  }
+
+  const removeSelectedEvents = () => {
+    if (selectedEventIds.size === 0) return false
+    const removed = deleteCalendarEvents([...selectedEventIds])
+    if (removed === 0) return false
+    setSelectedEventIds(new Set())
+    setEditingId(null)
+    return true
+  }
+
+  const focusDay = (iso: string, clearEvent = true) => {
+    setPinned(true)
+    setSelectedIso(iso)
+    setEditingId(null)
+    if (clearEvent) setSelectedEventIds(new Set())
+    const d = parseIsoDate(iso)
+    if (d) {
+      setYear(d.getFullYear())
+      setMonthIndex(d.getMonth())
+    }
+    setSearchParams(iso === todayIso ? {} : { date: iso }, { replace: true })
+  }
+
+  const onEventChipClick = (
+    event: CalendarEvent,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const additive = e.metaKey || e.ctrlKey
+    if (event.date !== selectedIso) {
+      focusDay(event.date, !additive)
+    }
+    setSelectedEventIds((prev) => {
+      if (additive) {
+        const next = new Set(prev)
+        if (next.has(event.id)) next.delete(event.id)
+        else next.add(event.id)
+        return next
+      }
+      return new Set([event.id])
+    })
+    setPasteNotice(null)
+  }
+
   const previewDay = (iso: string) => {
     if (isAdmin && (isDragging || selectedDates.size > 1)) return
     if (pinnedRef.current) return
@@ -336,11 +480,12 @@ export function CalendarPage() {
   }, [isAdmin])
 
   const lockDay = (iso: string) => {
+    if (isAdmin && dragMovedRef.current) {
+      dragMovedRef.current = false
+      return
+    }
+
     if (isAdmin) {
-      if (dragMovedRef.current) {
-        dragMovedRef.current = false
-        return
-      }
       if (selectedDates.size > 1) {
         syncPrimaryFromSelection(selectedDates, iso)
       } else {
@@ -348,6 +493,7 @@ export function CalendarPage() {
       }
       setPinned(true)
       setSearchParams(iso === todayIso ? {} : { date: iso }, { replace: true })
+      setSelectedEventIds(new Set())
       return
     }
     if (pinned && selectedIso === iso) {
@@ -358,6 +504,7 @@ export function CalendarPage() {
     setPinned(true)
     setSelectedIso(iso)
     setEditingId(null)
+    setSelectedEventIds(new Set())
     const d = parseIsoDate(iso)
     if (d) {
       setYear(d.getFullYear())
@@ -367,25 +514,57 @@ export function CalendarPage() {
   }
 
   const selectDay = (iso: string) => {
-    setPinned(true)
-    setSelectedIso(iso)
-    setEditingId(null)
-    const d = parseIsoDate(iso)
-    if (d) {
-      setYear(d.getFullYear())
-      setMonthIndex(d.getMonth())
-    }
-    setSearchParams(iso === todayIso ? {} : { date: iso }, { replace: true })
+    focusDay(iso, true)
   }
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (editingId || isTypingTarget(e.target)) return
 
-      if (e.key === 'Escape' && pinned) {
+      if (e.key === 'Escape') {
+        if (clipboard || selectedEventIds.size > 0) {
+          e.preventDefault()
+          setClipboard(null)
+          setSelectedEventIds(new Set())
+          setPasteNotice(null)
+          return
+        }
+        if (pinned) {
+          e.preventDefault()
+          setPinned(false)
+          if (hoverIso) setSelectedIso(hoverIso)
+        }
+        return
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        if (undoLastPaste()) {
+          e.preventDefault()
+        }
+        return
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+        if (copySelectedEvents()) {
+          e.preventDefault()
+        }
+        return
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        if (clipboard?.length) {
+          e.preventDefault()
+          if (pasteClipboardToDate(selectedIso)) {
+            focusDay(selectedIso, false)
+          }
+        }
+        return
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedEventIds.size === 0) return
         e.preventDefault()
-        setPinned(false)
-        if (hoverIso) setSelectedIso(hoverIso)
+        removeSelectedEvents()
         return
       }
 
@@ -408,6 +587,7 @@ export function CalendarPage() {
       const nextIso = shiftIso(selectedIso, delta)
       setSelectedIso(nextIso)
       setEditingId(null)
+      setSelectedEventIds(new Set())
       const d = parseIsoDate(nextIso)
       if (d) {
         setYear(d.getFullYear())
@@ -428,7 +608,22 @@ export function CalendarPage() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editingId, hoverIso, pinned, selectedIso, setSearchParams, todayIso])
+  }, [
+    addCalendarEvents,
+    calendarEvents,
+    clipboard,
+    deleteCalendarEvents,
+    editingId,
+    hoverIso,
+    lastPasteIds,
+    pinned,
+    selectedEventIds,
+    selectedEvents,
+    selectedIso,
+    setSearchParams,
+    todayIso,
+    user,
+  ])
 
   const goPrev = () => {
     if (monthIndex === 0) {
@@ -492,8 +687,8 @@ export function CalendarPage() {
           <h1>詳細日曆</h1>
           <p>
             {isAdmin
-              ? '拖選或 Ctrl／⌘ 多選日期，於左側標記假期與上課日；點擊時段可在右側新增事件。'
-              : '點擊或拖選左側時段會在右側新增事件並跳到輸入欄；拖選相連課節會顯示連堂時間。'}
+              ? '拖選或 Ctrl／⌘ 多選日期，於左側標記假期與上課日。點擊活動選取，⌘／Ctrl+點擊可多選；⌘C 複製、點日期後 ⌘V 貼上、⌘Z 復原貼上；Delete 刪除。'
+              : '點擊活動選取，⌘／Ctrl+點擊可多選；⌘C 複製、點日期後 ⌘V 貼上、⌘Z 復原貼上；Delete 刪除自己的活動。點擊或拖選左側時段可新增事件。'}
           </p>
         </div>
       </header>
@@ -567,6 +762,21 @@ export function CalendarPage() {
             </div>
             <div className="detail-cal-toolbar-meta">
               <span className="detail-cal-count">{monthEventCount} 項事件</span>
+              {clipboard && clipboard.length > 0 && (
+                <span className="detail-cal-paste-hint" role="status">
+                  已複製「{clipboardLabel(clipboard)}」— 點選日期後按 ⌘V／Ctrl+V
+                </span>
+              )}
+              {selectedEventIds.size > 0 && !clipboard?.length && (
+                <span className="detail-cal-paste-hint" role="status">
+                  已選 {selectedEventIds.size} 項 — 按 ⌘C／Ctrl+C 複製
+                </span>
+              )}
+              {pasteNotice && (
+                <span className="detail-cal-paste-notice" role="status">
+                  {pasteNotice}
+                </span>
+              )}
               <button
                 type="button"
                 className="detail-cal-today-btn"
@@ -590,6 +800,9 @@ export function CalendarPage() {
             ))}
             {cells.map((cell) => {
               const dayEvents = byDate.get(cell.iso) ?? []
+              const chipEvents = dayEvents.filter(
+                (event) => !isColourOnlyDayStatus(event),
+              )
               const hasHoliday = dayEvents.some((e) => e.kind === 'holiday')
               const hasNonSchoolDay =
                 !hasHoliday &&
@@ -648,25 +861,40 @@ export function CalendarPage() {
                   onClick={() => lockDay(cell.iso)}
                 >
                   <span className={numClass}>{cell.day}</span>
-                  {cell.inMonth && dayEvents.length > 0 && (
+                  {cell.inMonth && chipEvents.length > 0 && (
                     <ul className="detail-cal-day-events">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <li
-                          key={event.id}
-                          className={`detail-cal-chip${event.kind === 'holiday' ? ' holiday' : ''}`}
-                        >
-                          <EventMark kind={event.kind} />
-                          <span className="detail-cal-chip-title">
-                            {event.title.trim() ||
-                              (event.lesson
-                                ? event.lesson.subject
-                                : '（無標題）')}
-                          </span>
-                        </li>
-                      ))}
-                      {dayEvents.length > 3 && (
+                      {chipEvents.slice(0, 3).map((event) => {
+                        const chipSelected = selectedEventIds.has(event.id)
+                        const label =
+                          event.title.trim() ||
+                          (event.lesson
+                            ? event.lesson.subject
+                            : '（無標題）')
+                        return (
+                          <li
+                            key={event.id}
+                            className={[
+                              'detail-cal-chip',
+                              event.kind === 'holiday' ? 'holiday' : '',
+                              'selectable',
+                              chipSelected ? 'selected' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                            title={`${label}（點選；⌘／Ctrl+點擊多選）`}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => onEventChipClick(event, e)}
+                          >
+                            <EventMark kind={event.kind} />
+                            <span className="detail-cal-chip-title">
+                              {label}
+                            </span>
+                          </li>
+                        )
+                      })}
+                      {chipEvents.length > 3 && (
                         <li className="detail-cal-more">
-                          +{dayEvents.length - 3}
+                          +{chipEvents.length - 3}
                         </li>
                       )}
                     </ul>
@@ -703,19 +931,54 @@ export function CalendarPage() {
               </span>
             )}
           </div>
-          {selectedEvents.length === 0 ? (
-            <p className="detail-cal-side-empty">這一天尚無事件</p>
-          ) : (
+          {(() => {
+            const sideEvents = selectedEvents.filter(
+              (event) => isAdmin || !isColourOnlyDayStatus(event),
+            )
+            if (sideEvents.length === 0) {
+              return <p className="detail-cal-side-empty">這一天尚無事件</p>
+            }
+            return (
             <ul className="detail-cal-side-list" aria-label="當日事件">
-              {selectedEvents.map((event) => {
+              {sideEvents.map((event) => {
                 const meta = EVENT_KIND_META[event.kind]
                 const editing = event.id === editingId
-                const displayTitle = event.title.trim()
+                const colourOnly = isColourOnlyDayStatus(event)
+                const customNote = dayStatusCustomNote(event)
+                const displayTitle = colourOnly
+                  ? '（僅顏色標記）'
+                  : customNote ||
+                    event.title.trim() ||
+                    event.lesson?.subject ||
+                    ''
                 const mutable = canMutateCalendarEvent(user, event)
+                const rowSelected = selectedEventIds.has(event.id)
                 return (
                   <li
                     key={event.id}
-                    className={`detail-cal-side-row${event.kind === 'holiday' ? ' holiday' : ''}${event.lesson ? ' has-lesson' : ''}`}
+                    className={[
+                      'detail-cal-side-row',
+                      event.kind === 'holiday' ? 'holiday' : '',
+                      event.kind === 'non-school-day' ? 'non-school-day' : '',
+                      event.lesson ? 'has-lesson' : '',
+                      colourOnly ? 'colour-only' : 'selectable',
+                      rowSelected ? 'selected' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={(e) => {
+                      const additive = e.metaKey || e.ctrlKey
+                      setSelectedEventIds((prev) => {
+                        if (additive) {
+                          const next = new Set(prev)
+                          if (next.has(event.id)) next.delete(event.id)
+                          else next.add(event.id)
+                          return next
+                        }
+                        return new Set([event.id])
+                      })
+                      setPasteNotice(null)
+                    }}
                   >
                     <span className="detail-cal-side-kind">
                       <EventMark kind={event.kind} />
@@ -744,7 +1007,7 @@ export function CalendarPage() {
                         className="detail-cal-side-edit"
                         value={draft}
                         autoFocus
-                        placeholder=""
+                        placeholder="說明（可留空）"
                         onChange={(e) => setDraft(e.target.value)}
                         onBlur={commitEdit}
                         onKeyDown={(e) => {
@@ -763,15 +1026,21 @@ export function CalendarPage() {
                     ) : mutable ? (
                       <button
                         type="button"
-                        className={`detail-cal-side-title${displayTitle ? '' : ' empty'}`}
-                        onClick={() => startEdit(event)}
-                        onDoubleClick={() => startEdit(event)}
+                        className={`detail-cal-side-title${displayTitle && !colourOnly ? '' : ' empty'}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit(event)
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          startEdit(event)
+                        }}
                       >
                         {displayTitle || '\u00a0'}
                       </button>
                     ) : (
                       <span
-                        className={`detail-cal-side-title${displayTitle ? '' : ' empty'}`}
+                        className={`detail-cal-side-title${displayTitle && !colourOnly ? '' : ' empty'}`}
                       >
                         {displayTitle || '\u00a0'}
                       </span>
@@ -781,7 +1050,16 @@ export function CalendarPage() {
                       type="button"
                       className="detail-cal-side-delete"
                       aria-label={`刪除事件`}
-                      onClick={() => deleteCalendarEvent(event.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteCalendarEvent(event.id)
+                        setSelectedEventIds((prev) => {
+                          if (!prev.has(event.id)) return prev
+                          const next = new Set(prev)
+                          next.delete(event.id)
+                          return next
+                        })
+                      }}
                     >
                       ×
                     </button>
@@ -790,7 +1068,8 @@ export function CalendarPage() {
                 )
               })}
             </ul>
-          )}
+            )
+          })()}
 
           <QuickEventInput
             date={selectedIso}

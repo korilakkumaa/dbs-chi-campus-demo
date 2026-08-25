@@ -124,11 +124,22 @@ interface CampusContextValue {
     audience?: CalendarAudience
     lesson?: CalendarEvent['lesson']
   }) => string | undefined
+  /** Create several events in one update (avoids stale-state clobbering). */
+  addCalendarEvents: (
+    inputs: Array<{
+      date: string
+      title: string
+      kind: CalendarEventKind
+      audience?: CalendarAudience
+      lesson?: CalendarEvent['lesson']
+    }>,
+  ) => string[]
   updateCalendarEvent: (
     id: string,
     patch: Partial<Pick<CalendarEvent, 'date' | 'title' | 'kind' | 'lesson'>>,
   ) => void
   deleteCalendarEvent: (id: string) => void
+  deleteCalendarEvents: (ids: string[]) => number
   addCalendarEventsBatch: (input: {
     date: string
     /** Inclusive end date; when set, creates one event per day in the range. */
@@ -636,6 +647,37 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         }
         return event.id
       },
+      addCalendarEvents: (inputs) => {
+        if (!user || inputs.length === 0) return []
+        const created: CalendarEvent[] = []
+        for (const input of inputs) {
+          const trimmed = input.title.trim()
+          if (!input.date) continue
+          if (!trimmed && !input.lesson) continue
+          created.push({
+            id: newCalendarEventId(),
+            date: input.date,
+            title: trimmed,
+            kind: input.kind,
+            schoolYearStart: academicYearStartFromIso(input.date),
+            createdBy: user.id,
+            audience:
+              input.audience ??
+              defaultCalendarAudience(user, input.lesson),
+            ...(input.lesson ? { lesson: input.lesson } : {}),
+          })
+        }
+        if (created.length === 0) return []
+        const next = [...allCalendarEvents, ...created]
+        setAllCalendarEvents(next)
+        persistCalendarState(next, user.id, user.role)
+        for (const event of created) {
+          if (isSharedCalendarEvent(event)) {
+            void upsertSharedCalendarEvent(event)
+          }
+        }
+        return created.map((event) => event.id)
+      },
       updateCalendarEvent: (id, patch) => {
         const current = allCalendarEvents.find((e) => e.id === id)
         if (!current || !canMutateCalendarEvent(user, current)) return
@@ -661,6 +703,25 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           void tombstoneSharedCalendarEvent(current)
         }
       },
+      deleteCalendarEvents: (ids) => {
+        if (!user || ids.length === 0) return 0
+        const idSet = new Set(ids)
+        const removing = allCalendarEvents.filter(
+          (event) =>
+            idSet.has(event.id) && canMutateCalendarEvent(user, event),
+        )
+        if (removing.length === 0) return 0
+        const removeIds = new Set(removing.map((event) => event.id))
+        const next = allCalendarEvents.filter((event) => !removeIds.has(event.id))
+        setAllCalendarEvents(next)
+        persistCalendarState(next, user.id, user.role)
+        for (const event of removing) {
+          if (isSharedCalendarEvent(event)) {
+            void tombstoneSharedCalendarEvent(event)
+          }
+        }
+        return removing.length
+      },
       addCalendarEventsBatch: ({
         date,
         dateEnd,
@@ -672,7 +733,11 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       }) => {
         if (!user) return 0
         const trimmed = title.trim()
-        if (!trimmed || !date) return 0
+        const allowEmptyStatus =
+          kind === 'holiday' ||
+          kind === 'non-school-day' ||
+          kind === 'school-day'
+        if ((!trimmed && !allowEmptyStatus) || !date) return 0
         let dates = expandIsoDateRange(date, dateEnd ?? date)
         if (weekdaysOnly) {
           dates = dates.filter((iso) => {

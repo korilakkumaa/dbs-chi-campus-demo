@@ -13,15 +13,6 @@ const DAY_STATUS_KINDS = [
   'holiday',
 ] as const satisfies readonly CalendarEventKind[]
 
-const DAY_STATUS_DEFAULT_TITLE: Record<
-  (typeof DAY_STATUS_KINDS)[number],
-  string
-> = {
-  'school-day': '正常上課日',
-  'non-school-day': '非正常上課日',
-  holiday: '假期',
-}
-
 const CUSTOM_KINDS: CalendarEventKind[] = [
   'event',
   'timetable',
@@ -67,11 +58,14 @@ export function CalendarDayStatusPanel({
       setNotice('請至少選一位教師。')
       return
     }
-    const title =
-      dayStatusTitle.trim() ||
-      (useCustomKind
-        ? EVENT_KIND_META[customKind].label
-        : DAY_STATUS_DEFAULT_TITLE[dayStatusKind])
+    const title = dayStatusTitle.trim()
+    if (useCustomKind && !title) {
+      setNotice('自訂類型請填寫說明。')
+      return
+    }
+    const resolvedTitle =
+      title ||
+      (useCustomKind ? EVENT_KIND_META[customKind].label : '')
     let audience: Exclude<CalendarAudience, { type: 'personal' }>
     if (audienceMode === 'all') {
       audience = { type: 'all' }
@@ -88,7 +82,7 @@ export function CalendarDayStatusPanel({
     let total = 0
     for (const iso of sortedDates) {
       total += addCalendarEventsBatch({
-        title,
+        title: resolvedTitle,
         date: iso,
         kind: activeKind,
         audience,
@@ -129,7 +123,7 @@ export function CalendarDayStatusPanel({
         )}
       </div>
       <p className="detail-cal-admin-lead">
-        在月曆拖選或 Ctrl／⌘ 多選日期，再選擇類型並套用。
+        在月曆拖選或 Ctrl／⌘ 多選日期，再選擇類型並套用。假期／非正常上課日若說明留空，教師日曆只顯示顏色、不顯示文字。
       </p>
 
       <p className="detail-cal-admin-count" aria-live="polite">
@@ -216,7 +210,7 @@ export function CalendarDayStatusPanel({
           placeholder={
             useCustomKind
               ? EVENT_KIND_META[customKind].label
-              : DAY_STATUS_DEFAULT_TITLE[dayStatusKind]
+              : '留空則只以顏色標記（不顯示文字）'
           }
           onChange={(e) => {
             setDayStatusTitle(e.target.value)

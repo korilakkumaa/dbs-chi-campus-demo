@@ -5,7 +5,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { formatEventDateLabel } from '../../data/calendarEvents'
+import { formatEventDateLabel, dayStatusCustomNote } from '../../data/calendarEvents'
 import {
   getDayTimetable,
   lessonHighlight,
@@ -486,11 +486,7 @@ export function DayTimetablePanel({
           <p className="day-tt-holiday-label">非正常上課日</p>
           {result.title ? (
             <p className="day-tt-holiday-title">{result.title}</p>
-          ) : (
-            <p className="day-tt-holiday-title">
-              此日無需按常規時間表上課。
-            </p>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -501,7 +497,9 @@ export function DayTimetablePanel({
       {result.status === 'holiday' && (
         <div className="day-tt-holiday">
           <p className="day-tt-holiday-label">假期</p>
-          <p className="day-tt-holiday-title">{result.title}</p>
+          {result.title ? (
+            <p className="day-tt-holiday-title">{result.title}</p>
+          ) : null}
         </div>
       )}
 
