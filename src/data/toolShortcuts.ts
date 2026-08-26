@@ -11,7 +11,7 @@ export const TOOL_SHORTCUTS: ToolShortcut[] = [
     id: 'makwan',
     label: '墨韻',
     blurb: 'AI 批改網站',
-    href: 'https://makwan-edcity.sayo.ai/',
+    href: 'https://makwan.dsehero.com',
   },
   {
     id: 'notebooklm',
@@ -21,11 +21,11 @@ export const TOOL_SHORTCUTS: ToolShortcut[] = [
   {
     id: 'extensive-reading',
     label: '校內廣泛閱讀計劃',
-    href: 'https://www.dbs.edu.hk/',
+    href: 'https://forms.gle/3TiwG8QkyEHTBfcW9',
   },
   {
     id: 'edbook',
     label: '教圖系統',
-    href: 'https://www.hkedcity.net/',
+    href: 'https://member.hkep.com/web/zh/login?i=1',
   },
 ]
