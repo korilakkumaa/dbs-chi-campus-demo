@@ -125,6 +125,8 @@ export function overlayFromSharedEvents(
       original.kind !== event.kind ||
       original.date !== event.date ||
       JSON.stringify(original.audience) !== JSON.stringify(event.audience) ||
+      JSON.stringify(original.time ?? null) !==
+        JSON.stringify(event.time ?? null) ||
       JSON.stringify(original.lesson ?? null) !==
         JSON.stringify(event.lesson ?? null)
     ) {
@@ -163,6 +165,7 @@ export function applyRemoteRowToOverlay(row: {
   event: CalendarEvent
   deleted: boolean
 }) {
+  if (row.event.audience.type === 'personal') return
   const overlay = loadSharedOverlay()
   if (row.deleted) {
     if (!overlay.deletedIds.includes(row.event.id)) {
@@ -174,6 +177,34 @@ export function applyRemoteRowToOverlay(row: {
     overlay.deletedIds = overlay.deletedIds.filter((id) => id !== row.event.id)
   }
   saveSharedOverlay(overlay)
+}
+
+export function applyRemotePersonalRows(
+  userId: string,
+  rows: Array<{ event: CalendarEvent; deleted: boolean }>,
+) {
+  const personal = loadPersonalEvents(userId)
+  const byId = new Map(personal.map((event) => [event.id, event]))
+  let changed = false
+  for (const row of rows) {
+    const { event } = row
+    if (event.audience.type !== 'personal') continue
+    if (event.audience.ownerId !== userId) continue
+    if (row.deleted) {
+      if (byId.delete(event.id)) changed = true
+    } else {
+      byId.set(event.id, event)
+      changed = true
+    }
+  }
+  if (changed) savePersonalEvents(userId, [...byId.values()])
+}
+
+export function applyRemotePersonalRow(
+  userId: string,
+  row: { event: CalendarEvent; deleted: boolean },
+) {
+  applyRemotePersonalRows(userId, [row])
 }
 
 export function overlayFromRemoteRows(

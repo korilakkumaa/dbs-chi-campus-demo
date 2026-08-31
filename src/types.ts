@@ -86,6 +86,12 @@ export type CalendarAudience =
     }
   | { type: 'teachers'; teacherIds: string[] }
 
+/** HH:MM (24h) — used for timed events and ICS export. */
+export type CalendarEventTime = {
+  start: string
+  end: string
+}
+
 export interface CalendarEvent {
   id: string
   date: string
@@ -96,6 +102,8 @@ export interface CalendarEvent {
   audience: CalendarAudience
   /** Which academic year this event belongs to (e.g. 2025 → 2025/26). */
   schoolYearStart?: number
+  /** Optional start/end for non-lesson events (QuickEventInput). */
+  time?: CalendarEventTime
   /** Optional lesson tags from personal timetable (class / subject / time). */
   lesson?: {
     group: string

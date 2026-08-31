@@ -81,7 +81,32 @@ npm run import:roster:sql
 
 1. 在 SQL Editor 執行 [`supabase/migrations/20260824120000_campus_calendar_events.sql`](supabase/migrations/20260824120000_campus_calendar_events.sql)
 2. 管理員在「詳細日曆」新增、改標題或刪除的**全校活動**會寫入 `campus_calendar_events`，教師重新整理（或即時推送）後即可看到。
-3. 教師自己點課節新增的私人備註仍只顯示在該教師帳戶。
+3. 教師自己點課節新增的私人備註會同步至 Supabase（依 `audience.ownerId`），供 iCal 訂閱與 Google 同步使用。
+
+## 3e. 外部日曆訂閱（Google / Apple）與 Google 直接同步
+
+1. 在 SQL Editor 執行 [`supabase/migrations/20260831120000_calendar_time_feed_google.sql`](supabase/migrations/20260831120000_calendar_time_feed_google.sql)（事件時間欄位、訂閱 token、Google 對照表）。
+2. 產生 Edge Function 用的校曆 seed（build 時會自動跑；手動：`npm run export:calendar-bundle`）。
+3. 部署訂閱 feed：
+
+```bash
+npm run export:calendar-bundle
+supabase functions deploy calendar-feed
+```
+
+4. 詳細日曆頁「同步至外部日曆」：
+   - **訂閱連結**：依教師身分過濾個人版校曆（含私人備註），Google／Apple 會定期拉更新。
+   - **Google 直接同步**：需以 Google 登入並授權 `calendar.events`；變更後自動推送到 Google 主日曆。
+
+5. **Google 直接同步**還需在 **Google Cloud Console**（不是 Supabase）設定日曆 scope：
+   - [Google Auth Platform](https://console.cloud.google.com/auth) → 你的 OAuth client 所在專案
+   - **Data Access（資料存取 / Scopes）** → **Add or remove scopes** → 搜尋 `calendar` → 勾選 **Google Calendar API** 下的 `.../auth/calendar.events`（或手動加入該 URL）
+   - **API 和服務 → 資料庫** → 啟用 **Google Calendar API**
+   - 回到網站詳細日曆，按 **「授權 Google 日曆」**（`prompt=consent` 重新授權；僅「Google 登入」不夠）
+
+6. 訂閱連結含 secret token，請勿公開分享；若外洩可在詳細日曆按「重新產生連結」。
+
+7. 若用 **Google 登入**後無法建立訂閱連結，請再執行 [`20260831123000_calendar_feed_rls_authenticated.sql`](supabase/migrations/20260831123000_calendar_feed_rls_authenticated.sql)（修正 `authenticated` 角色的 RLS）。
 
 ## 3d. 欠交習作提醒（首頁右欄）
 
@@ -113,4 +138,4 @@ supabase secrets set RESEND_API_KEY=re_… HOMEWORK_ABS_FROM_EMAIL='Campus CMS <
 npm run dev
 ```
 
-登入仍用示範帳號（`admin` / `campus` 等）。有 Supabase 資料時，班級／個人／閱讀頁會改讀資料庫名冊與成績。
+

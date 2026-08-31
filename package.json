@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && cp docs/index.html docs/404.html",
+    "build": "npm run export:calendar-bundle && tsc -b && vite build && cp docs/index.html docs/404.html",
     "lint": "oxlint",
     "preview": "vite preview",
     "import:scores:2425-g7": "tsx scripts/import-g7-2425-first-semester.ts",
@@ -18,7 +18,8 @@
     "generate:timetables:2526": "tsx scripts/generate-teacher-timetables.ts --year 2025",
     "import:assessment-duty": "tsx scripts/import-assessment-duty.ts",
     "sync:homework-abs": "tsx scripts/sync-homework-abs.ts",
-    "process:homework-abs-mail": "tsx scripts/process-homework-abs-emails.ts"
+    "process:homework-abs-mail": "tsx scripts/process-homework-abs-emails.ts",
+    "export:calendar-bundle": "tsx scripts/export-calendar-bundle.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

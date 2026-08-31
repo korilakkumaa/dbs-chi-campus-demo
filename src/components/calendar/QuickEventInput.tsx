@@ -3,7 +3,7 @@ import {
   EVENT_KIND_META,
   isoDateLocal,
 } from '../../data/calendarEvents'
-import type { CalendarEventKind } from '../../types'
+import type { CalendarEventKind, CalendarEventTime } from '../../types'
 
 const KIND_ORDER: CalendarEventKind[] = [
   'holiday',
@@ -56,6 +56,7 @@ type Props = {
     title: string
     date: string
     kind: CalendarEventKind
+    time?: CalendarEventTime
   }) => void
 }
 
@@ -68,6 +69,8 @@ export function QuickEventInput({
   const [kind, setKind] = useState<CalendarEventKind>('progress')
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(() => dateProp ?? isoDateLocal())
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const dateRef = useRef<HTMLInputElement>(null)
   const localInputRef = useRef<HTMLInputElement>(null)
@@ -96,12 +99,20 @@ export function QuickEventInput({
     })
   }, [seed])
 
+  const timePayload = (): CalendarEventTime | undefined => {
+    if (!startTime || !endTime) return undefined
+    if (startTime >= endTime) return undefined
+    return { start: startTime, end: endTime }
+  }
+
   const commit = () => {
     const trimmed = title.trim()
     if (!trimmed || !date || savingRef.current) return
     savingRef.current = true
-    onAdd({ title: trimmed, date, kind })
+    onAdd({ title: trimmed, date, kind, time: timePayload() })
     setTitle('')
+    setStartTime('')
+    setEndTime('')
     window.setTimeout(() => {
       savingRef.current = false
     }, 0)
@@ -116,73 +127,95 @@ export function QuickEventInput({
   }
 
   return (
-    <div className="cal-quick">
-      <div className="cal-quick-type">
+    <div className="cal-quick-wrap">
+      <div className="cal-quick">
+        <div className="cal-quick-type">
+          <button
+            type="button"
+            className="cal-quick-type-btn"
+            aria-label={`事件類型：${EVENT_KIND_META[kind].label}`}
+            aria-expanded={pickerOpen}
+            onClick={() => setPickerOpen((o) => !o)}
+          >
+            <KindSwatch kind={kind} />
+          </button>
+          {pickerOpen && (
+            <div className="cal-quick-type-menu" role="listbox">
+              {KIND_ORDER.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="option"
+                  aria-selected={k === kind}
+                  className={`cal-quick-type-option${k === kind ? ' active' : ''}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setKind(k)
+                    setPickerOpen(false)
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <KindSwatch kind={k} />
+                  <span>{EVENT_KIND_META[k].label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <input
+          ref={setInputRef}
+          className="cal-quick-input"
+          type="text"
+          value={title}
+          placeholder="快速新增事件…"
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={onKeyDown}
+          onBlur={() => {
+            setPickerOpen(false)
+            commit()
+          }}
+        />
+
         <button
           type="button"
-          className="cal-quick-type-btn"
-          aria-label={`事件類型：${EVENT_KIND_META[kind].label}`}
-          aria-expanded={pickerOpen}
-          onClick={() => setPickerOpen((o) => !o)}
+          className="cal-quick-date-btn"
+          aria-label="選擇日期"
+          onClick={() => dateRef.current?.showPicker?.() ?? dateRef.current?.focus()}
         >
-          <KindSwatch kind={kind} />
+          <span className="cal-quick-date-label">
+            {date.slice(5).replace('-', '/')}
+          </span>
+          <input
+            ref={dateRef}
+            className="cal-quick-date-native"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
         </button>
-        {pickerOpen && (
-          <div className="cal-quick-type-menu" role="listbox">
-            {KIND_ORDER.map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="option"
-                aria-selected={k === kind}
-                className={`cal-quick-type-option${k === kind ? ' active' : ''}`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  setKind(k)
-                  setPickerOpen(false)
-                }}
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                <KindSwatch kind={k} />
-                <span>{EVENT_KIND_META[k].label}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
-      <input
-        ref={setInputRef}
-        className="cal-quick-input"
-        type="text"
-        value={title}
-        placeholder="快速新增事件…"
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={onKeyDown}
-        onBlur={() => {
-          setPickerOpen(false)
-          commit()
-        }}
-      />
-
-      <button
-        type="button"
-        className="cal-quick-date-btn"
-        aria-label="選擇日期"
-        onClick={() => dateRef.current?.showPicker?.() ?? dateRef.current?.focus()}
-      >
-        <span className="cal-quick-date-label">
-          {date.slice(5).replace('-', '/')}
-        </span>
-        <input
-          ref={dateRef}
-          className="cal-quick-date-native"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </button>
+      <div className="cal-quick-time-row">
+        <label className="cal-quick-time-field">
+          <span>開始</span>
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </label>
+        <label className="cal-quick-time-field">
+          <span>結束</span>
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+          />
+        </label>
+        <span className="cal-quick-time-hint">留空 = 全天</span>
+      </div>
     </div>
   )
 }

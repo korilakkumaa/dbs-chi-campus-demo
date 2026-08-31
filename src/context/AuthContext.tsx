@@ -16,6 +16,7 @@ import {
   staffUsers,
 } from '../data/staffUsers'
 import { oauthRedirectTo, supabase } from '../lib/supabase'
+import { persistGoogleTokensFromSession } from '../data/googleCalendarSync'
 import type { Role, User } from '../types'
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -32,6 +33,8 @@ interface AuthContextValue {
   user: User | null
   ready: boolean
   authError: string | null
+  /** How the user signed in — Google OAuth required for direct Calendar sync. */
+  authMethod: 'google' | 'password' | null
   /** TWL / LKL / YLN school accounts may toggle 管理員 ↔ 老師 after sign-in. */
   canSwitchRole: boolean
   login: (username: string, password: string) => User | string
@@ -109,12 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [authMethod, setAuthMethod] = useState<'google' | 'password' | null>(
+    () => readMethod(),
+  )
 
   const applySession = useCallback(async (session: Session | null) => {
     const email = session?.user?.email
     if (!email) {
       if (readMethod() === 'password') setUser(loadUser())
       else setUser(null)
+      setAuthMethod(readMethod())
       return
     }
 
@@ -134,12 +141,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistUser(mapped)
     persistRole(mapped.role)
     persistMethod('google')
+    setAuthMethod('google')
+    persistGoogleTokensFromSession(mapped.id, session)
     setUser(mapped)
   }, [])
 
   useEffect(() => {
     if (!supabase) {
       setUser(readMethod() === 'google' ? null : loadUser())
+      setAuthMethod(readMethod())
       setReady(true)
       return
     }
@@ -176,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       authError,
+      authMethod,
       canSwitchRole: Boolean(user && isAdminEmail(user.username)),
       login: (username, password) => {
         const found = staffUsers.find(
@@ -194,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persistUser(resolved)
         persistRole(resolved.role)
         persistMethod('password')
+        setAuthMethod('password')
         setAuthError(null)
         setUser(resolved)
         return resolved
@@ -223,13 +235,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       logout: () => {
         setUser(null)
+        setAuthMethod(null)
         clearPersistedAuth()
         localStorage.removeItem(ROLE_KEY)
         void supabase?.auth.signOut()
       },
       clearAuthError: () => setAuthError(null),
     }),
-    [user, ready, authError],
+    [user, ready, authError, authMethod],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

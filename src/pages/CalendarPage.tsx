@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { GlassPanel } from '../components/GlassPanel'
 import { CalendarDayStatusPanel } from '../components/calendar/CalendarDayStatusPanel'
 import { DayTimetablePanel, type LessonPick } from '../components/calendar/DayTimetablePanel'
+import { CalendarSubscribePanel } from '../components/calendar/CalendarSubscribePanel'
 import { QuickEventInput } from '../components/calendar/QuickEventInput'
+import { resolveEventTime } from '../data/calendarIcs'
 import {
   EVENT_KIND_META,
   eventInMonth,
@@ -178,6 +180,8 @@ export function CalendarPage() {
   const [hoverIso, setHoverIso] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [draftStart, setDraftStart] = useState('')
+  const [draftEnd, setDraftEnd] = useState('')
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(
     () => new Set(),
   )
@@ -245,9 +249,9 @@ export function CalendarPage() {
 
   const selectedEvents = useMemo(() => {
     const timeKey = (e: CalendarEvent) => {
-      const start = e.lesson?.start?.trim()
-      if (!start) return null
-      const [h, m] = start.split(':').map(Number)
+      const slot = resolveEventTime(e)
+      if (!slot) return null
+      const [h, m] = slot.start.split(':').map(Number)
       if (Number.isNaN(h) || Number.isNaN(m)) return null
       return h * 60 + m
     }
@@ -262,8 +266,10 @@ export function CalendarPage() {
       if (ta == null) return -1
       if (tb == null) return 1
       if (ta !== tb) return ta - tb
+      const endA = resolveEventTime(a)?.end ?? ''
+      const endB = resolveEventTime(b)?.end ?? ''
       return (
-        (a.lesson?.end ?? '').localeCompare(b.lesson?.end ?? '') ||
+        endA.localeCompare(endB) ||
         a.title.localeCompare(b.title, 'zh-Hant') ||
         a.id.localeCompare(b.id)
       )
@@ -646,14 +652,35 @@ export function CalendarPage() {
     selectDay(isoDateLocal(now))
   }
 
-  const startEdit = (event: { id: string; title: string }) => {
+  const startEdit = (event: CalendarEvent) => {
     setEditingId(event.id)
     setDraft(event.title)
+    const slot = resolveEventTime(event)
+    setDraftStart(slot?.start ?? '')
+    setDraftEnd(slot?.end ?? '')
   }
 
   const commitEdit = () => {
     if (!editingId) return
-    updateCalendarEvent(editingId, { title: draft.trim() })
+    const current = calendarEvents.find((e) => e.id === editingId)
+    const title = draft.trim()
+    const patch: Partial<Pick<CalendarEvent, 'title' | 'time' | 'lesson'>> = {
+      title,
+    }
+    if (draftStart && draftEnd && draftStart < draftEnd) {
+      if (current?.lesson) {
+        patch.lesson = {
+          ...current.lesson,
+          start: draftStart,
+          end: draftEnd,
+        }
+      } else {
+        patch.time = { start: draftStart, end: draftEnd }
+      }
+    } else if (!current?.lesson) {
+      patch.time = undefined
+    }
+    updateCalendarEvent(editingId, patch)
     setEditingId(null)
   }
 
@@ -691,6 +718,7 @@ export function CalendarPage() {
               : '點擊活動選取，⌘／Ctrl+點擊可多選；⌘C 複製、點日期後 ⌘V 貼上、⌘Z 復原貼上；Delete 刪除自己的活動。點擊或拖選左側時段可新增事件。'}
           </p>
         </div>
+        <CalendarSubscribePanel calendarEvents={calendarEvents} />
       </header>
 
       <div
@@ -943,6 +971,7 @@ export function CalendarPage() {
               {sideEvents.map((event) => {
                 const meta = EVENT_KIND_META[event.kind]
                 const editing = event.id === editingId
+                const slot = resolveEventTime(event)
                 const colourOnly = isColourOnlyDayStatus(event)
                 const customNote = dayStatusCustomNote(event)
                 const displayTitle = colourOnly
@@ -996,12 +1025,15 @@ export function CalendarPage() {
                             {event.lesson.subject}
                           </span>
                         ) : null}
-                        <span className="detail-cal-side-tag time">
-                          {event.lesson.start}–{event.lesson.end}
-                        </span>
                       </div>
                     )}
+                    {slot && (
+                      <span className="detail-cal-side-tag time standalone">
+                        {slot.start}–{slot.end}
+                      </span>
+                    )}
                     {editing ? (
+                      <>
                       <input
                         ref={sideEditRef}
                         className="detail-cal-side-edit"
@@ -1023,6 +1055,22 @@ export function CalendarPage() {
                           }
                         }}
                       />
+                      <div className="detail-cal-side-time-edit">
+                        <input
+                          type="time"
+                          value={draftStart}
+                          aria-label="開始時間"
+                          onChange={(e) => setDraftStart(e.target.value)}
+                        />
+                        <span>–</span>
+                        <input
+                          type="time"
+                          value={draftEnd}
+                          aria-label="結束時間"
+                          onChange={(e) => setDraftEnd(e.target.value)}
+                        />
+                      </div>
+                      </>
                     ) : mutable ? (
                       <button
                         type="button"
@@ -1074,8 +1122,8 @@ export function CalendarPage() {
           <QuickEventInput
             date={selectedIso}
             inputRef={quickInputRef}
-            onAdd={({ title, date, kind }) => {
-              addCalendarEvent({ title, date, kind })
+            onAdd={({ title, date, kind, time }) => {
+              addCalendarEvent({ title, date, kind, time })
               selectDay(date)
             }}
           />

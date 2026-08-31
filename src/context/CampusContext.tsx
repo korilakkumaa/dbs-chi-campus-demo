@@ -14,10 +14,11 @@ import {
 } from '../data/calendarEvents'
 import {
   applyRemoteRowToOverlay,
+  applyRemotePersonalRow,
+  applyRemotePersonalRows,
   assembleCalendarEvents,
   canMutateCalendarEvent,
   defaultCalendarAudience,
-  isSharedCalendarEvent,
   loadSharedOverlay,
   overlayFromRemoteRows,
   persistCalendarState,
@@ -123,6 +124,7 @@ interface CampusContextValue {
     kind: CalendarEventKind
     audience?: CalendarAudience
     lesson?: CalendarEvent['lesson']
+    time?: CalendarEvent['time']
   }) => string | undefined
   /** Create several events in one update (avoids stale-state clobbering). */
   addCalendarEvents: (
@@ -132,11 +134,14 @@ interface CampusContextValue {
       kind: CalendarEventKind
       audience?: CalendarAudience
       lesson?: CalendarEvent['lesson']
+      time?: CalendarEvent['time']
     }>,
   ) => string[]
   updateCalendarEvent: (
     id: string,
-    patch: Partial<Pick<CalendarEvent, 'date' | 'title' | 'kind' | 'lesson'>>,
+    patch: Partial<
+      Pick<CalendarEvent, 'date' | 'title' | 'kind' | 'lesson' | 'time'>
+    >,
   ) => void
   deleteCalendarEvent: (id: string) => void
   deleteCalendarEvents: (ids: string[]) => number
@@ -418,19 +423,33 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     ;(async () => {
       const remote = await fetchSharedCalendarRows()
-      if (cancelled || remote == null) return
+      if (cancelled || remote == null || !user) return
       if (remote.length > 0) {
-        saveSharedOverlay(overlayFromRemoteRows(remote))
+        const sharedRows = remote.filter(
+          (row) => row.event.audience.type !== 'personal',
+        )
+        saveSharedOverlay(overlayFromRemoteRows(sharedRows))
+        applyRemotePersonalRows(user.id, remote)
       } else {
         await pushSharedOverlayToRemote(
           loadSharedOverlay(),
           buildSeedCalendarEvents(),
         )
+        const personal = assembleCalendarEvents(user.id).filter(
+          (event) => event.audience.type === 'personal',
+        )
+        for (const event of personal) {
+          await upsertSharedCalendarEvent(event)
+        }
       }
       if (!cancelled) setAllCalendarEvents(assembleCalendarEvents(user?.id))
     })()
     const unsubscribe = subscribeSharedCalendar((row) => {
-      applyRemoteRowToOverlay(row)
+      if (row.event.audience.type === 'personal') {
+        if (user?.id) applyRemotePersonalRow(user.id, row)
+      } else {
+        applyRemoteRowToOverlay(row)
+      }
       setAllCalendarEvents(assembleCalendarEvents(user?.id))
     })
     return () => {
@@ -623,7 +642,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
       relevantDeadlines,
       taughtGradeNumbers,
       calendarEvents,
-      addCalendarEvent: ({ date, title, kind, audience, lesson }) => {
+      addCalendarEvent: ({ date, title, kind, audience, lesson, time }) => {
         if (!user) return undefined
         const trimmed = title.trim()
         if (!date) return undefined
@@ -638,13 +657,12 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           createdBy: user.id,
           audience: audience ?? defaultCalendarAudience(user, lesson),
           ...(lesson ? { lesson } : {}),
+          ...(time ? { time } : {}),
         }
         const next = [...allCalendarEvents, event]
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
-        if (isSharedCalendarEvent(event)) {
-          void upsertSharedCalendarEvent(event)
-        }
+        void upsertSharedCalendarEvent(event)
         return event.id
       },
       addCalendarEvents: (inputs) => {
@@ -665,6 +683,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
               input.audience ??
               defaultCalendarAudience(user, input.lesson),
             ...(input.lesson ? { lesson: input.lesson } : {}),
+            ...(input.time ? { time: input.time } : {}),
           })
         }
         if (created.length === 0) return []
@@ -672,9 +691,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
         for (const event of created) {
-          if (isSharedCalendarEvent(event)) {
-            void upsertSharedCalendarEvent(event)
-          }
+          void upsertSharedCalendarEvent(event)
         }
         return created.map((event) => event.id)
       },
@@ -686,12 +703,13 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           ...patch,
           title: patch.title != null ? patch.title.trim() : current.title,
         }
+        if ('time' in patch && patch.time === undefined) {
+          delete updated.time
+        }
         const next = allCalendarEvents.map((e) => (e.id === id ? updated : e))
         setAllCalendarEvents(next)
         persistCalendarState(next, user?.id, user?.role)
-        if (isSharedCalendarEvent(updated)) {
-          void upsertSharedCalendarEvent(updated)
-        }
+        void upsertSharedCalendarEvent(updated)
       },
       deleteCalendarEvent: (id) => {
         const current = allCalendarEvents.find((e) => e.id === id)
@@ -699,9 +717,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         const next = allCalendarEvents.filter((e) => e.id !== id)
         setAllCalendarEvents(next)
         persistCalendarState(next, user?.id, user?.role)
-        if (isSharedCalendarEvent(current)) {
-          void tombstoneSharedCalendarEvent(current)
-        }
+        void tombstoneSharedCalendarEvent(current)
       },
       deleteCalendarEvents: (ids) => {
         if (!user || ids.length === 0) return 0
@@ -716,9 +732,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
         for (const event of removing) {
-          if (isSharedCalendarEvent(event)) {
-            void tombstoneSharedCalendarEvent(event)
-          }
+          void tombstoneSharedCalendarEvent(event)
         }
         return removing.length
       },
@@ -760,9 +774,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
         for (const event of created) {
-          if (isSharedCalendarEvent(event)) {
-            void upsertSharedCalendarEvent(event)
-          }
+          void upsertSharedCalendarEvent(event)
         }
         return created.length
       },
