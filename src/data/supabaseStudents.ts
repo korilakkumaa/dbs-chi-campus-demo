@@ -174,29 +174,6 @@ function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
 
 const EMPTY_SCORES: SemesterScores = { daily: 0, reading: 0, writing: 0 }
 
-function normalizeZhName(name: string): string {
-  return name.normalize('NFKC').replace(/[\s\u3000]+/g, '').trim()
-}
-
-function normalizeEnName(name: string): string {
-  return name.normalize('NFKC').toUpperCase().replace(/[^A-Z]/g, '')
-}
-
-/** Bilingual name key for rows that do not share a stored student_no. */
-function identityKey(nameZh: string, nameEn: string): string | null {
-  const zh = normalizeZhName(nameZh)
-  const en = normalizeEnName(nameEn)
-  if (zh && en) return `ze:${zh}|${en}`
-  if (en.length >= 4) return `e:${en}`
-  if (zh) return `z:${zh}`
-  return null
-}
-
-function englishKey(nameEn: string): string | null {
-  const en = normalizeEnName(nameEn)
-  return en.length >= 4 ? `e:${en}` : null
-}
-
 function gradeFromClassId(classId: string): number | null {
   const match = classId.match(/^c-g?(\d+)/i)
   if (!match) return null
@@ -204,19 +181,20 @@ function gradeFromClassId(classId: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** e.g. c-8m + 1 year back → c-7m (2627 G8 ↔ 2526 G7). */
+function priorClassId(classId: string, yearOffset: number): string | null {
+  const match = classId.match(/^(c-)(\d+)(.*)$/i)
+  if (!match || yearOffset <= 0) return null
+  const grade = Number(match[2]) - yearOffset
+  if (grade < 7 || grade > 12) return null
+  return `${match[1]}${grade}${match[3]}`
+}
+
 function isExpectedGrade(roster: StudentRow, hit: StudentRow): boolean {
   const from = gradeFromClassId(roster.class_id)
   const to = gradeFromClassId(hit.class_id)
   if (from == null || to == null) return true
   return to === from + (hit.academic_year_start - roster.academic_year_start)
-}
-
-function rowsWithKey(
-  rows: StudentRow[],
-  keyOf: (row: StudentRow) => string | null,
-  key: string,
-): StudentRow[] {
-  return rows.filter((row) => keyOf(row) === key)
 }
 
 function pickByExpectedGrade(
@@ -232,64 +210,149 @@ function pickByExpectedGrade(
   return null
 }
 
-function matchStudentInYear(
-  roster: StudentRow,
+function matchByOfficialStid(
+  official: string,
   yearRows: StudentRow[],
-  rosterYearRows: StudentRow[],
 ): StudentRow | null {
-  const idKey = identityKey(roster.name_zh, roster.name_en)
-  if (idKey) {
-    const hit = pickByExpectedGrade(
-      roster,
-      rowsWithKey(yearRows, (row) => identityKey(row.name_zh, row.name_en), idKey),
-    )
-    if (hit) return hit
-  }
-
-  const rosterEn = englishKey(roster.name_en)
-  if (!rosterEn) return null
-  if (
-    rowsWithKey(rosterYearRows, (row) => englishKey(row.name_en), rosterEn)
-      .length !== 1
-  ) {
-    return null
-  }
-  return pickByExpectedGrade(
-    roster,
-    rowsWithKey(yearRows, (row) => englishKey(row.name_en), rosterEn),
+  const hits = yearRows.filter(
+    (row) => officialStudentNo(row.student_no) === official,
   )
+  return hits.length === 1 ? hits[0] : null
 }
 
+/** Fallback when STID does not match: same class + class number (grade-safe). */
+function matchByClassAndNumber(
+  anchor: StudentRow,
+  yearRows: StudentRow[],
+): StudentRow | null {
+  if (anchor.class_number <= 0) return null
+  const hits = yearRows.filter(
+    (row) =>
+      row.class_id === anchor.class_id &&
+      row.class_number === anchor.class_number,
+  )
+  return pickByExpectedGrade(anchor, hits)
+}
+
+/**
+ * Cross-year fallback: 2627 G8#12 ↔ 2526 G7#12 (same class letter, prior grade).
+ */
+function matchByPromotedClass(
+  anchor: StudentRow,
+  priorYear: number,
+  yearRows: StudentRow[],
+): StudentRow | null {
+  const offset = anchor.academic_year_start - priorYear
+  if (offset <= 0 || anchor.class_number <= 0) return null
+  const priorClass = priorClassId(anchor.class_id, offset)
+  if (!priorClass) return null
+  const hits = yearRows.filter(
+    (row) =>
+      row.class_id === priorClass &&
+      row.class_number === anchor.class_number,
+  )
+  if (hits.length === 1) return hits[0]
+  return pickByExpectedGrade(anchor, hits)
+}
+
+/**
+ * Link roster student_no across prior academic years.
+ * Walk newest→oldest: STID first, then class+class_number on the anchor
+ * from the year just matched (not the current-year roster).
+ */
 function linkedStudentNos(
   roster: StudentRow,
   rowsByYear: Map<number, StudentRow[]>,
 ): string[] {
   const nos = new Set<string>([roster.student_no])
   const official = officialStudentNo(roster.student_no)
-  const rosterYearRows = rowsByYear.get(roster.academic_year_start) ?? []
-  // Only earlier years: 2025/26 may include 2024/25 history, never the reverse.
-  for (const [year, rows] of rowsByYear) {
-    if (year >= roster.academic_year_start || rows.length === 0) continue
-    const byOfficial = rows.filter(
-      (row) => officialStudentNo(row.student_no) === official,
-    )
-    if (byOfficial.length === 1) {
-      nos.add(byOfficial[0].student_no)
-      continue
-    }
-    const hit = matchStudentInYear(roster, rows, rosterYearRows)
-    if (hit) nos.add(hit.student_no)
+  let anchor: StudentRow = roster
+
+  const priorYears = [...rowsByYear.keys()]
+    .filter((year) => year < roster.academic_year_start)
+    .sort((a, b) => b - a)
+
+  for (const year of priorYears) {
+    const rows = rowsByYear.get(year) ?? []
+    if (rows.length === 0) continue
+
+    const byStid = matchByOfficialStid(official, rows)
+    let hit =
+      byStid ??
+      matchByPromotedClass(anchor, year, rows) ??
+      matchByPromotedClass(roster, year, rows) ??
+      matchByClassAndNumber(anchor, rows) ??
+      matchByClassAndNumber(roster, rows)
+
+    if (!hit) continue
+    nos.add(hit.student_no)
+    anchor = hit
   }
+
   return [...nos]
 }
 
+function pickLatestSemesterRow(rows: SemesterRow[]): SemesterRow | undefined {
+  if (rows.length === 0) return undefined
+  return [...rows].sort((a, b) => {
+    if (a.academic_year_start !== b.academic_year_start) {
+      return b.academic_year_start - a.academic_year_start
+    }
+    if (a.semester === b.semester) return 0
+    return a.semester === 'second' ? -1 : 1
+  })[0]
+}
+
+/**
+ * Map prior-year score rows onto the grade band shown on the current roster.
+ * 2627 G8 → 2526 rows display as G7; 2627 G9 → 2425 rows as G7, etc.
+ */
+function displayGradeForRecord(
+  record: SemesterRow,
+  rosterYear: number,
+  currentGrade: number | null,
+): number {
+  if (currentGrade != null && record.academic_year_start < rosterYear) {
+    const mapped = currentGrade - (rosterYear - record.academic_year_start)
+    if (mapped >= 7 && mapped <= 12) return mapped
+  }
+  return record.grade
+}
+
+function historyRecordsForStudent(
+  roster: StudentRow,
+  linkedNos: Set<string>,
+  records: SemesterRow[],
+  rosterYear: number,
+): SemesterRow[] {
+  const official = officialStudentNo(roster.student_no)
+  return records.filter((r) => {
+    if (r.academic_year_start > rosterYear) return false
+    if (linkedNos.has(r.student_no)) return true
+    if (r.student_no === roster.student_no) return true
+    return (
+      r.academic_year_start < rosterYear &&
+      officialStudentNo(r.student_no) === official
+    )
+  })
+}
+
 function buildYearHistory(
+  roster: StudentRow,
   linkedNos: Set<string>,
   records: SemesterRow[],
   classNameByStudentYear: Map<string, string>,
+  classNameByOfficialYear: Map<string, string>,
   fallbackClassName: string,
   rosterYear: number,
 ): YearRecord[] {
+  const currentGrade = gradeFromClassId(roster.class_id)
+  const historyRecords = historyRecordsForStudent(
+    roster,
+    linkedNos,
+    records,
+    rosterYear,
+  )
   const byGrade = new Map<
     number,
     {
@@ -299,18 +362,18 @@ function buildYearHistory(
     }
   >()
 
-  for (const r of records) {
-    if (!linkedNos.has(r.student_no)) continue
-    if (r.academic_year_start > rosterYear) continue
-    const slot = byGrade.get(r.grade) ?? {}
+  for (const r of historyRecords) {
+    const displayGrade = displayGradeForRecord(r, rosterYear, currentGrade)
+    const slot = byGrade.get(displayGrade) ?? {}
     const scores = scoresFromSemesterRow(r)
     if (r.semester === 'first') slot.first = scores
     else slot.second = scores
-    const named = classNameByStudentYear.get(
-      `${r.student_no}|${r.academic_year_start}`,
-    )
+    const official = officialStudentNo(r.student_no)
+    const named =
+      classNameByStudentYear.get(`${r.student_no}|${r.academic_year_start}`) ??
+      classNameByOfficialYear.get(`${official}|${r.academic_year_start}`)
     if (named) slot.className = named
-    byGrade.set(r.grade, slot)
+    byGrade.set(displayGrade, slot)
   }
 
   return [...byGrade.entries()]
@@ -389,34 +452,50 @@ export async function fetchCampusStudentsFromSupabase(
 
   const rowsByYear = new Map<number, StudentRow[]>()
   const classNameByStudentYear = new Map<string, string>()
+  const classNameByOfficialYear = new Map<string, string>()
   for (const row of allStudentRows ?? []) {
     const list = rowsByYear.get(row.academic_year_start) ?? []
     list.push(row)
     rowsByYear.set(row.academic_year_start, list)
+    const rowClassName = classNameById.get(row.class_id) ?? row.class_id
     classNameByStudentYear.set(
       `${row.student_no}|${row.academic_year_start}`,
-      classNameById.get(row.class_id) ?? row.class_id,
+      rowClassName,
+    )
+    classNameByOfficialYear.set(
+      `${officialStudentNo(row.student_no)}|${row.academic_year_start}`,
+      rowClassName,
     )
   }
 
   return studentRows.map((s) => {
     const className = classNameById.get(s.class_id) ?? s.class_id
     const linkedNos = new Set(linkedStudentNos(s, rowsByYear))
+    const historyRecords = historyRecordsForStudent(
+      s,
+      linkedNos,
+      semesterRows ?? [],
+      academicYearStart,
+    )
     const yearHistory = buildYearHistory(
+      s,
       linkedNos,
       semesterRows ?? [],
       classNameByStudentYear,
+      classNameByOfficialYear,
       className,
       academicYearStart,
     )
-    const rosterRecords = (semesterRows ?? []).filter(
-      (r) =>
-        r.student_no === s.student_no &&
-        r.academic_year_start === academicYearStart,
+    const rosterRecords = historyRecords.filter(
+      (r) => r.academic_year_start === academicYearStart,
     )
+    const priorLinkedRecords =
+      rosterRecords.length === 0
+        ? historyRecords.filter((r) => r.academic_year_start < academicYearStart)
+        : []
     const latestRow =
-      rosterRecords.find((r) => r.semester === 'second') ??
-      rosterRecords.find((r) => r.semester === 'first')
+      pickLatestSemesterRow(rosterRecords) ??
+      pickLatestSemesterRow(priorLinkedRecords)
     const latestScores = latestRow
       ? weightedScoresFromSemesterRow(latestRow)
       : { daily: 0, reading: 0, writing: 0 }

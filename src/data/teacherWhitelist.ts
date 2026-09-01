@@ -195,6 +195,31 @@ export const GRADE_LEVELS = [7, 8, 9, 10, 11, 12] as const
 /** Enrichment Chinese classes (G7–G10). */
 export const EC_CLASS_NAMES = ['G7 EC', 'G8 EC', 'G9 EC', 'G10 EC'] as const
 
+export function ecClassNameForGrade(grade: number): string {
+  return `G${grade} EC`
+}
+
+/** EC teaching_group for a grade, e.g. G7 EC-WKL (2627). Null if no EC class that year. */
+export function ecTeachingGroupForGrade(
+  grade: number,
+  academicYearStart: number = CAMPUS_SCORES_ACADEMIC_YEAR_START,
+): string | null {
+  const ecClass = ecClassNameForGrade(grade)
+  const teacher = teacherWhitelistForYear(academicYearStart).find((t) =>
+    t.classes.includes(ecClass),
+  )
+  return teacher ? `${ecClass}-${teacher.initial}` : null
+}
+
+export function gradeNumberFromClassId(classId: string): number | null {
+  const raw = classId.replace(/^c-/, '').replace(/-/g, ' ')
+  const ec = raw.match(/^g(\d+)\s*ec$/i)
+  if (ec) return Number(ec[1])
+  const form = raw.match(/^(\d+)/)
+  if (form) return Number(form[1])
+  return null
+}
+
 /**
  * Junior form-class order (G7–G9): A is a normal form class; R is 補底班.
  */
@@ -310,14 +335,15 @@ function teachingGroupPrefix(teachingGroup: string | undefined): string {
   return raw.replace(/\s+/g, ' ')
 }
 
-/** French stream — roster flag or Group prefix like 7FR. */
+/** French stream — roster flag or Group prefix like 7FR. FR assigned to G{n} EC counts as EC. */
 export function isFrenchStreamStudent(s: {
   french?: boolean
   teachingGroup?: string
 }): boolean {
+  if (isEcStreamStudent(s)) return false
   if (s.french) return true
   const prefix = teachingGroupPrefix(s.teachingGroup)
-  return /^\d+FR$/.test(prefix)
+  return /^\d+FR$/.test(prefix.replace(/\s+/g, ''))
 }
 
 /** EC / IBEC Chinese stream (Group prefix G7 EC, G10 EC, IBEC, …). */
@@ -389,7 +415,14 @@ export function rosterForChineseClass<T extends RosterStudent>(
   const letter = className.slice(-1).toUpperCase()
 
   if (isEcFormClassName(className) && grade != null) {
-    return students.filter((s) => ecStreamGrade(s) === grade)
+    return students.filter((s) => {
+      if (ecStreamGrade(s) === grade) return true
+      return (
+        Boolean(s.french) &&
+        gradeNumberFromClassId(s.classId) === grade &&
+        ecTeachingGroupForGrade(grade, academicYearStart) != null
+      )
+    })
   }
 
   if (grade != null && letter === 'R' && grade < 10) {

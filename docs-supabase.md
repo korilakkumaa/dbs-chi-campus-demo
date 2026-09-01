@@ -66,16 +66,26 @@ npm run import:scores
 
 ## 3b. 全校學生大表（官方名冊）
 
-來源：`Student Name List 2025-26_*.xlsx` 的 **ALL** sheet（約 1384 人）。
+來源：`Student Name List 2025-26_*.xlsx` 或 `Student Name List 2026-27_*.xlsx` 的 **ALL** sheet。
 
 ```bash
-npm run import:roster:sql
+npm run import:roster          # 2025/26
+npm run import:roster:2627     # 2026/27
+npm run import:roster:2627:sql # 只產 SQL，不寫入 Supabase
 ```
 
 1. 先執行 [`supabase/migrations/20260822013000_student_roster_fields.sql`](supabase/migrations/20260822013000_student_roster_fields.sql)（加 house／french 欄位）
 2. 再依序執行 `scripts/out/roster-parts/00-classes.sql`、`01-students.sql` …
 
 中文科成績仍留在 `semester_records`；大表會補齊沒有入分檔的學生。
+
+**2026/27 中文教學小組**（G7–G9 streaming + 高中小組 Excel）：
+
+```bash
+npm run import:streaming:2627
+```
+
+依 2627 教師白名單將 `Group Name`（如 `G7D`、`G10A`）轉成 `teaching_group`（如 `7D-FYC`、`10A-YCN`）；**FR（法文班）歸入該年級 EC**（如 `G7 EC-WKL`），顯示在 EC 老師名單。
 
 ## 3c. 校曆（admin 改動同步給教師）
 

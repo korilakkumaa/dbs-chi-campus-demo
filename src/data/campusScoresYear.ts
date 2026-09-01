@@ -5,7 +5,7 @@
  */
 
 /** 目前已匯入名冊／成績的學年（academic_year_start）。 */
-export const SCORES_IMPORTED_ACADEMIC_YEARS = [2024, 2025] as const
+export const SCORES_IMPORTED_ACADEMIC_YEARS = [2024, 2025, 2026] as const
 
 /**
  * 2025/26 was imported with raw STID as students.student_no (table PK).
@@ -35,9 +35,7 @@ export function defaultScoresAcademicYearStart(): number {
   return CAMPUS_SCORES_ACADEMIC_YEAR_START
 }
 
-/** 分數頁可選學年：已匯入名冊／成績 ∪ 已有教師白名單的學年。 */
+/** 分數頁可選學年：已匯入名冊／成績的學年（新至舊）。 */
 export function listScoresAcademicYearStarts(): number[] {
-  return [...new Set([2026, ...SCORES_IMPORTED_ACADEMIC_YEARS])].sort(
-    (a, b) => b - a,
-  )
+  return [...SCORES_IMPORTED_ACADEMIC_YEARS].sort((a, b) => b - a)
 }

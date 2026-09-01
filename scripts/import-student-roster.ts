@@ -23,6 +23,7 @@ config()
 const PATHS: Record<number, string> = {
   2024: '/Users/apple/Downloads/Student Name List 2024-25_27Jun25 (ALL only).xlsx',
   2025: '/Users/apple/Downloads/Student Name List 2025-26_27Feb26 (ALL Only).xlsx',
+  2026: '/Users/apple/Downloads/Student Name List 2026-27_29Aug26 (ALL Only).xlsx',
 }
 
 function resolveImportAcademicYear(): number {
@@ -143,7 +144,7 @@ function parseAllSheet(filePath: string): {
     })
   }
 
-  if (ACADEMIC_YEAR_START === 2025) {
+  if (ACADEMIC_YEAR_START >= 2025) {
     appendChineseStreamClasses(classMap)
   }
 
