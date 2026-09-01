@@ -4,6 +4,7 @@ import {
   deleteGoogleEventMapEntry,
   fetchGoogleEventMap,
   fetchGoogleCalendarSyncState,
+  saveGoogleRefreshToken,
   upsertGoogleEventMap,
 } from './supabaseCalendar'
 import { supabase } from '../lib/supabase'
@@ -21,6 +22,7 @@ export const GOOGLE_OAUTH_SCOPES = [
 export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 
 export const GOOGLE_CALENDAR_AUTH_FLAG = 'campus-enable-google-sync'
+export const GOOGLE_CALENDAR_AUTH_ATTEMPTED = 'campus-google-auth-attempted'
 
 const REFRESH_KEY_PREFIX = 'campus-google-refresh:'
 
@@ -54,6 +56,7 @@ export function persistGoogleTokensFromSession(
 ): void {
   if (!session) return
   storeGoogleRefreshToken(userId, session.provider_refresh_token)
+  void saveGoogleRefreshToken(userId, session.provider_refresh_token)
 }
 
 export function parseGoogleApiError(raw: string): string {

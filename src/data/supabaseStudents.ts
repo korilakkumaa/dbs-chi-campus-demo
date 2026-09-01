@@ -117,7 +117,7 @@ function componentNumber(
  */
 function scoresFromSemesterRow(r: SemesterRow): SemesterScores {
   const weighted = weightedScoresFromSemesterRow(r)
-  const max = subjectMaxForGrade(r.grade)
+  const max = subjectMaxForGrade(r.grade, r.academic_year_start)
   return {
     daily: roundScore(max.daily > 0 ? (weighted.daily / max.daily) * 100 : 0),
     reading: roundScore(
@@ -130,7 +130,8 @@ function scoresFromSemesterRow(r: SemesterRow): SemesterScores {
 }
 
 /**
- * Excel semester weighted contributions (grade band: junior 20/40/40, senior 15/40/45).
+ * Excel semester weighted contributions (grade band varies by year;
+ * 2024/25 junior (G7–G9) uses 30/35/35; other junior 20/40/40; senior 15/40/45).
  * Prefer summary fields; reading/writing columns are already contributions.
  */
 function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
@@ -162,7 +163,7 @@ function weightedScoresFromSemesterRow(r: SemesterRow): SemesterScores {
   const colDaily = Number(r.daily)
   const colReading = Number(r.reading)
   const colWriting = Number(r.writing)
-  const max = subjectMaxForGrade(r.grade)
+  const max = subjectMaxForGrade(r.grade, r.academic_year_start)
   return {
     daily: roundWeighted(
       ca ?? (colDaily > max.daily ? (colDaily / 100) * max.daily : colDaily),
@@ -359,6 +360,10 @@ function buildYearHistory(
       first?: SemesterScores
       second?: SemesterScores
       className?: string
+      firstAcademicYearStart?: number
+      secondAcademicYearStart?: number
+      firstScoreGrade?: number
+      secondScoreGrade?: number
     }
   >()
 
@@ -366,8 +371,15 @@ function buildYearHistory(
     const displayGrade = displayGradeForRecord(r, rosterYear, currentGrade)
     const slot = byGrade.get(displayGrade) ?? {}
     const scores = scoresFromSemesterRow(r)
-    if (r.semester === 'first') slot.first = scores
-    else slot.second = scores
+    if (r.semester === 'first') {
+      slot.first = scores
+      slot.firstAcademicYearStart = r.academic_year_start
+      slot.firstScoreGrade = r.grade
+    } else {
+      slot.second = scores
+      slot.secondAcademicYearStart = r.academic_year_start
+      slot.secondScoreGrade = r.grade
+    }
     const official = officialStudentNo(r.student_no)
     const named =
       classNameByStudentYear.get(`${r.student_no}|${r.academic_year_start}`) ??
@@ -385,6 +397,10 @@ function buildYearHistory(
       second: slot.second ?? EMPTY_SCORES,
       hasFirst: slot.first != null,
       hasSecond: slot.second != null,
+      firstAcademicYearStart: slot.firstAcademicYearStart,
+      secondAcademicYearStart: slot.secondAcademicYearStart,
+      firstScoreGrade: slot.firstScoreGrade,
+      secondScoreGrade: slot.secondScoreGrade,
     }))
 }
 

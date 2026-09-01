@@ -1,0 +1,2 @@
+[functions.calendar-sync-google]
+verify_jwt = false

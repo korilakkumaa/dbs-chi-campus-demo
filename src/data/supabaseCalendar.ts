@@ -268,6 +268,24 @@ export async function setGoogleCalendarSyncEnabled(
   return true
 }
 
+export async function saveGoogleRefreshToken(
+  userId: string,
+  refreshToken: string | null | undefined,
+): Promise<void> {
+  if (!supabase || !refreshToken) return
+  const { error } = await supabase.from('google_calendar_sync').upsert(
+    {
+      user_id: userId,
+      provider_refresh_token: refreshToken,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' },
+  )
+  if (error) {
+    console.warn('google refresh token save failed', error.message)
+  }
+}
+
 export async function fetchGoogleEventMap(
   userId: string,
 ): Promise<Map<string, string>> {

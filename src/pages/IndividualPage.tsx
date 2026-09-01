@@ -11,6 +11,7 @@ import { gradeLabel, gradeNumberFromClassName, rosterForChineseClass } from '../
 import {
   PAPER_ROWS,
   SEMESTER_LABELS,
+  scoringBandForSemester,
   subjectMaxForGrade,
   buildScorePools,
   descendingRank,
@@ -56,11 +57,21 @@ function YearHistoryCharts({
       {records.map((record) => {
         const hasFirst = recordHasSemester(record, 'first')
         const hasSecond = recordHasSemester(record, 'second')
+        const firstBand = scoringBandForSemester(record, 'first')
+        const secondBand = scoringBandForSemester(record, 'second')
         const firstTotal = hasFirst
-          ? semesterPoints(record.first, record.grade)
+          ? semesterPoints(
+              record.first,
+              firstBand.grade,
+              firstBand.academicYearStart,
+            )
           : null
         const secondTotal = hasSecond
-          ? semesterPoints(record.second, record.grade)
+          ? semesterPoints(
+              record.second,
+              secondBand.grade,
+              secondBand.academicYearStart,
+            )
           : null
         const total = yearPoints(record)
         const yearPool = pools.sameYearTotal.get(String(record.grade)) ?? []
@@ -102,9 +113,18 @@ function YearHistoryCharts({
 
             <div className="year-chart-bars">
               {visiblePapers.map(({ semester, subject, label }, index) => {
+                const band = scoringBandForSemester(record, semester)
                 const raw = record[semester][subject as SubjectKey]
-                const max = subjectMaxForGrade(record.grade)[subject]
-                const earned = subjectEarned(raw, subject, record.grade)
+                const max = subjectMaxForGrade(
+                  band.grade,
+                  band.academicYearStart,
+                )[subject]
+                const earned = subjectEarned(
+                  raw,
+                  subject,
+                  band.grade,
+                  band.academicYearStart,
+                )
                 const { sameYear } = lookupPercentile(
                   pools,
                   record.grade,
@@ -327,7 +347,7 @@ function StudentFileCard({
 const SCORE_HELP_ITEMS = [
   {
     title: '計分結構',
-    body: '每學期滿分 100。初中（G7–G9）：CA 20%、閱讀 40%、寫作 40%。高中（G10–G12）：CA 15%、閱讀 40%、寫作 45%。學年總分＝上學期 × 35%＋下學期 × 65%。',
+    body: '每學期滿分 100。初中（G7–G9）：CA 20%、閱讀 40%、寫作 40%（2024/25 中一至中三為 CA 30%、閱讀 35%、寫作 35%）。高中（G10–G12）：CA 15%、閱讀 40%、寫作 45%。學年總分＝上學期 × 35%＋下學期 × 65%。',
   },
   {
     title: '閱讀圖表',

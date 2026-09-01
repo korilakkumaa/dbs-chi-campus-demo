@@ -709,8 +709,8 @@ export function CalendarPage() {
 
   return (
     <div className="page calendar-page">
-      <header className="page-header reveal-up">
-        <div>
+      <header className="page-header calendar-page-header reveal-up">
+        <div className="calendar-page-header-text">
           <h1>詳細日曆</h1>
           <p>
             {isAdmin

@@ -105,18 +105,34 @@ supabase functions deploy calendar-feed
 ```
 
 4. 詳細日曆頁「同步至外部日曆」：
-   - **訂閱連結**：依教師身分過濾個人版校曆（含私人備註），Google／Apple 會定期拉更新。
-   - **Google 直接同步**：需以 Google 登入並授權 `calendar.events`；變更後自動推送到 Google 主日曆。
+   - **Apple 日曆**：訂閱 webcal 連結（依教師身分過濾個人版校曆，含私人備註）；Apple 約每 3 小時拉更新。
+   - **Google 日曆**：Google 登入並授權後自動直接同步；開著詳細日曆頁時約 1–2 秒推送，**關閉網站後由後端每 3 小時同步**。
 
 5. **Google 直接同步**還需在 **Google Cloud Console**（不是 Supabase）設定日曆 scope：
    - [Google Auth Platform](https://console.cloud.google.com/auth) → 你的 OAuth client 所在專案
    - **Data Access（資料存取 / Scopes）** → **Add or remove scopes** → 搜尋 `calendar` → 勾選 **Google Calendar API** 下的 `.../auth/calendar.events`（或手動加入該 URL）
    - **API 和服務 → 資料庫** → 啟用 **Google Calendar API**
-   - 回到網站詳細日曆，按 **「授權 Google 日曆」**（`prompt=consent` 重新授權；僅「Google 登入」不夠）
+   - 回到網站詳細日曆，完成 Google 授權（`prompt=consent` 重新授權；僅「Google 登入」不夠）
 
-6. 訂閱連結含 secret token，請勿公開分享；若外洩可在詳細日曆按「重新產生連結」。
+6. **後端定時同步（每 3 小時）**：
+   - 在 SQL Editor 執行 [`20260901120000_google_calendar_cron_sync.sql`](supabase/migrations/20260901120000_google_calendar_cron_sync.sql)
+   - 部署 Edge Function：
 
-7. 若用 **Google 登入**後無法建立訂閱連結，請再執行 [`20260831123000_calendar_feed_rls_authenticated.sql`](supabase/migrations/20260831123000_calendar_feed_rls_authenticated.sql)（修正 `authenticated` 角色的 RLS）。
+```bash
+npm run export:calendar-bundle
+supabase functions deploy calendar-sync-google
+```
+
+   - 在 Supabase → Edge Functions → Secrets 設定：
+     - `CALENDAR_SYNC_CRON_SECRET`（自訂長隨機字串，cron 呼叫用）
+     - `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`（與 Supabase Google Provider 同一 OAuth client）
+   - 在 GitHub repo secrets 加入 `CALENDAR_SYNC_CRON_SECRET`（及既有 `VITE_SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`）；[`.github/workflows/sync-google-calendar.yml`](.github/workflows/sync-google-calendar.yml) 會每 3 小時觸發一次。
+   - 手動測試：`curl -X POST "$SUPABASE_URL/functions/v1/calendar-sync-google" -H "Authorization: Bearer $CALENDAR_SYNC_CRON_SECRET" -H "apikey: $SERVICE_ROLE_KEY" -d '{}'`
+   - 教師首次授權後，refresh token 會寫入 `google_calendar_sync.provider_refresh_token`，供後端使用。
+
+7. 訂閱連結含 secret token，請勿公開分享；若外洩可在詳細日曆按「重新產生連結」。
+
+8. 若用 **Google 登入**後無法建立訂閱連結，請再執行 [`20260831123000_calendar_feed_rls_authenticated.sql`](supabase/migrations/20260831123000_calendar_feed_rls_authenticated.sql)（修正 `authenticated` 角色的 RLS）。
 
 ## 3d. 欠交習作提醒（首頁右欄）
 

@@ -49,6 +49,14 @@ export interface YearRecord {
   /** When false, that semester has not been imported (do not treat zeros as marks). */
   hasFirst?: boolean
   hasSecond?: boolean
+  /** Academic year the first-semester marks were earned (for weight bands). */
+  firstAcademicYearStart?: number
+  /** Academic year the second-semester marks were earned. */
+  secondAcademicYearStart?: number
+  /** Grade band used for first-semester weighting (DB grade, may differ from display grade). */
+  firstScoreGrade?: number
+  /** Grade band used for second-semester weighting. */
+  secondScoreGrade?: number
 }
 
 /** Admin-assigned deadlines, unified per grade (7–12). */

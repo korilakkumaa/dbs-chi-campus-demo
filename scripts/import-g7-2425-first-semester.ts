@@ -5,8 +5,7 @@
  *   npm run import:scores:2425-g7
  *   npm run import:scores:2425-g7:second
  *
- * Second-semester 級排名 uses CA 30 + 卷一 35 + 卷二 35. Values are stored as
- * junior 20/40/40 contributions so 2025/26 G8 tracking charts stay consistent.
+ * 2024/25 junior (G7–G9) uses CA 30 + 卷一 35 + 卷二 35 for both semesters.
  */
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
@@ -189,16 +188,16 @@ function juniorFromSecondSemester(row: unknown[]): {
   const attitude = String(row[22] ?? '').trim()
   const comment = String(row[23] ?? '').trim()
 
-  const daily = round2((ca30 / SECOND_CA_MAX) * 20)
+  const daily = round2(ca30)
   const reading = round2(
     paper1Raw != null
-      ? (paper1Raw / 100) * 40
-      : ((paper1W ?? 0) / SECOND_PAPER_WEIGHT) * 40,
+      ? (paper1Raw / 100) * SECOND_PAPER_WEIGHT
+      : (paper1W ?? 0),
   )
   const writing = round2(
     paper2Raw != null
-      ? (paper2Raw / 100) * 40
-      : ((paper2W ?? 0) / SECOND_PAPER_WEIGHT) * 40,
+      ? (paper2Raw / 100) * SECOND_PAPER_WEIGHT
+      : (paper2W ?? 0),
   )
 
   const components: Record<string, number | string> = {

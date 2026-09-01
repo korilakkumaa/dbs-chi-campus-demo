@@ -13,6 +13,15 @@ export const JUNIOR_SUBJECT_MAX: SubjectMaxes = {
   writing: 40,
 }
 
+/** 2024/25 初中（G7–G9）：CA 30%、閱讀 35%、寫作 35%。 */
+export const JUNIOR_2425_ACADEMIC_YEAR_START = 2024
+
+export const JUNIOR_2425_SUBJECT_MAX: SubjectMaxes = {
+  daily: 30,
+  reading: 35,
+  writing: 35,
+}
+
 /** G10–G12：CA 15%、閱讀 40%、寫作 45%（學期滿分 100）。 */
 export const SENIOR_SUBJECT_MAX: SubjectMaxes = {
   daily: 15,
@@ -73,18 +82,53 @@ export function isSeniorGrade(grade: number): boolean {
   return grade >= 10
 }
 
-export function subjectMaxForGrade(grade: number): SubjectMaxes {
+export function usesJunior2425Weights(
+  grade: number,
+  academicYearStart?: number,
+): boolean {
+  return (
+    academicYearStart === JUNIOR_2425_ACADEMIC_YEAR_START && !isSeniorGrade(grade)
+  )
+}
+
+export function subjectMaxForGrade(
+  grade: number,
+  academicYearStart?: number,
+): SubjectMaxes {
+  if (usesJunior2425Weights(grade, academicYearStart)) {
+    return JUNIOR_2425_SUBJECT_MAX
+  }
   return isSeniorGrade(grade) ? SENIOR_SUBJECT_MAX : JUNIOR_SUBJECT_MAX
 }
 
-export function semesterMaxForGrade(grade: number): number {
-  const m = subjectMaxForGrade(grade)
+export function semesterMaxForGrade(
+  grade: number,
+  academicYearStart?: number,
+): number {
+  const m = subjectMaxForGrade(grade, academicYearStart)
   return m.daily + m.reading + m.writing
 }
 
-export function scoreWeightsLabel(grade: number): string {
-  const m = subjectMaxForGrade(grade)
+export function scoreWeightsLabel(
+  grade: number,
+  academicYearStart?: number,
+): string {
+  const m = subjectMaxForGrade(grade, academicYearStart)
   return `CA ${m.daily}% · 閱讀 ${m.reading}% · 寫作 ${m.writing}%`
+}
+
+export function scoringBandForSemester(
+  record: YearRecord,
+  semester: SemesterKey,
+): { grade: number; academicYearStart?: number } {
+  const grade =
+    (semester === 'first' ? record.firstScoreGrade : record.secondScoreGrade) ??
+    record.grade
+  const academicYearStart =
+    semester === 'first'
+      ? record.firstAcademicYearStart
+      : record.secondAcademicYearStart
+  return { grade, academicYearStart }
 }
 
 export function paperKey(semester: SemesterKey, subject: SubjectKey): PaperKey {
@@ -96,17 +140,22 @@ export function subjectEarned(
   rawScore: number,
   subject: SubjectKey,
   grade: number,
+  academicYearStart?: number,
 ): number {
   const clamped = Math.min(100, Math.max(0, rawScore))
-  const max = subjectMaxForGrade(grade)[subject]
+  const max = subjectMaxForGrade(grade, academicYearStart)[subject]
   return Math.round((clamped / 100) * max)
 }
 
-export function semesterPoints(scores: SemesterScores, grade: number): number {
+export function semesterPoints(
+  scores: SemesterScores,
+  grade: number,
+  academicYearStart?: number,
+): number {
   return (
-    subjectEarned(scores.daily, 'daily', grade) +
-    subjectEarned(scores.reading, 'reading', grade) +
-    subjectEarned(scores.writing, 'writing', grade)
+    subjectEarned(scores.daily, 'daily', grade, academicYearStart) +
+    subjectEarned(scores.reading, 'reading', grade, academicYearStart) +
+    subjectEarned(scores.writing, 'writing', grade, academicYearStart)
   )
 }
 
@@ -121,11 +170,21 @@ export function recordHasSemester(
 export function yearPoints(record: YearRecord): number {
   const hasFirst = recordHasSemester(record, 'first')
   const hasSecond = recordHasSemester(record, 'second')
+  const firstBand = scoringBandForSemester(record, 'first')
+  const secondBand = scoringBandForSemester(record, 'second')
   const first = hasFirst
-    ? semesterPoints(record.first, record.grade)
+    ? semesterPoints(
+        record.first,
+        firstBand.grade,
+        firstBand.academicYearStart,
+      )
     : null
   const second = hasSecond
-    ? semesterPoints(record.second, record.grade)
+    ? semesterPoints(
+        record.second,
+        secondBand.grade,
+        secondBand.academicYearStart,
+      )
     : null
   if (first != null && second != null) {
     return Math.round(first * YEAR_WEIGHTS.first + second * YEAR_WEIGHTS.second)
@@ -135,8 +194,12 @@ export function yearPoints(record: YearRecord): number {
   return 0
 }
 
-export function semesterTotal(scores: SemesterScores, grade: number): number {
-  return semesterPoints(scores, grade)
+export function semesterTotal(
+  scores: SemesterScores,
+  grade: number,
+  academicYearStart?: number,
+): number {
+  return semesterPoints(scores, grade, academicYearStart)
 }
 
 /** CA + 閱讀 + 寫作加權分（與 Excel 學期總分一致）。 */
@@ -218,13 +281,23 @@ export function buildScorePools(students: Student[]) {
       push(sameYearTotal, String(grade), yearPoints(record))
       for (const semester of ['first', 'second'] as const) {
         if (!recordHasSemester(record, semester)) continue
+        const band = scoringBandForSemester(record, semester)
         push(
           sameYearSemester,
           `${grade}-${semester}`,
-          semesterPoints(record[semester], grade),
+          semesterPoints(
+            record[semester],
+            band.grade,
+            band.academicYearStart,
+          ),
         )
         for (const subject of ['daily', 'reading', 'writing'] as const) {
-          const earned = subjectEarned(record[semester][subject], subject, grade)
+          const earned = subjectEarned(
+            record[semester][subject],
+            subject,
+            band.grade,
+            band.academicYearStart,
+          )
           push(
             sameYearSubject,
             `${grade}-${semester}-${subject}`,

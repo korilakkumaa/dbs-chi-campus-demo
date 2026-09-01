@@ -2537,56 +2537,359 @@ code {
   color: var(--text-muted, #8a847c);
 }
 
+.calendar-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.calendar-page-header-text {
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
 .cal-subscribe-panel {
-  margin-top: 0.85rem;
-  padding: 0.85rem 1rem;
+  flex: 0 1 22rem;
+  min-width: min(100%, 18rem);
+  margin-top: 0.15rem;
   border-radius: 0.65rem;
   background: rgba(255, 255, 255, 0.42);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  max-width: 42rem;
 }
 
-.cal-subscribe-title {
-  margin: 0 0 0.35rem;
-  font-size: 0.92rem;
+.cal-subscribe-panel[open] .cal-subscribe-chevron {
+  transform: rotate(90deg);
+}
+
+.cal-subscribe-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.1rem 0.45rem;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.cal-subscribe-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cal-subscribe-summary-title {
+  grid-column: 1;
+  font-size: 0.88rem;
   font-weight: 600;
+  color: var(--ink);
 }
 
-.cal-subscribe-desc,
-.cal-subscribe-hint,
-.cal-subscribe-msg {
-  margin: 0 0 0.5rem;
-  font-size: 0.78rem;
+.cal-subscribe-summary-meta {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted, #6b6560);
+}
+
+.cal-subscribe-chevron {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  transition: transform 0.15s var(--ease-out);
+}
+
+.cal-subscribe-body {
+  padding: 0 0.85rem 0.85rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.cal-subscribe-lead {
+  margin: 0.65rem 0 0.55rem;
+  font-size: 0.76rem;
   line-height: 1.45;
   color: var(--text-muted, #6b6560);
 }
 
-.cal-subscribe-actions,
-.cal-subscribe-google {
+.cal-subscribe-platforms {
+  display: grid;
+  gap: 0.55rem;
+}
+
+@media (min-width: 40rem) {
+  .cal-subscribe-platforms {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cal-subscribe-card {
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cal-subscribe-card.google {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(66, 133, 244, 0.2);
+  background: rgba(66, 133, 244, 0.05);
+  transition:
+    border-color 0.25s var(--ease-out),
+    background 0.25s var(--ease-out),
+    box-shadow 0.25s var(--ease-out);
+}
+
+.cal-subscribe-card.google.syncing {
+  border-color: rgba(66, 133, 244, 0.42);
+  background: rgba(66, 133, 244, 0.09);
+  box-shadow: 0 0 0 1px rgba(66, 133, 244, 0.12);
+  animation: cal-google-card-pulse 1.4s ease-in-out infinite;
+}
+
+.cal-subscribe-card.google.synced {
+  border-color: rgba(42, 107, 82, 0.42);
+  background: rgba(42, 107, 82, 0.1);
+  animation: cal-google-card-success 0.65s var(--ease-out);
+}
+
+.cal-subscribe-panel.google-syncing {
+  border-color: rgba(66, 133, 244, 0.22);
+}
+
+.cal-subscribe-panel.google-synced {
+  animation: cal-google-panel-success 0.55s var(--ease-out);
+}
+
+.cal-subscribe-summary-sync {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.cal-subscribe-summary-sync.syncing .cal-subscribe-sync-icon {
+  fill: rgba(66, 133, 244, 0.95);
+  animation: cal-google-sync-spin 0.9s linear infinite;
+}
+
+.cal-subscribe-summary-sync.synced .cal-subscribe-sync-icon {
+  fill: rgba(42, 107, 82, 0.95);
+  animation: cal-google-check-pop 0.55s var(--ease-out);
+}
+
+.cal-subscribe-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.cal-subscribe-status.syncing {
+  color: rgba(66, 133, 244, 0.95);
+}
+
+.cal-subscribe-status.synced {
+  color: rgba(42, 107, 82, 0.95);
+}
+
+.cal-subscribe-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.cal-subscribe-sync-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cal-subscribe-status.syncing .cal-subscribe-sync-icon {
+  fill: currentColor;
+  animation: cal-google-sync-spin 0.9s linear infinite;
+}
+
+.cal-subscribe-status.synced .cal-subscribe-sync-icon {
+  fill: currentColor;
+  animation: cal-google-check-pop 0.55s var(--ease-out);
+}
+
+.cal-subscribe-sync-bar {
+  position: relative;
+  height: 2px;
+  margin: 0.15rem 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(66, 133, 244, 0.14);
+  overflow: hidden;
+}
+
+.cal-subscribe-sync-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(66, 133, 244, 0.15),
+    rgba(66, 133, 244, 0.95),
+    rgba(66, 133, 244, 0.15)
+  );
+  animation: cal-google-sync-bar 1.1s ease-in-out infinite;
+}
+
+@keyframes cal-google-sync-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cal-google-check-pop {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cal-google-card-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.12);
+  }
+}
+
+@keyframes cal-google-card-success {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(42, 107, 82, 0);
+  }
+  35% {
+    transform: scale(1.012);
+    box-shadow: 0 0 0 4px rgba(42, 107, 82, 0.16);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(42, 107, 82, 0);
+  }
+}
+
+@keyframes cal-google-panel-success {
+  0% {
+    box-shadow: 0 0 0 0 rgba(42, 107, 82, 0);
+  }
+  40% {
+    box-shadow: 0 0 0 2px rgba(42, 107, 82, 0.14);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(42, 107, 82, 0);
+  }
+}
+
+@keyframes cal-google-sync-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-subscribe-card.google.syncing,
+  .cal-subscribe-panel.google-synced,
+  .cal-subscribe-summary-sync.syncing .cal-subscribe-sync-icon,
+  .cal-subscribe-summary-sync.synced .cal-subscribe-sync-icon,
+  .cal-subscribe-status.syncing .cal-subscribe-sync-icon,
+  .cal-subscribe-status.synced .cal-subscribe-sync-icon,
+  .cal-subscribe-sync-bar-fill {
+    animation: none;
+  }
+}
+
+.cal-subscribe-card.apple {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.cal-subscribe-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.cal-subscribe-card-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.cal-subscribe-card-desc,
+.cal-subscribe-hint,
+.cal-subscribe-footnote {
+  margin: 0 0 0.45rem;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-muted, #6b6560);
+}
+
+.cal-subscribe-footnote {
+  margin-bottom: 0;
+  margin-top: 0.45rem;
+  font-size: 0.68rem;
+}
+
+.cal-subscribe-msg {
+  margin: 0 0 0.5rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.cal-subscribe-msg.info {
+  color: var(--text-muted, #6b6560);
+}
+
+.cal-subscribe-msg.success {
+  color: rgba(42, 107, 82, 0.95);
+}
+
+.cal-subscribe-msg.error {
+  color: #a33;
+}
+
+.cal-subscribe-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
   align-items: center;
-}
-
-.cal-subscribe-google {
-  margin-top: 0.55rem;
-}
-
-.cal-subscribe-debug {
-  flex-basis: 100%;
-  margin-top: 0.25rem;
-  font-size: 0.72rem;
-  color: var(--text-muted, #6b6560);
-}
-
-.cal-subscribe-debug ul {
-  margin: 0.35rem 0 0;
-  padding-left: 1.1rem;
-}
-
-.cal-subscribe-debug li {
-  margin-bottom: 0.2rem;
 }
 
 .cal-subscribe-btn {
@@ -2601,8 +2904,18 @@ code {
   color: inherit;
 }
 
-.cal-subscribe-btn:hover {
+.cal-subscribe-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.95);
+}
+
+.cal-subscribe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cal-subscribe-btn.primary {
+  border-color: rgba(42, 107, 82, 0.35);
+  background: rgba(42, 107, 82, 0.12);
 }
 
 .cal-subscribe-btn.subtle {
