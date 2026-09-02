@@ -143,7 +143,7 @@ export function classIdsForSubjects(
   return [...ids]
 }
 
-/** Grade levels the user teaches for one subject (timetable + whitelist fallback). */
+/** Grade levels the user teaches for one subject (timetable + whitelist). */
 export function gradeNumbersForSubject(
   user: User,
   subject: CampusSubject,
@@ -151,6 +151,7 @@ export function gradeNumbersForSubject(
   allClasses: SchoolClass[],
   startYear: number,
 ): number[] {
+  const grades = new Set<number>()
   const ids = classIdsForSubject(
     subject,
     user,
@@ -158,10 +159,18 @@ export function gradeNumbersForSubject(
     allClasses,
     startYear,
   )
-  const grades = new Set<number>()
   for (const id of ids) {
     const cls = allClasses.find((c) => c.id === id)
     if (!cls) continue
+    const g = gradeNumberFromClassName(cls.name)
+    if (g != null) grades.add(g)
+  }
+  // Whitelist assignments always count — timetable may list other sections
+  // (e.g. G12P/G12M on grid vs 12L on the teacher roster).
+  for (const cls of accessibleClasses) {
+    if (subject === 'CHIN' && isEcFormClassName(cls.name)) continue
+    if (subject === 'EC' && !isEcFormClassName(cls.name)) continue
+    if (subject === 'CHIS' || subject === 'PTH') continue
     const g = gradeNumberFromClassName(cls.name)
     if (g != null) grades.add(g)
   }
@@ -178,21 +187,26 @@ export function calendarGradeAudienceMatchesUser(
     scoresAcademicYearStart: number
   },
 ): boolean {
+  const rosterGrades = new Set<number>()
+  for (const cls of ctx.accessibleClasses) {
+    const g = gradeNumberFromClassName(cls.name)
+    if (g != null) rosterGrades.add(g)
+  }
+  if (!audience.grades.some((g) => rosterGrades.has(g))) return false
+
+  const rosterSubjects = new Set(
+    subjectsForUser(
+      user,
+      ctx.accessibleClasses,
+      ctx.allClasses,
+      ctx.scoresAcademicYearStart,
+    ),
+  )
   const eventSubjects = audience.subjects?.length
     ? normalizeSelectedSubjects(audience.subjects)
     : CAMPUS_SUBJECT_OPTIONS.map((o) => o.id)
 
-  for (const subject of eventSubjects) {
-    const taught = gradeNumbersForSubject(
-      user,
-      subject,
-      ctx.accessibleClasses,
-      ctx.allClasses,
-      ctx.scoresAcademicYearStart,
-    )
-    if (audience.grades.some((g) => taught.includes(g))) return true
-  }
-  return false
+  return eventSubjects.some((s) => rosterSubjects.has(s))
 }
 
 export function classIdsForSubject(
