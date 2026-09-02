@@ -1,33 +1,22 @@
 import type { CalendarEvent } from './calendar-events.ts'
-import { eventSummary, resolveEventTime } from './calendar-events.ts'
+import { eventSummary } from './calendar-events.ts'
+import { googleEventSchedule } from './calendar-ics.ts'
 
 type GoogleEventBody = {
   summary: string
   description?: string
-  start: { date?: string; dateTime?: string; timeZone?: string }
-  end: { date?: string; dateTime?: string; timeZone?: string }
+  start: { date?: string | null; dateTime?: string | null; timeZone?: string }
+  end: { date?: string | null; dateTime?: string | null; timeZone?: string }
   location?: string
-}
-
-function addDaysIso(iso: string, days: number): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  date.setDate(date.getDate() + days)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 function eventToGoogleBody(event: CalendarEvent): GoogleEventBody {
   const summary = eventSummary(event)
-  const slot = resolveEventTime(event)
+  const schedule = googleEventSchedule(event)
   const body: GoogleEventBody = {
     summary,
-    start: slot
-      ? { dateTime: `${event.date}T${slot.start}:00`, timeZone: 'Asia/Hong_Kong' }
-      : { date: event.date },
-    end: slot
-      ? { dateTime: `${event.date}T${slot.end}:00`, timeZone: 'Asia/Hong_Kong' }
-      : { date: addDaysIso(event.date, 1) },
+    start: schedule.start,
+    end: schedule.end,
   }
 
   if (event.lesson?.group) {
@@ -107,7 +96,7 @@ export async function syncEventsToGoogleCalendar(input: {
 
   for (const event of events) {
     const body = eventToGoogleBody(event)
-    const googleId = eventMap.get(event.id)
+    let googleId = eventMap.get(event.id)
     const encodedCal = encodeURIComponent(calendarId)
 
     if (googleId) {
@@ -120,11 +109,22 @@ export async function syncEventsToGoogleCalendar(input: {
         synced += 1
         continue
       }
-      if (res.status !== 404) {
+      if (res.status === 404) {
+        eventMap.delete(event.id)
+        googleId = undefined
+      } else if (res.status === 400) {
+        await googleFetch(
+          accessToken,
+          `/calendars/${encodedCal}/events/${encodeURIComponent(googleId)}`,
+          { method: 'DELETE' },
+        )
+        await onMapDelete(event.id)
+        eventMap.delete(event.id)
+        googleId = undefined
+      } else {
         const err = await res.text()
         return { ok: false, synced, removed, error: err || res.statusText }
       }
-      eventMap.delete(event.id)
     }
 
     const res = await googleFetch(

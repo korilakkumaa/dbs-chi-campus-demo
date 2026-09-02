@@ -9,7 +9,7 @@ import {
 } from './supabaseCalendar'
 import { supabase } from '../lib/supabase'
 import { oauthRedirectTo } from '../lib/supabase'
-import { eventSummary, resolveEventTime } from './calendarIcs'
+import { eventSummary, googleEventSchedule } from './calendarIcs'
 
 /** Must include openid + profile scopes or Supabase/Google sign-in breaks. */
 export const GOOGLE_OAUTH_SCOPES = [
@@ -184,30 +184,18 @@ export async function requestGoogleCalendarAuth(): Promise<string | null> {
 type GoogleEventBody = {
   summary: string
   description?: string
-  start: { date?: string; dateTime?: string; timeZone?: string }
-  end: { date?: string; dateTime?: string; timeZone?: string }
+  start: { date?: string | null; dateTime?: string | null; timeZone?: string }
+  end: { date?: string | null; dateTime?: string | null; timeZone?: string }
   location?: string
-}
-
-function addDaysIso(iso: string, days: number): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  date.setDate(date.getDate() + days)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 function eventToGoogleBody(event: CalendarEvent): GoogleEventBody {
   const summary = eventSummary(event)
-  const slot = resolveEventTime(event)
+  const schedule = googleEventSchedule(event)
   const body: GoogleEventBody = {
     summary,
-    start: slot
-      ? { dateTime: `${event.date}T${slot.start}:00`, timeZone: 'Asia/Hong_Kong' }
-      : { date: event.date },
-    end: slot
-      ? { dateTime: `${event.date}T${slot.end}:00`, timeZone: 'Asia/Hong_Kong' }
-      : { date: addDaysIso(event.date, 1) },
+    start: schedule.start,
+    end: schedule.end,
   }
 
   if (event.lesson?.group) {
@@ -217,6 +205,36 @@ function eventToGoogleBody(event: CalendarEvent): GoogleEventBody {
   }
 
   return body
+}
+
+async function createGoogleEvent(
+  accessToken: string,
+  calendarId: string,
+  body: GoogleEventBody,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const res = await googleFetch(accessToken, `/calendars/${encodeURIComponent(calendarId)}/events`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    return { ok: false, error: parseGoogleApiError(err || res.statusText) }
+  }
+  const created = (await res.json()) as { id?: string }
+  if (!created.id) return { ok: false, error: 'Google 未回傳事件 ID' }
+  return { ok: true, id: created.id }
+}
+
+async function deleteGoogleEvent(
+  accessToken: string,
+  calendarId: string,
+  googleId: string,
+): Promise<void> {
+  await googleFetch(
+    accessToken,
+    `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(googleId)}`,
+    { method: 'DELETE' },
+  )
 }
 
 async function googleFetch(
@@ -256,7 +274,7 @@ export async function syncEventsToGoogleCalendar(input: {
 
   for (const event of events) {
     const body = eventToGoogleBody(event)
-    const googleId = map.get(event.id)
+    let googleId = map.get(event.id)
     const encodedCal = encodeURIComponent(calendarId)
 
     if (googleId) {
@@ -269,7 +287,15 @@ export async function syncEventsToGoogleCalendar(input: {
         synced += 1
         continue
       }
-      if (res.status !== 404) {
+      if (res.status === 404) {
+        map.delete(event.id)
+        googleId = undefined
+      } else if (res.status === 400) {
+        await deleteGoogleEvent(accessToken, calendarId, googleId)
+        await deleteGoogleEventMapEntry(userId, event.id)
+        map.delete(event.id)
+        googleId = undefined
+      } else {
         const err = await res.text()
         return {
           ok: false,
@@ -278,29 +304,20 @@ export async function syncEventsToGoogleCalendar(input: {
           error: parseGoogleApiError(err || res.statusText),
         }
       }
-      map.delete(event.id)
     }
 
-    const res = await googleFetch(
-      accessToken,
-      `/calendars/${encodedCal}/events`,
-      { method: 'POST', body: JSON.stringify(body) },
-    )
-    if (!res.ok) {
-      const err = await res.text()
+    const created = await createGoogleEvent(accessToken, calendarId, body)
+    if (!created.ok) {
       return {
         ok: false,
         synced,
         removed,
-        error: parseGoogleApiError(err || res.statusText),
+        error: created.error,
       }
     }
-    const created = (await res.json()) as { id?: string }
-    if (created.id) {
-      map.set(event.id, created.id)
-      await upsertGoogleEventMap(userId, event.id, created.id)
-      synced += 1
-    }
+    map.set(event.id, created.id)
+    await upsertGoogleEventMap(userId, event.id, created.id)
+    synced += 1
   }
 
   for (const [campusId, googleId] of map.entries()) {

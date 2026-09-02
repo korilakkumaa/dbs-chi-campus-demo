@@ -63,7 +63,11 @@ alter table public.google_calendar_event_map enable row level security;
 
 drop policy if exists "google_calendar_sync_anon"
   on public.google_calendar_sync;
+drop policy if exists "google_calendar_sync_authenticated"
+  on public.google_calendar_sync;
 drop policy if exists "google_calendar_event_map_anon"
+  on public.google_calendar_event_map;
+drop policy if exists "google_calendar_event_map_authenticated"
   on public.google_calendar_event_map;
 
 create policy "google_calendar_sync_anon"

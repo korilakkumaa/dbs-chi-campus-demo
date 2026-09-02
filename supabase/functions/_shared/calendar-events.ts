@@ -49,12 +49,29 @@ export function eventSummary(event: CalendarEvent): string {
   return KIND_LABELS[event.kind] ?? event.kind
 }
 
+export function normalizeHm(hm: string): string {
+  const parts = hm.trim().split(':')
+  if (parts.length < 2) return hm.trim()
+  const h = Number(parts[0])
+  const m = Number(parts[1])
+  if (Number.isNaN(h) || Number.isNaN(m)) return hm.trim()
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 export function resolveEventTime(
   event: CalendarEvent,
 ): { start: string; end: string } | null {
-  if (event.time?.start && event.time?.end) return event.time
+  if (event.time?.start && event.time?.end) {
+    return {
+      start: normalizeHm(event.time.start),
+      end: normalizeHm(event.time.end),
+    }
+  }
   if (event.lesson?.start && event.lesson?.end) {
-    return { start: event.lesson.start, end: event.lesson.end }
+    return {
+      start: normalizeHm(event.lesson.start),
+      end: normalizeHm(event.lesson.end),
+    }
   }
   return null
 }

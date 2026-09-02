@@ -1,48 +1,21 @@
-import type { CalendarEvent, CalendarEventKind } from '../types'
-
-export const EVENT_KIND_LABELS: Record<CalendarEventKind, string> = {
-  holiday: '學校／公共假期',
-  'non-school-day': '非正常上課日',
-  'school-day': '正常上課日',
-  event: '校曆活動',
-  timetable: '調課日',
-  progress: '進度表任務',
-  department: '科組活動',
-  assessment: '科組測考',
-}
-
-export function normalizeHm(hm: string): string {
-  const parts = hm.trim().split(':')
-  if (parts.length < 2) return hm.trim()
-  const h = Number(parts[0])
-  const m = Number(parts[1])
-  if (Number.isNaN(h) || Number.isNaN(m)) return hm.trim()
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-/** Resolved HH:MM start/end for an event (explicit time or lesson slot). */
-export function resolveEventTime(
-  event: CalendarEvent,
-): { start: string; end: string } | null {
-  if (event.time?.start && event.time?.end) {
-    return {
-      start: normalizeHm(event.time.start),
-      end: normalizeHm(event.time.end),
-    }
-  }
-  if (event.lesson?.start && event.lesson?.end) {
-    return {
-      start: normalizeHm(event.lesson.start),
-      end: normalizeHm(event.lesson.end),
-    }
-  }
-  return null
-}
+import type { CalendarEvent } from './calendar-events.ts'
+import { eventSummary, resolveEventTime } from './calendar-events.ts'
 
 export type GoogleEventDateTime = {
   date?: string | null
   dateTime?: string | null
   timeZone?: string
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setDate(date.getDate() + days)
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 /** Google PATCH merges nested fields — clear the unused date/dateTime key explicitly. */
@@ -79,10 +52,6 @@ function escapeIcs(text: string): string {
     .replace(/\n/g, '\\n')
 }
 
-function pad2(n: number): string {
-  return String(n).padStart(2, '0')
-}
-
 function icsStamp(date = new Date()): string {
   return (
     `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}` +
@@ -90,11 +59,10 @@ function icsStamp(date = new Date()): string {
   )
 }
 
-function addDaysIso(iso: string, days: number): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  date.setDate(date.getDate() + days)
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+function icsStampFromIso(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return icsStamp()
+  return icsStamp(date)
 }
 
 function hmToIcs(hm: string): string {
@@ -102,17 +70,26 @@ function hmToIcs(hm: string): string {
   return `${pad2(Number(h))}${pad2(Number(m))}00`
 }
 
-export function eventSummary(event: CalendarEvent): string {
-  const trimmed = event.title.trim()
-  if (trimmed) return trimmed
-  return EVENT_KIND_LABELS[event.kind] ?? event.kind
+function sequenceFromUpdatedAt(updatedAt?: string): number {
+  if (!updatedAt) return 0
+  const ms = new Date(updatedAt).getTime()
+  if (Number.isNaN(ms)) return 0
+  return Math.floor(ms / 1000) % 1_000_000
 }
 
-export function eventToVevent(event: CalendarEvent, domain = 'campus-cms'): string {
-  const uid = `${event.id}@${domain}`
+export function eventToVevent(
+  event: CalendarEvent,
+  options?: { updatedAt?: string },
+): string {
+  const uid = `${event.id}@campus-cms`
   const summary = escapeIcs(eventSummary(event))
   const stamp = icsStamp()
   const lines = ['BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`]
+
+  if (options?.updatedAt) {
+    lines.push(`LAST-MODIFIED:${icsStampFromIso(options.updatedAt)}`)
+    lines.push(`SEQUENCE:${sequenceFromUpdatedAt(options.updatedAt)}`)
+  }
 
   const slot = resolveEventTime(event)
   const dateCompact = event.date.replace(/-/g, '')
@@ -123,10 +100,9 @@ export function eventToVevent(event: CalendarEvent, domain = 'campus-cms'): stri
       `DTEND;TZID=Asia/Hong_Kong:${dateCompact}T${hmToIcs(slot.end)}`,
     )
   } else {
-    const endDate = addDaysIso(event.date, 1).replace(/-/g, '')
     lines.push(
       `DTSTART;VALUE=DATE:${dateCompact}`,
-      `DTEND;VALUE=DATE:${endDate}`,
+      `DTEND;VALUE=DATE:${addDaysIso(event.date, 1).replace(/-/g, '')}`,
     )
   }
 
@@ -139,11 +115,12 @@ export function eventToVevent(event: CalendarEvent, domain = 'campus-cms'): stri
 }
 
 export function buildIcsCalendar(
-  events: CalendarEvent[],
+  events: Array<{ event: CalendarEvent; updatedAt?: string }>,
   calendarName: string,
-  domain = 'campus-cms',
 ): string {
-  const body = events.map((e) => eventToVevent(e, domain)).join('\r\n')
+  const body = events
+    .map(({ event, updatedAt }) => eventToVevent(event, { updatedAt }))
+    .join('\r\n')
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -152,6 +129,7 @@ export function buildIcsCalendar(
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeIcs(calendarName)}`,
     'X-WR-TIMEZONE:Asia/Hong_Kong',
+    'REFRESH-INTERVAL;VALUE=DURATION:PT3H',
     'BEGIN:VTIMEZONE',
     'TZID:Asia/Hong_Kong',
     'BEGIN:STANDARD',
@@ -164,13 +142,4 @@ export function buildIcsCalendar(
     body,
     'END:VCALENDAR',
   ].join('\r\n')
-}
-
-export function feedUrlFromToken(supabaseUrl: string, token: string): string {
-  const base = supabaseUrl.replace(/\/$/, '')
-  return `${base}/functions/v1/calendar-feed?token=${encodeURIComponent(token)}`
-}
-
-export function webcalUrlFromFeedUrl(httpsUrl: string): string {
-  return httpsUrl.replace(/^https:\/\//i, 'webcal://')
 }
