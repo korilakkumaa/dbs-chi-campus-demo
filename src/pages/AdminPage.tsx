@@ -18,7 +18,12 @@ import {
   latestTeacherWhitelistYear,
   teacherWhitelistYears,
 } from '../data/teacherWhitelist'
-import type { CalendarAudience, CalendarEventKind, GradeDeadline } from '../types'
+import type {
+  CalendarAudience,
+  CalendarEventKind,
+  CalendarEventTime,
+  GradeDeadline,
+} from '../types'
 
 type DeadlineDraft = Omit<GradeDeadline, 'submitted'>
 
@@ -269,6 +274,8 @@ export function AdminPage() {
     useState<CalAudienceMode>('all')
   const [calGrades, setCalGrades] = useState<Set<number>>(new Set())
   const [calTeacherIds, setCalTeacherIds] = useState<Set<string>>(new Set())
+  const [calStartTime, setCalStartTime] = useState('')
+  const [calEndTime, setCalEndTime] = useState('')
   const [calNotice, setCalNotice] = useState<string | null>(null)
 
   if (user?.role !== 'admin') return <Navigate to="/progress" replace />
@@ -295,10 +302,25 @@ export function AdminPage() {
     })
   }
 
+  const calendarTimePayload = (): CalendarEventTime | undefined => {
+    if (!calStartTime && !calEndTime) return undefined
+    if (!calStartTime || !calEndTime) return undefined
+    if (calStartTime >= calEndTime) return undefined
+    return { start: calStartTime, end: calEndTime }
+  }
+
   const submitCalendarBatch = () => {
     const trimmed = calTitle.trim()
     if (!trimmed || !calDate) {
       setCalNotice('請填寫事件名稱與日期。')
+      return
+    }
+    if ((calStartTime && !calEndTime) || (!calStartTime && calEndTime)) {
+      setCalNotice('請同時填寫開始與結束時間，或兩者皆留空（全天）。')
+      return
+    }
+    if (calStartTime && calEndTime && calStartTime >= calEndTime) {
+      setCalNotice('結束時間須晚於開始時間。')
       return
     }
     if (calDateEnd && calDateEnd < calDate) {
@@ -337,6 +359,7 @@ export function AdminPage() {
         teacherIds: Array.from(calTeacherIds),
       }
     }
+    const time = calendarTimePayload()
     const count = addCalendarEventsBatch({
       title: trimmed,
       date: calDate,
@@ -344,9 +367,12 @@ export function AdminPage() {
       kind: calKind,
       audience,
       schoolYearStart: startYear,
+      time,
     })
     setCalTitle('')
     setCalDateEnd('')
+    setCalStartTime('')
+    setCalEndTime('')
     setCalNotice(
       count > 1
         ? `已加入 ${yearLabel} 學年日曆 ${count} 天。`
@@ -533,7 +559,7 @@ export function AdminPage() {
           </button>
         </div>
         <p className="deadline-admin-lead">
-          一次將事件推送到 {yearLabel} 學年的全部教師、指定年級，或該年任教老師的月曆。
+          一次將事件推送到 {yearLabel} 學年的全部教師、指定年級，或該年任教老師的月曆；可選時段，會同步至網站日曆與外部訂閱（ICS／Google）。
         </p>
         <div className="cal-admin-form">
           <label className="cal-admin-field">
@@ -549,7 +575,9 @@ export function AdminPage() {
               }}
             />
           </label>
-          <div className="cal-admin-date-row">
+          <fieldset className="cal-admin-schedule">
+            <legend>日期與時間</legend>
+            <div className="cal-admin-date-row">
             <label className="cal-admin-field">
               <span>由</span>
               <input
@@ -558,7 +586,10 @@ export function AdminPage() {
                 value={calDate}
                 min={yearRange.from}
                 max={yearRange.to}
-                onChange={(e) => setCalDate(e.target.value)}
+                onChange={(e) => {
+                  setCalDate(e.target.value)
+                  setCalNotice(null)
+                }}
               />
             </label>
             <label className="cal-admin-field">
@@ -569,10 +600,41 @@ export function AdminPage() {
                 value={calDateEnd}
                 min={yearRange.from}
                 max={yearRange.to}
-                onChange={(e) => setCalDateEnd(e.target.value)}
+                onChange={(e) => {
+                  setCalDateEnd(e.target.value)
+                  setCalNotice(null)
+                }}
               />
             </label>
           </div>
+          <div className="cal-admin-time-row">
+            <label className="cal-admin-field cal-admin-time-field">
+              <span>開始時間</span>
+              <input
+                type="time"
+                className="deadline-input"
+                value={calStartTime}
+                onChange={(e) => {
+                  setCalStartTime(e.target.value)
+                  setCalNotice(null)
+                }}
+              />
+            </label>
+            <label className="cal-admin-field cal-admin-time-field">
+              <span>結束時間</span>
+              <input
+                type="time"
+                className="deadline-input"
+                value={calEndTime}
+                onChange={(e) => {
+                  setCalEndTime(e.target.value)
+                  setCalNotice(null)
+                }}
+              />
+            </label>
+            <p className="cal-admin-time-hint">時間留空 = 全天事件</p>
+          </div>
+          </fieldset>
           <fieldset className="cal-admin-field">
             <legend>類型</legend>
             <div className="cal-admin-kinds">

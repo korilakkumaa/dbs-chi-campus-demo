@@ -4335,10 +4335,51 @@ code {
   margin-bottom: 0.95rem;
 }
 
+.cal-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cal-admin-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.cal-admin-schedule > legend {
+  font-size: var(--text-meta);
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 0;
+}
+
 .cal-admin-date-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+
+.cal-admin-time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.cal-admin-time-field {
+  min-width: 0;
+}
+
+.cal-admin-time-hint {
+  margin: 0;
+  padding-bottom: 0.45rem;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 .cal-admin-weekdays {
@@ -4352,8 +4393,13 @@ code {
 }
 
 @media (max-width: 640px) {
-  .cal-admin-date-row {
+  .cal-admin-date-row,
+  .cal-admin-time-row {
     grid-template-columns: 1fr;
+  }
+
+  .cal-admin-time-hint {
+    padding-bottom: 0;
   }
 }
 

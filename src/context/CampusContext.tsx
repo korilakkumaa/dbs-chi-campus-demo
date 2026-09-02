@@ -156,6 +156,8 @@ interface CampusContextValue {
     weekdaysOnly?: boolean
     /** Stamp events onto this academic year calendar (defaults from the date). */
     schoolYearStart?: number
+    /** Optional HH:MM start/end — synced to ICS and Google Calendar. */
+    time?: CalendarEvent['time']
   }) => number
 }
 
@@ -744,6 +746,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         audience,
         weekdaysOnly,
         schoolYearStart,
+        time,
       }) => {
         if (!user) return 0
         const trimmed = title.trim()
@@ -769,6 +772,7 @@ export function CampusProvider({ children }: { children: ReactNode }) {
           schoolYearStart: schoolYearStart ?? academicYearStartFromIso(d),
           createdBy: user.id,
           audience,
+          ...(time ? { time } : {}),
         }))
         const next = [...allCalendarEvents, ...created]
         setAllCalendarEvents(next)
