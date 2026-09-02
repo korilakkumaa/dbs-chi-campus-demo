@@ -175,19 +175,14 @@ export function calendarGradeAudienceMatchesUser(
   ctx: {
     accessibleClasses: SchoolClass[]
     allClasses: SchoolClass[]
-    selectedSubjects: CampusSubject[]
     scoresAcademicYearStart: number
   },
 ): boolean {
   const eventSubjects = audience.subjects?.length
     ? normalizeSelectedSubjects(audience.subjects)
     : CAMPUS_SUBJECT_OPTIONS.map((o) => o.id)
-  const visibleSubjects = eventSubjects.filter((s) =>
-    ctx.selectedSubjects.includes(s),
-  )
-  if (visibleSubjects.length === 0) return false
 
-  for (const subject of visibleSubjects) {
+  for (const subject of eventSubjects) {
     const taught = gradeNumbersForSubject(
       user,
       subject,

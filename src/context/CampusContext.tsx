@@ -209,7 +209,6 @@ function eventVisibleToUser(
   ctx: {
     accessibleClasses: SchoolClass[]
     allClasses: SchoolClass[]
-    selectedSubjects: CampusSubject[]
     scoresAcademicYearStart: number
   },
 ): boolean {
@@ -527,10 +526,9 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     () => ({
       accessibleClasses: teachingAccessibleClasses,
       allClasses: classes,
-      selectedSubjects,
       scoresAcademicYearStart: teachingYearStart,
     }),
-    [teachingAccessibleClasses, classes, selectedSubjects, teachingYearStart],
+    [teachingAccessibleClasses, classes, teachingYearStart],
   )
 
   const calendarEvents = useMemo(() => {

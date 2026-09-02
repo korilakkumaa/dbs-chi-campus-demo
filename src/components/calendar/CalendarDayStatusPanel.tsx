@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { EVENT_KIND_META } from '../../data/calendarEvents'
 import { useCampus } from '../../context/CampusContext'
-import { CAMPUS_SUBJECT_OPTIONS } from '../../data/campusSubjects'
 import { GRADE_LEVELS, gradeLabel } from '../../data/teacherWhitelist'
 import type { CalendarAudience, CalendarEventKind } from '../../types'
 
@@ -29,7 +28,7 @@ export function CalendarDayStatusPanel({
   selectedDates,
   onClearSelection,
 }: Props) {
-  const { teachers, addCalendarEventsBatch, selectedSubjects } = useCampus()
+  const { teachers, addCalendarEventsBatch } = useCampus()
 
   const [dayStatusKind, setDayStatusKind] =
     useState<(typeof DAY_STATUS_KINDS)[number]>('holiday')
@@ -73,7 +72,6 @@ export function CalendarDayStatusPanel({
       audience = {
         type: 'grades',
         grades: Array.from(grades).sort((a, b) => a - b),
-        subjects: [...selectedSubjects],
       }
     } else {
       audience = { type: 'teachers', teacherIds: Array.from(teacherIds) }
@@ -101,12 +99,6 @@ export function CalendarDayStatusPanel({
     )
     onClearSelection()
   }
-
-  const subjectHint = selectedSubjects
-    .map(
-      (id) => CAMPUS_SUBJECT_OPTIONS.find((o) => o.id === id)?.label ?? id,
-    )
-    .join('、')
 
   return (
     <div className="detail-cal-admin-panel">
@@ -243,7 +235,7 @@ export function CalendarDayStatusPanel({
         {audienceMode === 'grades' && (
           <>
             <p className="detail-cal-admin-lead">
-              依右上角科目篩選推送：目前為 {subjectHint || '—'}。
+              會推送給任教該級別的老師（不限右上角科目篩選）。
             </p>
             <div className="detail-cal-admin-chips">
             {GRADE_LEVELS.map((g) => {
