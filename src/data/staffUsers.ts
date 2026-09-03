@@ -10,7 +10,7 @@ import {
 const STAFF_PASSWORD = 'campus'
 
 /** Department heads who may sign in as 管理員 via their school Google account. */
-export const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN'] as const
+export const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN', 'HT'] as const
 
 export const ADMIN_USER: User = {
   id: 'u-admin',

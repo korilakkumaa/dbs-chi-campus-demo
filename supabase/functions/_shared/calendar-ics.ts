@@ -15,7 +15,7 @@ function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)
   const date = new Date(y, m - 1, d)
   date.setDate(date.getDate() + days)
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
 
 /** Google PATCH merges nested fields — clear the unused date/dateTime key explicitly. */
