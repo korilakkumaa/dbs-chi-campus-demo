@@ -5,6 +5,7 @@ import {
   eventSummary,
   eventVisibleToTeacher,
   mergeSeedWithOverlay,
+  roleForUserId,
   teacherContext,
   type CalendarEvent,
 } from '../_shared/calendar-events.ts'
@@ -72,8 +73,7 @@ Deno.serve(async (req) => {
     }
 
     const userId = tokenRow.user_id as string
-    const role = userId === 'u-admin' ? 'admin' : 'teacher'
-    const ctx = teacherContext(userId, role)
+    const ctx = teacherContext(userId, roleForUserId(userId))
 
     const { data: dbRows, error: dbError } = await admin
       .from('campus_calendar_events')

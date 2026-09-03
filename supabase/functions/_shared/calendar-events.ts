@@ -94,6 +94,20 @@ function subjectsFromClasses(classes: string[]): string[] {
   return [...subjects]
 }
 
+function adminUserIds(): Set<string> {
+  const fromBundle = (bundle as { adminUserIds?: string[] }).adminUserIds
+  if (Array.isArray(fromBundle) && fromBundle.length > 0) {
+    return new Set(fromBundle)
+  }
+  // Fallback if an older bundle is still deployed.
+  return new Set(['u-admin', 'u-twl', 'u-lkl', 'u-yln', 'u-ht'])
+}
+
+/** Match frontend admin whitelist so Apple/cron feeds keep full calendars. */
+export function roleForUserId(userId: string): 'admin' | 'teacher' {
+  return adminUserIds().has(userId) ? 'admin' : 'teacher'
+}
+
 export function teacherContext(userId: string, role: string) {
   const year = bundle.latestWhitelistYear as number
   const whitelist =
@@ -181,7 +195,7 @@ export function visibleEventsForUser(
   userId: string,
   overlayRows: Array<{ event: CalendarEvent; deleted: boolean }>,
 ): CalendarEvent[] {
-  const role = userId === 'u-admin' ? 'admin' : 'teacher'
+  const role = roleForUserId(userId)
   const ctx = teacherContext(userId, role)
   const merged = mergeSeedWithOverlay(
     bundle.seed as CalendarEvent[],

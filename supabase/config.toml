@@ -1,0 +1,8 @@
+# Per-function settings. calendar-feed must stay public: Apple Calendar
+# cannot send Authorization headers when pulling a webcal subscription.
+[functions.calendar-feed]
+verify_jwt = false
+
+# Cron authenticates with CALENDAR_SYNC_CRON_SECRET inside the function.
+[functions.calendar-sync-google]
+verify_jwt = false

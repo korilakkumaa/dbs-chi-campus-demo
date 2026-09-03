@@ -58,6 +58,12 @@ export const TEACHER_WHITELIST_2627: WhitelistTeacher[] = [
   { initial: 'HKC', name: '陳曉君', email: 'dbshkc@dbs.edu.hk', classes: ['9P', '9L', '12G'] },
   { initial: 'KIC', name: '朱麒穎', email: 'dbskic@dbs.edu.hk', classes: ['9J', '10T', '11L'] },
   { initial: 'HT', name: '盧曉彤', email: 'dbsht@dbs.edu.hk', classes: [] },
+  {
+    initial: 'PHINDOTE',
+    name: '陳啟欣',
+    email: 'phindotechan@dbs.edu.hk',
+    classes: [],
+  },
 ]
 
 const WHITELIST_BY_YEAR: Record<number, WhitelistTeacher[]> = {

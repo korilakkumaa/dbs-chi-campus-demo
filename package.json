@@ -26,8 +26,8 @@
     "sync:homework-abs": "tsx scripts/sync-homework-abs.ts",
     "process:homework-abs-mail": "tsx scripts/process-homework-abs-emails.ts",
     "export:calendar-bundle": "tsx scripts/export-calendar-bundle.ts",
-    "deploy:calendar-feed": "npm run export:calendar-bundle && supabase functions deploy calendar-feed",
-    "deploy:calendar-sync-google": "npm run export:calendar-bundle && supabase functions deploy calendar-sync-google"
+    "deploy:calendar-feed": "npm run export:calendar-bundle && supabase functions deploy calendar-feed --no-verify-jwt",
+    "deploy:calendar-sync-google": "npm run export:calendar-bundle && supabase functions deploy calendar-sync-google --no-verify-jwt"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

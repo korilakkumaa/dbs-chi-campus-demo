@@ -101,7 +101,16 @@ npm run import:streaming:2627
 
 ```bash
 npm run export:calendar-bundle
-supabase functions deploy calendar-feed
+supabase functions deploy calendar-feed --no-verify-jwt
+```
+
+部署後請用**不帶** `Authorization` header 的請求確認（模擬 Apple 日曆）：
+
+```bash
+curl -i "$SUPABASE_URL/functions/v1/calendar-feed?token=YOUR_TOKEN"
+# 應回 200 + text/calendar；若仍是 401 Missing authorization header，
+# 到 Dashboard → Edge Functions → calendar-feed 關閉「Verify JWT」，或：
+# supabase functions deploy calendar-feed --no-verify-jwt
 ```
 
 4. 詳細日曆頁「同步至外部日曆」：
@@ -120,7 +129,7 @@ supabase functions deploy calendar-feed
 
 ```bash
 npm run export:calendar-bundle
-supabase functions deploy calendar-sync-google
+supabase functions deploy calendar-sync-google --no-verify-jwt
 ```
 
    - 在 Supabase → Edge Functions → Secrets 設定：

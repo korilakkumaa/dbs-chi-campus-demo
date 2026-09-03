@@ -6,6 +6,7 @@ async function main() {
   try {
     const calendarEvents = await server.ssrLoadModule('/src/data/calendarEvents.ts')
     const whitelist = await server.ssrLoadModule('/src/data/teacherWhitelist.ts')
+    const staff = await server.ssrLoadModule('/src/data/staffUsers.ts')
 
     const { buildSeedCalendarEvents } = calendarEvents as {
       buildSeedCalendarEvents: () => unknown[]
@@ -31,6 +32,9 @@ async function main() {
       latestTeacherWhitelistYear: () => number
       teacherUserIdFromInitial: (initial: string) => string
     }
+    const { ADMIN_INITIALS } = staff as {
+      ADMIN_INITIALS: readonly string[]
+    }
 
     const mapWhitelist = (
       rows: Array<{
@@ -48,6 +52,11 @@ async function main() {
         classes: t.classes,
       }))
 
+    const adminUserIds = [
+      'u-admin',
+      ...ADMIN_INITIALS.map((initial) => teacherUserIdFromInitial(initial)),
+    ]
+
     const bundle = {
       seed: buildSeedCalendarEvents(),
       whitelistByYear: {
@@ -55,6 +64,7 @@ async function main() {
         2026: mapWhitelist(TEACHER_WHITELIST_2627),
       },
       latestWhitelistYear: latestTeacherWhitelistYear(),
+      adminUserIds,
     }
 
     const outDir = 'supabase/functions/_shared'
