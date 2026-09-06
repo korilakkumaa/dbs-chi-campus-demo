@@ -102,10 +102,30 @@ function hmToIcs(hm: string): string {
   return `${pad2(Number(h))}${pad2(Number(m))}00`
 }
 
+const DAY_STATUS_PLACEHOLDER_TITLES: ReadonlySet<string> = new Set([
+  '假期',
+  '非正常上課日',
+  '正常上課日',
+  EVENT_KIND_LABELS.holiday,
+  EVENT_KIND_LABELS['non-school-day'],
+  EVENT_KIND_LABELS['school-day'],
+])
+
+/** Match portal side-panel title: custom title → lesson subject → kind label. */
 export function eventSummary(event: CalendarEvent): string {
   const trimmed = event.title.trim()
+  if (trimmed && !DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)) return trimmed
+  if (event.lesson?.subject?.trim()) return event.lesson.subject.trim()
   if (trimmed) return trimmed
   return EVENT_KIND_LABELS[event.kind] ?? event.kind
+}
+
+/** Skip portal “colour-only” day marks — they tint the grid but are not real agenda items. */
+export function shouldExportToExternalCalendar(event: CalendarEvent): boolean {
+  if (event.kind !== 'holiday' && event.kind !== 'non-school-day') return true
+  const trimmed = event.title.trim()
+  if (!trimmed) return false
+  return !DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)
 }
 
 export function eventToVevent(event: CalendarEvent, domain = 'campus-cms'): string {

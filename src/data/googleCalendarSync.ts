@@ -9,7 +9,11 @@ import {
 } from './supabaseCalendar'
 import { supabase } from '../lib/supabase'
 import { oauthRedirectTo } from '../lib/supabase'
-import { eventSummary, googleEventSchedule } from './calendarIcs'
+import {
+  eventSummary,
+  googleEventSchedule,
+  shouldExportToExternalCalendar,
+} from './calendarIcs'
 
 /** Must include openid + profile scopes or Supabase/Google sign-in breaks. */
 export const GOOGLE_OAUTH_SCOPES = [
@@ -267,12 +271,13 @@ export async function syncEventsToGoogleCalendar(input: {
   events: CalendarEvent[]
 }): Promise<GoogleSyncResult> {
   const { userId, accessToken, calendarId, events } = input
+  const exportable = events.filter(shouldExportToExternalCalendar)
   const map = await fetchGoogleEventMap(userId)
-  const visibleIds = new Set(events.map((e) => e.id))
+  const visibleIds = new Set(exportable.map((e) => e.id))
   let synced = 0
   let removed = 0
 
-  for (const event of events) {
+  for (const event of exportable) {
     const body = eventToGoogleBody(event)
     let googleId = map.get(event.id)
     const encodedCal = encodeURIComponent(calendarId)

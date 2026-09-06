@@ -43,10 +43,30 @@ const KIND_LABELS: Record<string, string> = {
 
 const CAMPUS_SUBJECTS = ['CHIN', 'EC', 'CHIS', 'PTH'] as const
 
+const DAY_STATUS_PLACEHOLDER_TITLES = new Set([
+  '假期',
+  '非正常上課日',
+  '正常上課日',
+  KIND_LABELS.holiday,
+  KIND_LABELS['non-school-day'],
+  KIND_LABELS['school-day'],
+])
+
+/** Match portal side-panel title: custom title → lesson subject → kind label. */
 export function eventSummary(event: CalendarEvent): string {
   const trimmed = event.title.trim()
+  if (trimmed && !DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)) return trimmed
+  if (event.lesson?.subject?.trim()) return event.lesson.subject.trim()
   if (trimmed) return trimmed
   return KIND_LABELS[event.kind] ?? event.kind
+}
+
+/** Skip portal “colour-only” day marks — they tint the grid but are not real agenda items. */
+export function shouldExportToExternalCalendar(event: CalendarEvent): boolean {
+  if (event.kind !== 'holiday' && event.kind !== 'non-school-day') return true
+  const trimmed = event.title.trim()
+  if (!trimmed) return false
+  return !DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)
 }
 
 export function normalizeHm(hm: string): string {
@@ -202,7 +222,11 @@ export function visibleEventsForUser(
     overlayRows,
   )
   return merged
-    .filter((event) => eventVisibleToTeacher(event, ctx))
+    .filter(
+      (event) =>
+        eventVisibleToTeacher(event, ctx) &&
+        shouldExportToExternalCalendar(event),
+    )
     .sort(
       (a, b) =>
         a.date.localeCompare(b.date) ||

@@ -324,7 +324,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
 
       <div className="cal-subscribe-body">
         <p className="cal-subscribe-lead">
-          依你的教師身分過濾個人版校曆（含私人備註）。Google
+          依你的教師身分過濾個人版校曆（含私人備註；不含僅作顏色標記的假期）。Google
           日曆會自動推送；Apple 日曆請訂閱一次即可定期更新。
         </p>
 

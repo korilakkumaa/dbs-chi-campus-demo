@@ -6,6 +6,7 @@ import {
   eventVisibleToTeacher,
   mergeSeedWithOverlay,
   roleForUserId,
+  shouldExportToExternalCalendar,
   teacherContext,
   type CalendarEvent,
 } from '../_shared/calendar-events.ts'
@@ -92,7 +93,11 @@ Deno.serve(async (req) => {
 
     const merged = mergeWithUpdatedAt(bundle.seed as CalendarEvent[], overlayRows)
     const visible = merged
-      .filter(({ event }) => eventVisibleToTeacher(event, ctx))
+      .filter(
+        ({ event }) =>
+          eventVisibleToTeacher(event, ctx) &&
+          shouldExportToExternalCalendar(event),
+      )
       .sort(
         (a, b) =>
           a.event.date.localeCompare(b.event.date) ||
