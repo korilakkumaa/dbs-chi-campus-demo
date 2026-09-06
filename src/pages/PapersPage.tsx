@@ -414,7 +414,6 @@ export function PapersPage() {
                 </div>
                 <EditableGradeMatrix
                   duty={draft}
-                  startYear={startYear}
                   nameMap={nameMap}
                   onChange={(gradeMatrix: GradeDutyRow[]) => patchDraft({ gradeMatrix })}
                   onRequestDeleteGrade={requestDeleteGrade}
@@ -426,7 +425,6 @@ export function PapersPage() {
                 </div>
                 <EditableEcAppendix
                   rows={draft.ecAppendix}
-                  startYear={startYear}
                   nameMap={nameMap}
                   onChange={(ecAppendix: EcAppendixRow[]) => patchDraft({ ecAppendix })}
                 />

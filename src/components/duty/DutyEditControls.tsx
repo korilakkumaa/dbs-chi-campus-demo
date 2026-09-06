@@ -97,7 +97,6 @@ export function DutyConfirmDialog({
 }
 
 export function TeacherCodeSelect({
-  startYear,
   value,
   onChange,
   options,
@@ -105,7 +104,6 @@ export function TeacherCodeSelect({
   id,
   ariaLabel,
 }: {
-  startYear: number
   value: string
   onChange: (code: string) => void
   options: { code: string; name: string }[]
@@ -113,7 +111,6 @@ export function TeacherCodeSelect({
   id?: string
   ariaLabel?: string
 }) {
-  void startYear
   return (
     <select
       id={id}
@@ -133,7 +130,6 @@ export function TeacherCodeSelect({
 }
 
 export function teacherSelectOptions(
-  startYear: number,
   nameMap: Map<string, string>,
   extraCodes: string[] = [],
 ): { code: string; name: string }[] {

@@ -38,7 +38,6 @@ function emptySlot(fallbackCode: string): DutySlot {
 function SlotEditor({
   slot,
   options,
-  startYear,
   categoryLabels,
   categoryKey,
   onChange,
@@ -46,7 +45,6 @@ function SlotEditor({
 }: {
   slot: DutySlot
   options: { code: string; name: string }[]
-  startYear: number
   categoryLabels: AssessmentDutyYear['categoryShortLabels']
   categoryKey: AssessmentDutyCategoryKey
   onChange: (next: DutySlot) => void
@@ -98,7 +96,6 @@ function SlotEditor({
         }
       />
       <TeacherCodeSelect
-        startYear={startYear}
         value={slot.teacherCode}
         options={options}
         onChange={(code) => onChange({ ...slot, teacherCode: code })}
@@ -128,18 +125,16 @@ function SlotEditor({
 
 export function EditableGradeMatrix({
   duty,
-  startYear,
   nameMap,
   onChange,
   onRequestDeleteGrade,
 }: {
   duty: AssessmentDutyYear
-  startYear: number
   nameMap: Map<string, string>
   onChange: (gradeMatrix: GradeDutyRow[]) => void
   onRequestDeleteGrade: (gradeLabel: string) => void
 }) {
-  const options = teacherSelectOptions(startYear, nameMap)
+  const options = teacherSelectOptions(nameMap)
   const fallbackCode = options[0]?.code ?? 'TWL'
 
   const updateGradeAt = (index: number, patch: Partial<GradeDutyRow>) => {
@@ -230,7 +225,6 @@ export function EditableGradeMatrix({
                       key={`${categoryKey}-${idx}`}
                       slot={slot}
                       options={options}
-                      startYear={startYear}
                       categoryLabels={duty.categoryShortLabels}
                       categoryKey={categoryKey}
                       onChange={(next) => {
@@ -262,16 +256,14 @@ export function EditableGradeMatrix({
 
 export function EditableEcAppendix({
   rows,
-  startYear,
   nameMap,
   onChange,
 }: {
   rows: EcAppendixRow[]
-  startYear: number
   nameMap: Map<string, string>
   onChange: (next: EcAppendixRow[]) => void
 }) {
-  const options = teacherSelectOptions(startYear, nameMap)
+  const options = teacherSelectOptions(nameMap)
 
   const updateRow = (idx: number, patch: Partial<EcAppendixRow>) => {
     onChange(rows.map((row, i) => (i === idx ? { ...row, ...patch } : row)))
@@ -311,7 +303,6 @@ export function EditableEcAppendix({
                 ).map((field) => (
                   <td key={field}>
                     <TeacherCodeSelect
-                      startYear={startYear}
                       value={row[field] ?? ''}
                       options={options}
                       allowEmpty

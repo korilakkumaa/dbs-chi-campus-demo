@@ -52,21 +52,36 @@ const DAY_STATUS_PLACEHOLDER_TITLES = new Set([
   KIND_LABELS['school-day'],
 ])
 
-/** Match portal side-panel title: custom title → lesson subject → kind label. */
-export function eventSummary(event: CalendarEvent): string {
-  const trimmed = event.title.trim()
-  if (trimmed && !DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)) return trimmed
-  if (event.lesson?.subject?.trim()) return event.lesson.subject.trim()
-  if (trimmed) return trimmed
-  return KIND_LABELS[event.kind] ?? event.kind
+/** Kind labels are portal categories only — never a standalone external agenda title. */
+const CATEGORY_ONLY_TITLES = new Set([
+  ...DAY_STATUS_PLACEHOLDER_TITLES,
+  ...Object.values(KIND_LABELS),
+])
+
+function isCategoryOnlyLabel(text: string): boolean {
+  return CATEGORY_ONLY_TITLES.has(text.trim())
 }
 
-/** Skip portal “colour-only” day marks — they tint the grid but are not real agenda items. */
+/**
+ * Real agenda text for Apple / Google. Returns null when the event is only a
+ * portal category / colour mark (e.g. empty title that would show as「進度表任務」).
+ */
+export function externalAgendaTitle(event: CalendarEvent): string | null {
+  const trimmed = (event.title ?? '').trim()
+  if (trimmed && !isCategoryOnlyLabel(trimmed)) return trimmed
+  const subject = event.lesson?.subject?.trim()
+  if (subject && !isCategoryOnlyLabel(subject)) return subject
+  return null
+}
+
+/** Match portal side-panel title: custom title → lesson subject → kind label. */
+export function eventSummary(event: CalendarEvent): string {
+  return externalAgendaTitle(event) ?? KIND_LABELS[event.kind] ?? event.kind
+}
+
+/** Skip category-only / colour-only marks from ICS and Google Calendar. */
 export function shouldExportToExternalCalendar(event: CalendarEvent): boolean {
-  if (event.kind !== 'holiday' && event.kind !== 'non-school-day') return true
-  const trimmed = event.title.trim()
-  if (!trimmed) return false
-  return !DAY_STATUS_PLACEHOLDER_TITLES.has(trimmed)
+  return externalAgendaTitle(event) != null
 }
 
 export function normalizeHm(hm: string): string {
@@ -153,6 +168,7 @@ export function eventVisibleToTeacher(
 ): boolean {
   if (ctx.role === 'admin') return true
   const aud = event.audience
+  if (!aud || typeof aud !== 'object') return true
   if (aud.type === 'personal') return aud.ownerId === ctx.userId
   if (aud.type === 'all') return true
   if (aud.type === 'teachers') {

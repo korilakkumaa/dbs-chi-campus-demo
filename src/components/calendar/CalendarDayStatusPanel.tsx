@@ -92,10 +92,18 @@ export function CalendarDayStatusPanel({
       return
     }
     setDayStatusTitle('')
-    setNotice(
+    const colourOnly =
+      !useCustomKind &&
+      (activeKind === 'holiday' || activeKind === 'non-school-day') &&
+      !title
+    const base =
       count === 1
-        ? `已標記 ${sortedDates[0]} 為「${EVENT_KIND_META[activeKind].label}」。`
-        : `已標記 ${count} 日為「${EVENT_KIND_META[activeKind].label}」。`,
+        ? `已標記 ${sortedDates[0]} 為「${EVENT_KIND_META[activeKind].label}」`
+        : `已標記 ${count} 日為「${EVENT_KIND_META[activeKind].label}」`
+    setNotice(
+      colourOnly
+        ? `${base}（僅網站顏色，不同步至外部日曆）。`
+        : `${base}（已同步至對象教師的網站日曆；外部訂閱／Google 稍後更新）。`,
     )
     onClearSelection()
   }
@@ -115,7 +123,8 @@ export function CalendarDayStatusPanel({
         )}
       </div>
       <p className="detail-cal-admin-lead">
-        在月曆拖選或 Ctrl／⌘ 多選日期，再選擇類型並套用。假期／非正常上課日若說明留空，教師日曆只顯示顏色、不顯示文字。
+        在月曆拖選或 Ctrl／⌘ 多選日期，再選擇類型並同步。假期／非正常上課日若說明留空，只在網站以顏色標記，不會出現在 Apple／Google
+        外部日曆。類型名稱（如「進度表任務」「科組活動」）只作分類，不會單獨匯出；請填寫說明或選「其他自訂類型」並輸入活動名稱。
       </p>
 
       <p className="detail-cal-admin-count" aria-live="polite">
@@ -299,7 +308,11 @@ export function CalendarDayStatusPanel({
         disabled={count === 0}
         onClick={apply}
       >
-        套用至已選日期
+        {audienceMode === 'all'
+          ? '同步到全部教師'
+          : audienceMode === 'grades'
+            ? '同步到指定級別'
+            : '同步到指定教師'}
       </button>
     </div>
   )

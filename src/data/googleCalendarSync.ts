@@ -276,8 +276,16 @@ export async function syncEventsToGoogleCalendar(input: {
   const visibleIds = new Set(exportable.map((e) => e.id))
   let synced = 0
   let removed = 0
+  let lastError: string | undefined
 
-  for (const event of exportable) {
+  // New campus events first so a mid-list Google API failure cannot block them.
+  const ordered = [...exportable].sort((a, b) => {
+    const aMapped = map.has(a.id) ? 1 : 0
+    const bMapped = map.has(b.id) ? 1 : 0
+    return aMapped - bMapped || a.date.localeCompare(b.date)
+  })
+
+  for (const event of ordered) {
     const body = eventToGoogleBody(event)
     let googleId = map.get(event.id)
     const encodedCal = encodeURIComponent(calendarId)
@@ -300,7 +308,7 @@ export async function syncEventsToGoogleCalendar(input: {
         await deleteGoogleEventMapEntry(userId, event.id)
         map.delete(event.id)
         googleId = undefined
-      } else {
+      } else if (res.status === 401) {
         const err = await res.text()
         return {
           ok: false,
@@ -308,17 +316,20 @@ export async function syncEventsToGoogleCalendar(input: {
           removed,
           error: parseGoogleApiError(err || res.statusText),
         }
+      } else {
+        const err = await res.text()
+        lastError = parseGoogleApiError(err || res.statusText)
+        continue
       }
     }
 
     const created = await createGoogleEvent(accessToken, calendarId, body)
     if (!created.ok) {
-      return {
-        ok: false,
-        synced,
-        removed,
-        error: created.error,
+      if (created.error.includes('Insufficient') || created.error.includes('auth')) {
+        return { ok: false, synced, removed, error: created.error }
       }
+      lastError = created.error
+      continue
     }
     map.set(event.id, created.id)
     await upsertGoogleEventMap(userId, event.id, created.id)
@@ -338,7 +349,12 @@ export async function syncEventsToGoogleCalendar(input: {
     }
   }
 
-  return { ok: true, synced, removed }
+  return {
+    ok: !(lastError && synced === 0),
+    synced,
+    removed,
+    ...(lastError ? { error: lastError } : {}),
+  }
 }
 
 export async function getGoogleAccessToken(): Promise<string | null> {

@@ -186,12 +186,10 @@ function MineDuties({
 function PersonEditor({
   people,
   options,
-  startYear,
   onChange,
 }: {
   people: DeptDutyPerson[]
   options: { code: string; name: string }[]
-  startYear: number
   onChange: (next: DeptDutyPerson[]) => void
 }) {
   const nameMap = useMemo(() => new Map(options.map((o) => [o.code, o.name])), [options])
@@ -212,7 +210,6 @@ function PersonEditor({
       {people.map((p, idx) => (
         <div key={`${p.code}-${idx}`} className="duty-person-editor-row">
           <TeacherCodeSelect
-            startYear={startYear}
             value={p.code}
             options={options}
             onChange={(code) => updateAt(idx, { code })}
@@ -253,12 +250,10 @@ function PersonEditor({
 function MemberGroupsEditor({
   groups,
   options,
-  startYear,
   onChange,
 }: {
   groups: DeptDutyMemberGroup[]
   options: { code: string; name: string }[]
-  startYear: number
   onChange: (next: DeptDutyMemberGroup[]) => void
 }) {
   return (
@@ -289,7 +284,6 @@ function MemberGroupsEditor({
           <PersonEditor
             people={group.people}
             options={options}
-            startYear={startYear}
             onChange={(people) => {
               const next = groups.map((g, i) => (i === gIdx ? { ...g, people } : g))
               onChange(next)
@@ -323,7 +317,7 @@ function EditableDeptTable({
   for (const t of teacherWhitelistForYear(startYear)) {
     nameMap.set(t.initial, t.name)
   }
-  const options = teacherSelectOptions(startYear, nameMap)
+  const options = teacherSelectOptions(nameMap)
 
   const updateItem = (id: number, patch: Partial<DeptDutyItem>) => {
     onChange(duty.items.map((item) => (item.id === id ? { ...item, ...patch } : item)))
@@ -397,7 +391,6 @@ function EditableDeptTable({
                   <PersonEditor
                     people={item.leaders}
                     options={options}
-                    startYear={startYear}
                     onChange={(leaders) => updateItem(item.id, { leaders })}
                   />
                 </td>
@@ -426,14 +419,12 @@ function EditableDeptTable({
                     <MemberGroupsEditor
                       groups={item.memberGroups ?? []}
                       options={options}
-                      startYear={startYear}
                       onChange={(memberGroups) => updateItem(item.id, { memberGroups })}
                     />
                   ) : (
                     <PersonEditor
                       people={item.members}
                       options={options}
-                      startYear={startYear}
                       onChange={(members) => updateItem(item.id, { members })}
                     />
                   )}

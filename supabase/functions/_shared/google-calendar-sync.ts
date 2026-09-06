@@ -93,8 +93,16 @@ export async function syncEventsToGoogleCalendar(input: {
   const visibleIds = new Set(events.map((e) => e.id))
   let synced = 0
   let removed = 0
+  let lastError: string | undefined
 
-  for (const event of events) {
+  // New campus events first so a mid-list API failure cannot block them.
+  const ordered = [...events].sort((a, b) => {
+    const aMapped = eventMap.has(a.id) ? 1 : 0
+    const bMapped = eventMap.has(b.id) ? 1 : 0
+    return aMapped - bMapped || a.date.localeCompare(b.date)
+  })
+
+  for (const event of ordered) {
     const body = eventToGoogleBody(event)
     let googleId = eventMap.get(event.id)
     const encodedCal = encodeURIComponent(calendarId)
@@ -121,9 +129,13 @@ export async function syncEventsToGoogleCalendar(input: {
         await onMapDelete(event.id)
         eventMap.delete(event.id)
         googleId = undefined
-      } else {
+      } else if (res.status === 401) {
         const err = await res.text()
         return { ok: false, synced, removed, error: err || res.statusText }
+      } else {
+        const err = await res.text()
+        lastError = err || res.statusText
+        continue
       }
     }
 
@@ -134,7 +146,11 @@ export async function syncEventsToGoogleCalendar(input: {
     )
     if (!res.ok) {
       const err = await res.text()
-      return { ok: false, synced, removed, error: err || res.statusText }
+      if (res.status === 401) {
+        return { ok: false, synced, removed, error: err || res.statusText }
+      }
+      lastError = err || res.statusText
+      continue
     }
     const created = (await res.json()) as { id?: string }
     if (created.id) {
@@ -157,5 +173,10 @@ export async function syncEventsToGoogleCalendar(input: {
     }
   }
 
-  return { ok: true, synced, removed }
+  return {
+    ok: !(lastError && synced === 0),
+    synced,
+    removed,
+    ...(lastError ? { error: lastError } : {}),
+  }
 }

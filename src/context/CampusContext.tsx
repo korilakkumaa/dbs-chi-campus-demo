@@ -690,9 +690,15 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         const next = [...allCalendarEvents, ...created]
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
-        for (const event of created) {
-          void upsertSharedCalendarEvent(event)
-        }
+        void Promise.all(
+          created.map((event) => upsertSharedCalendarEvent(event)),
+        ).then((results) => {
+          if (results.some((ok) => !ok)) {
+            console.warn(
+              'campus calendar multi upsert: some events failed to reach Supabase',
+            )
+          }
+        })
         return created.map((event) => event.id)
       },
       updateCalendarEvent: (id, patch) => {
@@ -775,9 +781,15 @@ export function CampusProvider({ children }: { children: ReactNode }) {
         const next = [...allCalendarEvents, ...created]
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
-        for (const event of created) {
-          void upsertSharedCalendarEvent(event)
-        }
+        void Promise.all(
+          created.map((event) => upsertSharedCalendarEvent(event)),
+        ).then((results) => {
+          if (results.some((ok) => !ok)) {
+            console.warn(
+              'campus calendar batch upsert: some events failed to reach Supabase',
+            )
+          }
+        })
         return created.length
       },
     }),
