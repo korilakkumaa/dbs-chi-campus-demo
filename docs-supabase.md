@@ -93,6 +93,14 @@ npm run import:streaming:2627
 2. 管理員在「詳細日曆」新增、改標題或刪除的**全校活動**會寫入 `campus_calendar_events`，教師重新整理（或即時推送）後即可看到。
 3. 教師自己點課節新增的私人備註會同步至 Supabase（依 `audience.ownerId`），供 iCal 訂閱與 Google 同步使用。
 
+## 3d. 出卷／職責（admin 編輯）
+
+1. 在 SQL Editor 執行 [`supabase/migrations/20260906120000_duty_year_docs.sql`](supabase/migrations/20260906120000_duty_year_docs.sql)
+2. 管理員在「出卷」「職責」頁按工具列 **編輯**，可改派、增刪項目／格子；**儲存** 後寫入：
+   - `assessment_duty_years`（年級矩陣 + EC 附錄；教師工作量由前端重算）
+   - `dept_duty_years`（科組職責項目；「我的職責」由前端重算）
+3. 尚未寫入過的學年仍顯示 app 內靜態 seed；第一次儲存才建立 remote 列。一般教師帳號只讀。
+
 ## 3e. 外部日曆訂閱（Google / Apple）與 Google 直接同步
 
 1. 在 SQL Editor 執行 [`supabase/migrations/20260831120000_calendar_time_feed_google.sql`](supabase/migrations/20260831120000_calendar_time_feed_google.sql)（事件時間欄位、訂閱 token、Google 對照表）。

@@ -9075,6 +9075,257 @@ tbody tr.table-row-link:focus-visible {
   }
 }
 
+/* —— Duty / papers admin edit —— */
+.duty-edit-bar {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, white);
+  backdrop-filter: blur(8px);
+}
+
+.duty-edit-bar.is-dirty {
+  border-color: color-mix(in srgb, var(--accent, #b45309) 45%, var(--line));
+}
+
+.duty-edit-bar-status {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink);
+}
+
+.duty-edit-bar-hint {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--ink-soft);
+}
+
+.duty-edit-bar-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.duty-edit-btn {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: var(--text-meta);
+  cursor: pointer;
+  background: transparent;
+  color: var(--ink);
+}
+
+.duty-edit-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.duty-edit-btn.ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.duty-edit-btn.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel, #fff);
+}
+
+.duty-edit-btn.primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.duty-teacher-select,
+.duty-text-input,
+.duty-note-input,
+.duty-weight-input,
+.duty-title-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.28rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--panel) 96%, white);
+  color: var(--ink);
+}
+
+.duty-weight-input {
+  max-width: 4.5rem;
+}
+
+.duty-person-editor,
+.duty-groups-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.duty-person-editor-row,
+.duty-group-head,
+.duty-row-actions,
+.papers-grade-edit-head,
+.papers-category-edit-head,
+.papers-slot-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.duty-person-editor-row .duty-teacher-select {
+  flex: 1 1 8rem;
+}
+
+.duty-person-editor-row .duty-note-input {
+  flex: 1 1 6rem;
+}
+
+.duty-icon-btn,
+.duty-add-btn,
+.duty-add-item-btn,
+.duty-mode-chip {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  font: inherit;
+  font-size: 0.8rem;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.duty-icon-btn:hover,
+.duty-add-btn:hover,
+.duty-add-item-btn:hover,
+.duty-mode-chip:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.duty-icon-btn.danger {
+  color: #9f1239;
+}
+
+.duty-add-item-btn {
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.duty-member-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.duty-mode-chip.active {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.duty-group-block {
+  padding: 0.4rem 0.45rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.duties-col-actions {
+  width: 5.5rem;
+  white-space: nowrap;
+}
+
+.duties-dept-table-edit td {
+  vertical-align: top;
+}
+
+.papers-grade-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.papers-grade-edit-card {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 97%, white);
+}
+
+.papers-grade-edit-head {
+  margin-bottom: 0.65rem;
+}
+
+.papers-grade-edit-head .duty-title-input {
+  flex: 1 1 12rem;
+}
+
+.papers-category-edit {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.papers-category-edit-head {
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.papers-category-edit-head h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.papers-slot-editor {
+  margin-bottom: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+
+.papers-slot-cat {
+  flex: 0 0 auto;
+  min-width: 3.5rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.papers-slot-editor .duty-teacher-select {
+  flex: 1 1 7rem;
+  max-width: 11rem;
+}
+
+.papers-ec-edit {
+  padding: 0 0.25rem 0.5rem;
+}
+
+.papers-ec-table-edit .duty-teacher-select,
+.papers-ec-table-edit .duty-text-input {
+  min-width: 6.5rem;
+}
+
+@media (max-width: 720px) {
+  .duty-edit-bar {
+    position: static;
+  }
+
+  .papers-slot-editor .duty-teacher-select {
+    max-width: none;
+  }
+}
+
 /* —— Personal weekly timetable —— */
 .personal-tt {
   padding: 0.85rem 0.95rem 1rem;
