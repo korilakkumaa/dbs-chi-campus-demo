@@ -122,8 +122,9 @@ curl -i "$SUPABASE_URL/functions/v1/calendar-feed?token=YOUR_TOKEN"
 ```
 
 4. 詳細日曆頁「同步至外部日曆」：
-   - **Apple 日曆**：訂閱 webcal 連結（依教師身分過濾個人版校曆，含私人備註）；Apple 約每 3 小時拉更新。
+   - **Apple 日曆**：訂閱 webcal 連結（依教師身分過濾個人版校曆，**僅含該教師自己的私人備註** + 應見之共享校曆）；Apple 約每 3 小時拉更新。
    - **Google 日曆**：Google 登入並授權後自動直接同步；開著詳細日曆頁時約 1–2 秒推送，**關閉網站後由後端每 3 小時同步**。
+   - **隱私**：管理員在入口可預覽他人私人備註，但 Google／Apple 外部同步**不會**把其他老師的 `personal` 事件推到非 owner 的外部日曆（即時推送與 cron 相同）。
 
 5. **Google 直接同步**還需在 **Google Cloud Console**（不是 Supabase）設定日曆 scope：
    - [Google Auth Platform](https://console.cloud.google.com/auth) → 你的 OAuth client 所在專案

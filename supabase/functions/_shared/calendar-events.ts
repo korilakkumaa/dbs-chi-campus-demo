@@ -138,7 +138,7 @@ function adminUserIds(): Set<string> {
   return new Set(['u-admin', 'u-twl', 'u-lkl', 'u-yln', 'u-ht'])
 }
 
-/** Match frontend admin whitelist so Apple/cron feeds keep full calendars. */
+/** Match frontend admin whitelist so Apple/cron feeds keep full *shared* calendars. */
 export function roleForUserId(userId: string): 'admin' | 'teacher' {
   return adminUserIds().has(userId) ? 'admin' : 'teacher'
 }
@@ -162,14 +162,23 @@ export function teacherContext(userId: string, role: string) {
   }
 }
 
+/**
+ * Visibility for Apple ICS + Google cron export.
+ *
+ * Personal notes are always owner-scoped — even for admin user ids. Admins still
+ * receive the full *shared* school calendar (all / teachers / grades), but must
+ * never receive another teacher's private remarks on their external calendar.
+ * (Portal UI may still show those notes; this rule is export-only.)
+ */
 export function eventVisibleToTeacher(
   event: CalendarEvent,
   ctx: ReturnType<typeof teacherContext>,
 ): boolean {
-  if (ctx.role === 'admin') return true
   const aud = event.audience
   if (!aud || typeof aud !== 'object') return true
+  // Owner check must run before the admin bypass.
   if (aud.type === 'personal') return aud.ownerId === ctx.userId
+  if (ctx.role === 'admin') return true
   if (aud.type === 'all') return true
   if (aud.type === 'teachers') {
     return Array.isArray(aud.teacherIds) && aud.teacherIds.includes(ctx.userId)
@@ -214,7 +223,7 @@ export function dbRowToOverlayRow(raw: Record<string, unknown>): {
       title: (raw.title as string) ?? '',
       kind: raw.kind as string,
       createdBy: (raw.created_by as string) ?? '',
-      audience: raw.audience as CalendarEvent['audience'],
+      audience: normalizeAudience(raw.audience),
       ...(raw.school_year_start != null
         ? { schoolYearStart: raw.school_year_start as number }
         : {}),
@@ -225,6 +234,28 @@ export function dbRowToOverlayRow(raw: Record<string, unknown>): {
     },
     deleted: Boolean(raw.deleted),
   }
+}
+
+/**
+ * Never widen a broken `personal` row to `all` — that would leak private notes
+ * into every teacher's Google / Apple feed.
+ */
+function normalizeAudience(raw: unknown): CalendarEvent['audience'] {
+  if (!raw || typeof raw !== 'object') return { type: 'all' }
+  const audience = raw as CalendarEvent['audience']
+  if (audience.type === 'personal') {
+    const ownerId =
+      typeof audience.ownerId === 'string' ? audience.ownerId.trim() : ''
+    return { type: 'personal', ownerId }
+  }
+  if (audience.type === 'all') return audience
+  if (audience.type === 'teachers' && Array.isArray(audience.teacherIds)) {
+    return audience
+  }
+  if (audience.type === 'grades' && Array.isArray(audience.grades)) {
+    return audience
+  }
+  return { type: 'all' }
 }
 
 export function visibleEventsForUser(

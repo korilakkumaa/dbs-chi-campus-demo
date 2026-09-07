@@ -147,6 +147,33 @@ export function shouldExportToExternalCalendar(event: CalendarEvent): boolean {
   return externalAgendaTitle(event) != null
 }
 
+/**
+ * Personal notes stay with their owner on Google / Apple.
+ * Shared school events may still fan out; never push another teacher's private remarks
+ * just because the signed-in portal role is admin.
+ */
+export function eventOwnedForExternalCalendar(
+  event: CalendarEvent,
+  userId: string,
+): boolean {
+  if (event.audience.type === 'personal') {
+    return event.audience.ownerId === userId
+  }
+  return true
+}
+
+/** Events safe to push / subscribe for this campus user. */
+export function filterEventsForExternalCalendar(
+  events: CalendarEvent[],
+  userId: string,
+): CalendarEvent[] {
+  return events.filter(
+    (event) =>
+      shouldExportToExternalCalendar(event) &&
+      eventOwnedForExternalCalendar(event, userId),
+  )
+}
+
 export function eventToVevent(event: CalendarEvent, domain = 'campus-cms'): string {
   const uid = `${event.id}@${domain}`
   const summary = escapeIcs(eventSummary(event))

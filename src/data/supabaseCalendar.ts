@@ -42,7 +42,13 @@ function isKind(value: string): value is CalendarEventKind {
 function parseAudience(raw: unknown): CalendarAudience {
   if (!raw || typeof raw !== 'object') return { type: 'all' }
   const audience = raw as CalendarAudience
-  if (audience.type === 'personal' && audience.ownerId) return audience
+  // Never widen a broken personal row to `all` — that would leak private notes
+  // into every teacher's Google / Apple feed.
+  if (audience.type === 'personal') {
+    const ownerId =
+      typeof audience.ownerId === 'string' ? audience.ownerId.trim() : ''
+    return { type: 'personal', ownerId }
+  }
   if (audience.type === 'all') return audience
   if (audience.type === 'teachers' && Array.isArray(audience.teacherIds)) {
     return audience

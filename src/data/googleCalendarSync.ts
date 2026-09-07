@@ -11,8 +11,8 @@ import { supabase } from '../lib/supabase'
 import { oauthRedirectTo } from '../lib/supabase'
 import {
   eventSummary,
+  filterEventsForExternalCalendar,
   googleEventSchedule,
-  shouldExportToExternalCalendar,
 } from './calendarIcs'
 
 /** Must include openid + profile scopes or Supabase/Google sign-in breaks. */
@@ -271,7 +271,9 @@ export async function syncEventsToGoogleCalendar(input: {
   events: CalendarEvent[]
 }): Promise<GoogleSyncResult> {
   const { userId, accessToken, calendarId, events } = input
-  const exportable = events.filter(shouldExportToExternalCalendar)
+  // Re-scope personal notes to this user even if the portal list includes others
+  // (admin role sees every personal remark in-app).
+  const exportable = filterEventsForExternalCalendar(events, userId)
   const map = await fetchGoogleEventMap(userId)
   const visibleIds = new Set(exportable.map((e) => e.id))
   let synced = 0

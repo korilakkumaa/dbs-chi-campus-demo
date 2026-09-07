@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   feedUrlFromToken,
+  filterEventsForExternalCalendar,
   webcalUrlFromFeedUrl,
 } from '../../data/calendarIcs'
 import {
@@ -53,7 +54,12 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
   const googleSuccessTimer = useRef<number | null>(null)
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
-  const eventCount = calendarEvents.length
+  const externalEvents = useMemo(
+    () =>
+      user ? filterEventsForExternalCalendar(calendarEvents, user.id) : [],
+    [calendarEvents, user],
+  )
+  const eventCount = externalEvents.length
   const usesGoogleLogin = authMethod === 'google'
 
   const ensureGoogleSync = useCallback(async () => {
@@ -207,7 +213,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
   }
 
   const runGoogleSync = useCallback(async () => {
-    if (!user || !googleReady || calendarEvents.length === 0) return
+    if (!user || !googleReady) return
     const token = await getGoogleAccessToken()
     if (!token) {
       setGoogleNeedsAuth(true)
@@ -221,11 +227,12 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
     }
     setGoogleBusy(true)
     const calendarId = await resolveGoogleCalendarId(user.id)
+    // Empty list is intentional: prune previously leaked personal notes from Google.
     const result = await syncEventsToGoogleCalendar({
       userId: user.id,
       accessToken: token,
       calendarId,
-      events: calendarEvents,
+      events: externalEvents,
     })
     if (!result.ok) {
       setMessage({
@@ -243,7 +250,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
       }
     }
     setGoogleBusy(false)
-  }, [user, googleReady, calendarEvents, markGoogleSyncSuccess])
+  }, [user, googleReady, externalEvents, markGoogleSyncSuccess])
 
   useEffect(() => {
     if (!googleReady || googleBusy) return
@@ -251,7 +258,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
       void runGoogleSync()
     }, 1200)
     return () => window.clearTimeout(timer)
-  }, [googleReady, calendarEvents, runGoogleSync, googleBusy])
+  }, [googleReady, externalEvents, runGoogleSync, googleBusy])
 
   const googleStatus = useMemo(() => {
     if (!usesGoogleLogin) return '請改用 Google 登入'
@@ -324,7 +331,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
 
       <div className="cal-subscribe-body">
         <p className="cal-subscribe-lead">
-          依你的教師身分過濾個人版校曆（含私人備註；不含僅作分類／顏色標記的項目，例如空白的「進度表任務」）。Google
+          依你的教師身分過濾個人版校曆（僅含你自己的私人備註與應見之共享校曆；不含僅作分類／顏色標記的項目，例如空白的「進度表任務」）。Google
           日曆會自動推送；Apple 日曆請訂閱一次即可定期更新。
         </p>
 
