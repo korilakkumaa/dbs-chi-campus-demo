@@ -43,6 +43,7 @@
   display: none;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 2.5rem;
   height: 2.5rem;
   margin: 0;
@@ -50,6 +51,7 @@
   border: 1px solid color-mix(in srgb, var(--ink, #1a1a1a) 18%, transparent);
   border-radius: 0.4rem;
   background: color-mix(in srgb, #fff 55%, transparent);
+  color: var(--ink, #1a1a1a);
   cursor: pointer;
 }
 .nav-menu-toggle-bars {
@@ -66,6 +68,17 @@
 @media (max-width: 920px) {
   .nav-menu-toggle {
     display: inline-flex;
+    margin-left: auto;
+  }
+  .top-nav.nav-drawer-open .nav-menu-toggle {
+    position: relative;
+    z-index: 90;
+  }
+  .brand-block {
+    width: 100%;
+  }
+  .shell-chrome:has(.top-nav.nav-drawer-open) {
+    z-index: 90;
   }
   .top-nav .nav-links-wrap {
     display: none;
@@ -73,16 +86,20 @@
   .top-nav.nav-drawer-open .nav-links-wrap {
     display: block;
     position: fixed;
-    z-index: 80;
+    z-index: 85;
     top: 0;
     right: 0;
     bottom: 0;
+    left: auto;
     width: min(18rem, 86vw);
     padding: 4.5rem 1rem 1.5rem;
-    background: color-mix(in srgb, #f7f4ef 92%, transparent);
+    background: color-mix(in srgb, #f7f4ef 94%, transparent);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     box-shadow: -8px 0 28px color-mix(in srgb, #000 12%, transparent);
     overflow-y: auto;
+    justify-self: auto;
+    max-width: none;
   }
   .top-nav.nav-drawer-open .nav-links {
     flex-direction: column;
@@ -91,12 +108,14 @@
   }
   .top-nav.nav-drawer-open .nav-item.has-branch .branch-menu {
     position: static;
+    transform: none;
     display: flex;
     flex-direction: column;
     box-shadow: none;
     margin: 0.25rem 0 0.5rem 0.75rem;
     padding: 0;
     background: transparent;
+    animation: none;
   }
   .top-nav.nav-drawer-open .nav-indicator {
     display: none;
@@ -105,7 +124,7 @@
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 70;
+    z-index: 80;
     background: color-mix(in srgb, #000 28%, transparent);
     border: 0;
     padding: 0;
