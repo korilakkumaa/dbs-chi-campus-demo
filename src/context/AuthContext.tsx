@@ -14,6 +14,7 @@ import {
   resolveStaffUser,
   roleForStaff,
 } from '../data/staffUsers'
+import { hydrateAllSeedWhitelistYears } from '../data/whitelistStore'
 import { oauthRedirectTo, supabase } from '../lib/supabase'
 import { persistGoogleTokensFromSession } from '../data/googleCalendarSync'
 import type { Role, User } from '../types'
@@ -141,19 +142,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
 
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        await hydrateAllSeedWhitelistYears()
         if (cancelled) return
-        return applySession(data.session)
-      })
-      .catch((error) => {
+        const { data } = await supabase.auth.getSession()
+        if (cancelled) return
+        await applySession(data.session)
+      } catch (error) {
         console.error(error)
         if (!cancelled) setUser(null)
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setReady(true)
-      })
+      }
+    })()
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION') return

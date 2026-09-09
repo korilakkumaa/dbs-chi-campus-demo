@@ -71,24 +71,44 @@ const WHITELIST_BY_YEAR: Record<number, WhitelistTeacher[]> = {
   2026: TEACHER_WHITELIST_2627,
 }
 
+/** Runtime overlays from Supabase (set by whitelistStore after hydrate/save). */
+const WHITELIST_OVERLAY: Record<number, WhitelistTeacher[]> = {}
+
+export function setTeacherWhitelistOverlay(
+  startYear: number,
+  teachers: WhitelistTeacher[] | null,
+): void {
+  if (teachers == null) {
+    delete WHITELIST_OVERLAY[startYear]
+    return
+  }
+  WHITELIST_OVERLAY[startYear] = teachers
+}
+
 export function teacherWhitelistYears(): number[] {
-  return Object.keys(WHITELIST_BY_YEAR)
-    .map(Number)
-    .sort((a, b) => a - b)
+  const years = new Set([
+    ...Object.keys(WHITELIST_BY_YEAR).map(Number),
+    ...Object.keys(WHITELIST_OVERLAY).map(Number),
+  ])
+  return [...years].sort((a, b) => a - b)
 }
 
 export function hasTeacherWhitelistYear(startYear: number): boolean {
-  return Object.prototype.hasOwnProperty.call(WHITELIST_BY_YEAR, startYear)
+  return (
+    Object.prototype.hasOwnProperty.call(WHITELIST_OVERLAY, startYear) ||
+    Object.prototype.hasOwnProperty.call(WHITELIST_BY_YEAR, startYear)
+  )
 }
 
 /** Chinese-teaching whitelist for `startYear` only — never fall back to another year. */
 export function teacherWhitelistForYear(startYear: number): WhitelistTeacher[] {
-  return WHITELIST_BY_YEAR[startYear] ?? []
+  return WHITELIST_OVERLAY[startYear] ?? WHITELIST_BY_YEAR[startYear] ?? []
 }
 
 /** Newest imported teacher whitelist year (currently 2026/27). */
 export function latestTeacherWhitelistYear(): number {
-  return Math.max(...teacherWhitelistYears())
+  const years = teacherWhitelistYears()
+  return years.length ? Math.max(...years) : 2026
 }
 
 export function findWhitelistTeacherByEmail(

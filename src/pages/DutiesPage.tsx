@@ -14,6 +14,7 @@ import {
 } from '../components/duty/DeptDutyViews'
 import { GlassPanel } from '../components/GlassPanel'
 import { ScoresYearSelect } from '../components/ScoresYearSelect'
+import { CsvYearImportPanel } from '../components/admin/CsvYearImportPanel'
 import { useAuth } from '../context/AuthContext'
 import {
   defaultAcademicYearStart,
@@ -21,10 +22,17 @@ import {
   listAcademicYearStarts,
 } from '../data/academicYear'
 import { resolveDeptDutyTeacher } from '../data/deptDuty'
+import {
+  hydrateDeptDuty,
+  invalidateDeptDuty,
+  peekDeptDuty,
+} from '../data/dutyStore'
 import { useDeptDutyEditor } from '../hooks/useDeptDutyEditor'
 import { useDirtyNavigationGuard } from '../hooks/useDirtyNavigationGuard'
+import { applyYearCsvImport } from '../lib/adminYearImport'
 import { canPreviewAllTeachers } from '../lib/permissions'
 import { supabaseConfigured } from '../lib/supabase'
+import { deptDutyToCsv, parseDeptDutyCsv } from '../lib/yearCsv/schemas'
 
 type ViewMode = 'mine' | 'dept'
 
@@ -48,6 +56,7 @@ export function DutiesPage() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
   const [pendingNavDiscard, setPendingNavDiscard] = useState(false)
+  const [bootstrapping, setBootstrapping] = useState(false)
 
   const {
     isAdmin,
@@ -62,6 +71,7 @@ export function DutiesPage() {
     exitEdit,
     patchDraftItems,
     save,
+    bootstrap,
   } = useDeptDutyEditor(startYear, user)
 
   const { navigationBlocked, confirmNavigation, cancelNavigation } =
@@ -209,6 +219,32 @@ export function DutiesPage() {
       ? '目前未連線資料庫，顯示的是本機種子資料。'
       : null
 
+  const onBootstrap = async (mode: 'empty' | 'clone') => {
+    setBootstrapping(true)
+    const cloneFrom = mode === 'clone' ? startYear - 1 : undefined
+    const result = await bootstrap(mode, cloneFrom)
+    setBootstrapping(false)
+    if (!result.ok) {
+      setDialog({
+        kind: 'info',
+        title: '無法建立',
+        message: result.error,
+      })
+      return
+    }
+    setView('dept')
+    setDialog({
+      kind: 'info',
+      title: '已建立草稿',
+      message:
+        mode === 'clone'
+          ? `已從 ${formatAcademicYearLabel(startYear - 1)} 複製，請檢查後按儲存寫入資料庫。`
+          : '已建立空白職責框架，請填寫後按儲存寫入資料庫。',
+    })
+  }
+
+  const cloneSourceExists = knownYears.includes(startYear - 1)
+
   return (
     <div className="page duties-page">
       <header className="page-header year-ov-header reveal-up">
@@ -229,13 +265,79 @@ export function DutiesPage() {
         />
       </header>
 
+      {isAdmin && user ? (
+        <div className="reveal-up delay-1">
+          <CsvYearImportPanel
+            kind="dept_duty"
+            startYear={startYear}
+            exportCsv={
+              displayDuty || peekDeptDuty(startYear)
+                ? deptDutyToCsv(displayDuty ?? peekDeptDuty(startYear)!)
+                : null
+            }
+            onParseAndImport={async ({ text }) => {
+              const base = await hydrateDeptDuty(startYear)
+              const parsed = parseDeptDutyCsv(text, startYear, base)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'dept_duty',
+                startYear,
+                userEmail: user.username,
+                userId: user.id,
+                dept: parsed.data,
+              })
+              if (result.ok) {
+                invalidateDeptDuty(startYear)
+                window.location.reload()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+        </div>
+      ) : null}
+
       {loading && !displayDuty ? (
         <AsyncStatus variant="loading" message="載入職責資料中…" />
       ) : !displayDuty ? (
-        <AsyncStatus
-          variant="empty"
-          message={`${formatAcademicYearLabel(startYear)} 的職責分工資料尚未匯入。`}
-        />
+        <GlassPanel className="reveal-up delay-1">
+          <AsyncStatus
+            variant="empty"
+            panel={false}
+            message={`${formatAcademicYearLabel(startYear)} 的職責分工資料尚未匯入。`}
+          />
+          {isAdmin ? (
+            <div className="papers-bootstrap-actions">
+              <button
+                type="button"
+                className="deadline-submit-btn"
+                disabled={bootstrapping}
+                onClick={() => void onBootstrap('empty')}
+              >
+                {bootstrapping ? '建立中…' : '建立空白職責'}
+              </button>
+              <button
+                type="button"
+                className="deadline-select-all-btn"
+                disabled={bootstrapping || !cloneSourceExists}
+                onClick={() => void onBootstrap('clone')}
+              >
+                從上學年複製
+              </button>
+            </div>
+          ) : null}
+        </GlassPanel>
       ) : (
         <>
           {offlineHint ? (

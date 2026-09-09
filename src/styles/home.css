@@ -285,6 +285,46 @@
   font-size: var(--text-meta);
 }
 
+.home-mid-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.home-teaching-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.home-teaching-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(60, 40, 20, 0.08);
+}
+
+.home-teaching-name {
+  font-weight: 600;
+}
+
+.home-teaching-links {
+  display: flex;
+  gap: 0.65rem;
+  font-size: var(--text-meta);
+}
+
+.home-teaching-links a {
+  color: var(--amber-deep);
+  text-decoration: none;
+}
+
 .panel.home-col-abs {
   background: rgba(255, 252, 248, 0.72);
   border-color: var(--glass-border);

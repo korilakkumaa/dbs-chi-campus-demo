@@ -98,16 +98,38 @@ npm run import:streaming:2627
 ## 3d. 出卷／職責（admin 編輯）
 
 1. 在 SQL Editor 執行 [`supabase/migrations/20260906120000_duty_year_docs.sql`](supabase/migrations/20260906120000_duty_year_docs.sql)
-2. **出卷** 的矩陣編輯器在 `/resources/papers`（工具列 **編輯**）。管理員「分派」頁有入口，深連結 `#/resources/papers?year=YYYY&edit=1`。
+2. **出卷** 的矩陣編輯器在 `/resources/papers`（工具列 **編輯**）。管理員「新學年準備」頁有入口，深連結 `#/resources/papers?year=YYYY&edit=1`。
 3. 架構（可維護性）：
    - **單一編輯面**：出卷 UI 只在 `PapersPage` + `PapersEdit`；`AdminPage` 只做狀態摘要與導航，避免複製一整套矩陣編輯器。
    - **資料層**：`dutyStore` 統一 hydrate／bootstrap／save；靜態 seed（`assessmentDuty*.generated.ts`）僅後備；`assessment_duty_years` 為寫入後的來源。
    - **衍生資料**：教師工作量由 `assessmentDutyDerive` 從矩陣 + EC 重算，不另存。
 4. 管理員可改派、增刪年級／格子／EC；無資料學年可 **建立空白** 或 **從上學年複製**，**儲存** 後寫入：
    - `assessment_duty_years`（年級矩陣 + EC 附錄）
-   - `dept_duty_years`（科組職責；在「職責」頁編輯）
+   - `dept_duty_years`（科組職責；在「職責」頁同樣可建立空白／從上學年複製）
 5. 一般教師帳號只讀。若遠端已有該學年列，改種子檔不會影響線上資料——請用編輯器修正。
 
+## 3e. 新學年準備（CSV 範本）
+
+1. 執行 migration [`supabase/migrations/20260909120000_year_setup_docs.sql`](supabase/migrations/20260909120000_year_setup_docs.sql)（`teacher_whitelist_years`、`grade_deadlines_years`，以及名冊／成績的 authenticated 寫入政策）。
+2. （建議）部署 Edge Function：`supabase functions deploy admin-year-import`。前端會優先呼叫 Edge；若未部署則回退為已登入管理員的直接 upsert。
+3. 管理員開啟 `#/admin`（導覽「新學年準備」）→ 選學年 → 檢查清單 → 各項 **下載範本／匯出目前資料／上傳 CSV**。
+
+| kind | 範本欄位 | 寫入 |
+|------|----------|------|
+| `teacher_whitelist` | `Initial,Chi. Name,Email Address,Class 1–4` | `teacher_whitelist_years` |
+| `student_roster` | `stid,class,class_number,name_zh,name_en,house,french,remarks` | `students`／`classes` |
+| `chinese_streaming` | `stid,admin_class,group_name,teacher_initial,french` | `students.teaching_group` |
+| `school_calendar` | 對齊校曆 seed CSV（`Date,Event,Category,…`） | `campus_calendar_events` |
+| `assessment_duty` | `grade,category,semester,part,note,teacher_initial,weight,section,ec_slot` | `assessment_duty_years` |
+| `dept_duty` | `category,title,teacher_initial,role,notes` | `dept_duty_years` |
+| `semester_scores` | `stid,semester,daily,reading,writing` | `semester_records` |
+| `grade_deadlines` | `grade,activity_title,activity_due,submitted` | `grade_deadlines_years` |
+
+班級分派下拉與白名單 CSV **同源**（寫入 `teacher_whitelist_years`）。成績截止日期「提交」會持久化至 `grade_deadlines_years`。
+
+時間表 xlsx 仍用本機 `npm run generate:timetables`（檢查清單會提示）。
+
+**勿**把 `SUPABASE_SERVICE_ROLE_KEY` 放進 Pages／Vite 前端。
 ## 3e. 外部日曆訂閱（Google / Apple）與 Google 直接同步
 
 1. 在 SQL Editor 執行 [`supabase/migrations/20260831120000_calendar_time_feed_google.sql`](supabase/migrations/20260831120000_calendar_time_feed_google.sql)（事件時間欄位、訂閱 token、Google 對照表）。

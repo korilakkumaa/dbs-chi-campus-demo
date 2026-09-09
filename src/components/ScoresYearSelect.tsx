@@ -6,6 +6,8 @@ type ScoresYearSelectProps = {
   yearOptions: number[]
   onSelectYear: (year: number) => void
   id?: string
+  /** Optional short hint under the control (e.g. 成績／名冊學年). */
+  hint?: string
 }
 
 export function ScoresYearSelect({
@@ -14,6 +16,7 @@ export function ScoresYearSelect({
   yearOptions,
   onSelectYear,
   id = 'scores-academic-year',
+  hint,
 }: ScoresYearSelectProps) {
   return (
     <label className="year-ov-select-wrap" htmlFor={id}>
@@ -32,6 +35,7 @@ export function ScoresYearSelect({
           </option>
         ))}
       </select>
+      {hint ? <span className="year-ov-select-hint">{hint}</span> : null}
     </label>
   )
 }

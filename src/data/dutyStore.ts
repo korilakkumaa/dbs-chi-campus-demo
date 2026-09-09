@@ -7,6 +7,10 @@ import {
 import { withDerivedAssessmentTeachers } from './assessmentDutyDerive'
 import type { AssessmentDutyYear } from './assessmentDutyTypes'
 import { getDeptDuty as getSeedDeptDuty, listDeptDutyYears } from './deptDuty'
+import {
+  cloneDeptDutyForYear,
+  createEmptyDeptDuty,
+} from './deptDutyFactory'
 import { withDerivedDeptTeachers } from './deptDutyDerive'
 import type { DeptDutyYear } from './deptDutyTypes'
 import {
@@ -17,6 +21,7 @@ import {
 } from './supabaseAssessmentDuty'
 import {
   fetchDeptDutyYear,
+  listDeptDutyYearsRemote,
   payloadToDeptDuty,
   upsertDeptDutyYear,
 } from './supabaseDeptDuty'
@@ -27,7 +32,9 @@ const assessmentHydrated = new Set<number>()
 const deptHydrated = new Set<number>()
 /** Years known from Supabase (even before hydrate), plus any locally bootstrapped. */
 const assessmentKnownYears = new Set<number>(listAssessmentDutyYears())
+const deptKnownYears = new Set<number>(listDeptDutyYears())
 let assessmentRemoteYearsLoaded = false
+let deptRemoteYearsLoaded = false
 
 import { canMutateDutyDocs } from '../lib/permissions'
 
@@ -99,13 +106,18 @@ export async function hydrateDeptDuty(startYear: number): Promise<DeptDutyYear |
   const remote = await fetchDeptDutyYear(startYear)
   const duty = remote ? payloadToDeptDuty(remote, seed) : seed
 
-  if (duty) deptCache.set(startYear, duty)
-  else deptCache.delete(startYear)
+  if (duty) {
+    deptCache.set(startYear, duty)
+    deptKnownYears.add(startYear)
+  } else {
+    deptCache.delete(startYear)
+  }
   deptHydrated.add(startYear)
   return duty
 }
 
 export type BootstrapAssessmentMode = 'empty' | 'clone'
+export type BootstrapDeptMode = 'empty' | 'clone'
 
 /**
  * Create an in-memory year document for admin editing when seed/remote are missing.
@@ -141,6 +153,48 @@ export async function bootstrapAssessmentDuty(
   assessmentCache.set(startYear, duty)
   assessmentHydrated.add(startYear)
   rememberAssessmentYear(startYear)
+  return { ok: true, duty }
+}
+
+export async function discoverDeptDutyYears(): Promise<number[]> {
+  if (!deptRemoteYearsLoaded) {
+    const remote = await listDeptDutyYearsRemote()
+    for (const y of remote) deptKnownYears.add(y)
+    deptRemoteYearsLoaded = true
+  }
+  return listHydratedDeptYears()
+}
+
+export async function bootstrapDeptDuty(
+  startYear: number,
+  mode: BootstrapDeptMode,
+  cloneFromYear?: number,
+): Promise<{ ok: boolean; duty: DeptDutyYear | null; error?: string }> {
+  const existing = await hydrateDeptDuty(startYear)
+  if (existing) {
+    return { ok: true, duty: existing }
+  }
+
+  let duty: DeptDutyYear
+  if (mode === 'clone') {
+    const fromYear = cloneFromYear ?? startYear - 1
+    const source =
+      (await hydrateDeptDuty(fromYear)) ?? peekDeptDuty(fromYear)
+    if (!source) {
+      return {
+        ok: false,
+        duty: null,
+        error: `找不到可複製的學年（${fromYear}）職責資料`,
+      }
+    }
+    duty = cloneDeptDutyForYear(source, startYear)
+  } else {
+    duty = createEmptyDeptDuty(startYear)
+  }
+
+  deptCache.set(startYear, duty)
+  deptHydrated.add(startYear)
+  deptKnownYears.add(startYear)
   return { ok: true, duty }
 }
 
@@ -204,7 +258,11 @@ export function assessmentDutyYearStatus(startYear: number): {
 }
 
 export function listHydratedDeptYears(): number[] {
-  const years = new Set([...listDeptDutyYears(), ...deptCache.keys()])
+  const years = new Set([
+    ...listDeptDutyYears(),
+    ...deptKnownYears,
+    ...deptCache.keys(),
+  ])
   return [...years].sort((a, b) => b - a)
 }
 

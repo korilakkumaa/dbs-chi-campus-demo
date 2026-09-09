@@ -4,10 +4,13 @@ import type { DeptDutyItem, DeptDutyYear } from '../data/deptDutyTypes'
 import { withDerivedDeptTeachers } from '../data/deptDutyDerive'
 import {
   canMutateDuty,
+  bootstrapDeptDuty,
+  discoverDeptDutyYears,
   hydrateDeptDuty,
   listHydratedDeptYears,
   peekDeptDuty,
   saveDeptDuty,
+  type BootstrapDeptMode,
 } from '../data/dutyStore'
 
 function cloneDuty(duty: DeptDutyYear): DeptDutyYear {
@@ -41,18 +44,39 @@ export function useDeptDutyEditor(
     setEditing(false)
     setDraft(null)
     setDirty(false)
-    void hydrateDeptDuty(startYear).then((next) => {
+    void (async () => {
+      await discoverDeptDutyYears()
+      const next = await hydrateDeptDuty(startYear)
       if (cancelled) return
       setDuty(next)
       setKnownYears(listHydratedDeptYears())
       setLoading(false)
-    })
+    })()
     return () => {
       cancelled = true
     }
   }, [startYear])
 
   const displayDuty = editing && draft ? draft : duty
+
+  const bootstrap = useCallback(
+    async (mode: BootstrapDeptMode, cloneFromYear?: number) => {
+      if (!isAdmin) {
+        return { ok: false as const, error: '僅管理員可建立職責資料' }
+      }
+      const result = await bootstrapDeptDuty(startYear, mode, cloneFromYear)
+      if (!result.ok || !result.duty) {
+        return { ok: false as const, error: result.error ?? '無法建立' }
+      }
+      setDuty(result.duty)
+      setKnownYears(listHydratedDeptYears())
+      setDraft(cloneDuty(result.duty))
+      setEditing(true)
+      setDirty(true)
+      return { ok: true as const, duty: result.duty }
+    },
+    [isAdmin, startYear],
+  )
 
   const enterEdit = useCallback(
     (source?: DeptDutyYear | null) => {
@@ -115,5 +139,6 @@ export function useDeptDutyEditor(
     exitEdit,
     patchDraftItems,
     save,
+    bootstrap,
   }
 }

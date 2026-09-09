@@ -416,6 +416,84 @@
   margin: 0 0 0.85rem;
 }
 
+.csv-year-import-panel {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.csv-year-import-head h3 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.csv-year-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.csv-upload-label {
+  cursor: pointer;
+}
+
+.csv-replace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.csv-year-import-msg,
+.csv-year-import-hint {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.csv-year-import-issues {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--terracotta, #a65d3d);
+  font-size: var(--text-meta);
+}
+
+.csv-preview-wrap {
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.admin-year-checklist {
+  margin-bottom: 1rem;
+}
+
+.admin-checklist {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: var(--text-body);
+}
+
+.admin-checklist-note {
+  list-style: none;
+  margin-left: -1.2rem;
+  color: var(--ink-soft);
+  font-size: var(--text-meta);
+}
+
+.year-ov-select-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
 .deadline-input {
   width: 100%;
   min-width: 9rem;

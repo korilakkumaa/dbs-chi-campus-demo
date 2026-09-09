@@ -567,6 +567,7 @@ export function IndividualPage() {
           defaultStart={defaultStart}
           yearOptions={yearOptions}
           onSelectYear={onSelectYear}
+          hint="此為成績／名冊學年"
         />
       </header>
 

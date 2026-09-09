@@ -465,7 +465,7 @@ function StaffNavbar({
                 }
                 onClick={() => setMobileNavOpen(false)}
               >
-                分派
+                新學年準備
               </NavLink>
             </li>
           )}

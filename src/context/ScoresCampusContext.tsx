@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type Context,
@@ -8,7 +9,12 @@ import {
 } from 'react'
 import { CAMPUS_SCORES_ACADEMIC_YEAR_START } from '../data/campusScoresYear'
 import { emptyGradeDeadlines } from '../data/gradeDeadlines'
+import {
+  fetchGradeDeadlinesYear,
+  upsertGradeDeadlinesYear,
+} from '../data/supabaseGradeDeadlines'
 import type { GradeDeadline } from '../types'
+import { useAuth } from './AuthContext'
 
 export interface ScoresCampusContextValue {
   /** Academic year for 分數 pages (Supabase academic_year_start). */
@@ -62,12 +68,24 @@ function useScoresCampusState(): ScoresCampusState {
 
 /** Owns academic year + grade deadline state. Nest Roster inside this. */
 export function ScoresCampusProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [scoresAcademicYearStart, setScoresAcademicYearStart] = useState<number>(
     CAMPUS_SCORES_ACADEMIC_YEAR_START,
   )
   const [gradeDeadlines, setGradeDeadlines] = useState<GradeDeadline[]>(
     emptyGradeDeadlines,
   )
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchGradeDeadlinesYear(scoresAcademicYearStart).then((remote) => {
+      if (cancelled) return
+      setGradeDeadlines(remote?.deadlines ?? emptyGradeDeadlines())
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [scoresAcademicYearStart])
 
   const state = useMemo<ScoresCampusState>(
     () => ({
@@ -80,8 +98,8 @@ export function ScoresCampusProvider({ children }: { children: ReactNode }) {
         )
       },
       submitGradeDeadlines: (rows) => {
-        setGradeDeadlines((prev) =>
-          prev.map((d) => {
+        setGradeDeadlines((prev) => {
+          const next = prev.map((d) => {
             const row = rows.find((r) => r.grade === d.grade)
             if (!row) return d
             const hasContent = Boolean(
@@ -94,11 +112,17 @@ export function ScoresCampusProvider({ children }: { children: ReactNode }) {
               activityDue: row.activityDue,
               submitted: row.submitted ?? hasContent,
             }
-          }),
-        )
+          })
+          void upsertGradeDeadlinesYear(
+            scoresAcademicYearStart,
+            next,
+            user?.id ?? 'admin',
+          )
+          return next
+        })
       },
     }),
-    [scoresAcademicYearStart, gradeDeadlines],
+    [scoresAcademicYearStart, gradeDeadlines, user?.id],
   )
 
   // Provisional until ScoresCampusValueProvider runs inside Roster.

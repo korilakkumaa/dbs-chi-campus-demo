@@ -1,0 +1,2 @@
+[functions.admin-year-import]
+verify_jwt = true

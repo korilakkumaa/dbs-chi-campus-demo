@@ -12,7 +12,7 @@ type Props = {
   yearTeachers: User[]
   teacherCards: TeacherCard[]
   students: Student[]
-  canAssignClasses: boolean
+  canAssignClasses?: boolean
   scoresAcademicYearStart: number
   assignClassToTeacher: (classId: string, teacherId: string | null) => void
 }
@@ -22,20 +22,17 @@ export function AdminClassAssignPanel({
   yearTeachers,
   teacherCards,
   students,
-  canAssignClasses,
   scoresAcademicYearStart,
   assignClassToTeacher,
 }: Props) {
   return (
     <div className="admin-layout reveal-up delay-2">
       <GlassPanel className="table-panel">
-        <h2>班級分派</h2>
-        {!canAssignClasses && (
-          <p className="deadline-admin-lead">
-            此學年任教班別依白名單顯示；班級教師下拉僅在成績學年（
-            {formatAcademicYearLabel(scoresAcademicYearStart)}）可改。
-          </p>
-        )}
+        <h2>班級分派（寫入白名單）</h2>
+        <p className="deadline-admin-lead">
+          變更會寫入該學年教師白名單文件（與 CSV 同源），重整後仍保留。目前成績學年為{' '}
+          {formatAcademicYearLabel(scoresAcademicYearStart)}。
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -48,20 +45,14 @@ export function AdminClassAssignPanel({
             </thead>
             <tbody>
               {yearClasses.map((cls) => {
-                const rosterCount = canAssignClasses
-                  ? students.filter((s) => s.classId === cls.id).length
-                  : null
-                const teacherName =
-                  yearTeachers.find((t) => t.id === cls.teacherId)?.name ??
-                  '未分派'
+                const rosterCount = students.filter((s) => s.classId === cls.id).length
                 return (
                   <tr key={cls.id}>
                     <td>{cls.name}</td>
                     <td>{cls.grade}</td>
-                    <td>{rosterCount == null ? '—' : rosterCount}</td>
+                    <td>{rosterCount || '—'}</td>
                     <td>
-                      {canAssignClasses ? (
-                        <select
+                      <select
                           className="assign-select"
                           value={cls.teacherId ?? ''}
                           onChange={(e) =>
@@ -78,9 +69,6 @@ export function AdminClassAssignPanel({
                             </option>
                           ))}
                         </select>
-                      ) : (
-                        teacherName
-                      )}
                     </td>
                   </tr>
                 )

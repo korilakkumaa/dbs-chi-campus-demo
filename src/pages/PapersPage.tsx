@@ -17,6 +17,7 @@ import {
 } from '../components/papers/DutyDisplay'
 import { EditableEcAppendix, EditableGradeMatrix } from '../components/papers/PapersEdit'
 import { ScoresYearSelect } from '../components/ScoresYearSelect'
+import { CsvYearImportPanel } from '../components/admin/CsvYearImportPanel'
 import { SortHeader } from '../components/SortHeader'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -29,9 +30,15 @@ import {
   resolveDutyTeacherCode,
   teacherNameMapForYear,
 } from '../data/assessmentDutyDisplay'
+import {
+  hydrateAssessmentDuty,
+  invalidateAssessmentDuty,
+  peekAssessmentDuty,
+} from '../data/dutyStore'
+import { assessmentDutyToCsv, parseAssessmentDutyCsv } from '../lib/yearCsv/schemas'
+import { applyYearCsvImport } from '../lib/adminYearImport'
 import type { GradeDutyRow } from '../data/assessmentDutyTypes'
 import type { EcAppendixRow } from '../data/assessmentDutyParse'
-import { peekAssessmentDuty } from '../data/dutyStore'
 import { useAssessmentDutyEditor } from '../hooks/useAssessmentDutyEditor'
 import { useDirtyNavigationGuard } from '../hooks/useDirtyNavigationGuard'
 import { canPreviewAllTeachers } from '../lib/permissions'
@@ -386,6 +393,49 @@ export function PapersPage() {
           onSelectYear={onSelectYear}
         />
       </header>
+
+      {isAdmin && user ? (
+        <div className="reveal-up delay-1">
+          <CsvYearImportPanel
+            kind="assessment_duty"
+            startYear={startYear}
+            exportCsv={
+              displayDuty || peekAssessmentDuty(startYear)
+                ? assessmentDutyToCsv(displayDuty ?? peekAssessmentDuty(startYear)!)
+                : null
+            }
+            onParseAndImport={async ({ text }) => {
+              const base = await hydrateAssessmentDuty(startYear)
+              const parsed = parseAssessmentDutyCsv(text, startYear, base)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'assessment_duty',
+                startYear,
+                userEmail: user.username,
+                userId: user.id,
+                assessment: parsed.data,
+              })
+              if (result.ok) {
+                invalidateAssessmentDuty(startYear)
+                window.location.reload()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+        </div>
+      ) : null}
 
       {loading && !displayDuty ? (
         <AsyncStatus variant="loading" message="載入出卷資料中…" />
