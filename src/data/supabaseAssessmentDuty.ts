@@ -61,6 +61,24 @@ export function payloadToAssessmentDuty(
   })
 }
 
+export async function listAssessmentDutyYearsRemote(): Promise<number[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('start_year')
+    .order('start_year', { ascending: false })
+  if (error) {
+    console.warn('[assessment_duty_years] list failed', error.message)
+    return []
+  }
+  const years = new Set<number>()
+  for (const row of data ?? []) {
+    const y = (row as { start_year?: number }).start_year
+    if (typeof y === 'number' && Number.isFinite(y)) years.add(y)
+  }
+  return [...years].sort((a, b) => b - a)
+}
+
 export async function fetchAssessmentDutyYear(
   startYear: number,
 ): Promise<AssessmentDutyRemotePayload | null> {

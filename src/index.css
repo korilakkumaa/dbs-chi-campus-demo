@@ -4335,6 +4335,52 @@ code {
   margin-bottom: 0.95rem;
 }
 
+.admin-papers-panel {
+  margin-bottom: 0.95rem;
+}
+
+.admin-papers-panel .deadline-admin-actions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.admin-papers-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.35rem 0 0;
+}
+
+.admin-papers-status div {
+  min-width: 0;
+}
+
+.admin-papers-status dt {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.admin-papers-status dd {
+  margin: 0.2rem 0 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.papers-bootstrap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .admin-papers-status {
+    grid-template-columns: 1fr;
+  }
+}
+
 .cal-admin-form {
   display: flex;
   flex-direction: column;
