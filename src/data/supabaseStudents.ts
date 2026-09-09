@@ -31,6 +31,7 @@ type SemesterRow = {
   components: Record<string, number | string> | null
   attitude_grade: string | null
   remarks: string | null
+  source_file?: string | null
 }
 
 /** PostgREST defaults to max 1000 rows — page until exhausted. */
@@ -182,35 +183,6 @@ function gradeFromClassId(classId: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** e.g. c-8m + 1 year back → c-7m (2627 G8 ↔ 2526 G7). */
-function priorClassId(classId: string, yearOffset: number): string | null {
-  const match = classId.match(/^(c-)(\d+)(.*)$/i)
-  if (!match || yearOffset <= 0) return null
-  const grade = Number(match[2]) - yearOffset
-  if (grade < 7 || grade > 12) return null
-  return `${match[1]}${grade}${match[3]}`
-}
-
-function isExpectedGrade(roster: StudentRow, hit: StudentRow): boolean {
-  const from = gradeFromClassId(roster.class_id)
-  const to = gradeFromClassId(hit.class_id)
-  if (from == null || to == null) return true
-  return to === from + (hit.academic_year_start - roster.academic_year_start)
-}
-
-function pickByExpectedGrade(
-  roster: StudentRow,
-  hits: StudentRow[],
-): StudentRow | null {
-  const expected = hits.filter((hit) => isExpectedGrade(roster, hit))
-  if (expected.length === 1) return expected[0]
-  if (expected.length > 1) {
-    const form = expected.filter((hit) => !/r_/i.test(hit.class_id))
-    if (form.length === 1) return form[0]
-  }
-  return null
-}
-
 function matchByOfficialStid(
   official: string,
   yearRows: StudentRow[],
@@ -221,45 +193,10 @@ function matchByOfficialStid(
   return hits.length === 1 ? hits[0] : null
 }
 
-/** Fallback when STID does not match: same class + class number (grade-safe). */
-function matchByClassAndNumber(
-  anchor: StudentRow,
-  yearRows: StudentRow[],
-): StudentRow | null {
-  if (anchor.class_number <= 0) return null
-  const hits = yearRows.filter(
-    (row) =>
-      row.class_id === anchor.class_id &&
-      row.class_number === anchor.class_number,
-  )
-  return pickByExpectedGrade(anchor, hits)
-}
-
 /**
- * Cross-year fallback: 2627 G8#12 ↔ 2526 G7#12 (same class letter, prior grade).
- */
-function matchByPromotedClass(
-  anchor: StudentRow,
-  priorYear: number,
-  yearRows: StudentRow[],
-): StudentRow | null {
-  const offset = anchor.academic_year_start - priorYear
-  if (offset <= 0 || anchor.class_number <= 0) return null
-  const priorClass = priorClassId(anchor.class_id, offset)
-  if (!priorClass) return null
-  const hits = yearRows.filter(
-    (row) =>
-      row.class_id === priorClass &&
-      row.class_number === anchor.class_number,
-  )
-  if (hits.length === 1) return hits[0]
-  return pickByExpectedGrade(anchor, hits)
-}
-
-/**
- * Link roster student_no across prior academic years.
- * Walk newest→oldest: STID first, then class+class_number on the anchor
- * from the year just matched (not the current-year roster).
+ * Link roster student_no across prior academic years by official STID only.
+ * Seat/class-number fallbacks are intentionally omitted so transfer students
+ * do not inherit another pupil's prior-year scores.
  */
 function linkedStudentNos(
   roster: StudentRow,
@@ -267,7 +204,6 @@ function linkedStudentNos(
 ): string[] {
   const nos = new Set<string>([roster.student_no])
   const official = officialStudentNo(roster.student_no)
-  let anchor: StudentRow = roster
 
   const priorYears = [...rowsByYear.keys()]
     .filter((year) => year < roster.academic_year_start)
@@ -276,18 +212,9 @@ function linkedStudentNos(
   for (const year of priorYears) {
     const rows = rowsByYear.get(year) ?? []
     if (rows.length === 0) continue
-
-    const byStid = matchByOfficialStid(official, rows)
-    let hit =
-      byStid ??
-      matchByPromotedClass(anchor, year, rows) ??
-      matchByPromotedClass(roster, year, rows) ??
-      matchByClassAndNumber(anchor, rows) ??
-      matchByClassAndNumber(roster, rows)
-
+    const hit = matchByOfficialStid(official, rows)
     if (!hit) continue
     nos.add(hit.student_no)
-    anchor = hit
   }
 
   return [...nos]
@@ -329,6 +256,8 @@ function historyRecordsForStudent(
   const official = officialStudentNo(roster.student_no)
   return records.filter((r) => {
     if (r.academic_year_start > rosterYear) return false
+    // Ignore denormalized copies from deprecated sync (seat fallback polluted these).
+    if (r.source_file?.startsWith('sync2627:')) return false
     if (linkedNos.has(r.student_no)) return true
     if (r.student_no === roster.student_no) return true
     return (
@@ -452,7 +381,7 @@ export async function fetchCampusStudentsFromSupabase(
       client
         .from('semester_records')
         .select(
-          'student_no, academic_year_start, grade, semester, daily, reading, writing, components, attitude_grade, remarks',
+          'student_no, academic_year_start, grade, semester, daily, reading, writing, components, attitude_grade, remarks, source_file',
         )
         .in('academic_year_start', years)
         .order('student_no')

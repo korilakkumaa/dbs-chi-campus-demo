@@ -49,7 +49,15 @@ Dashboard 位置：Project Settings → API。`anon` key 本來就會進瀏覽�
 
 **勿混入 2026/27**：2627 教師時間表、2627 白名單與日曆為下一學年；入分檔匯入腳本只接受 `academic_year_start = 2025`，並略過檔名含 `2627` 的 Excel。
 
-**分數頁**：`/class` 學年選擇器會依 `academic_year_start` 重新向 Supabase 載入成績，並套用該學年白名單（2526／2627）顯示任教老師。
+**分數頁**：`/class` 學年選擇器會依 `academic_year_start` 重新向 Supabase 載入成績，並套用該學年白名單（2526／2627）顯示任教老師。跨年歷史**只依官方 STID** 連結；不依班級座號猜測，避免插班生繼承他人舊分。畫面多為 0–100 換算分，與登分檔加權貢獻對照時請用同一公式驗算。
+
+**勿再複製往年分數到新年 `student_no`**：舊的 `sync:prior-scores:2627`（含座位 fallback）已停用；若 DB 仍有 `source_file` 以 `sync2627:` 開頭的列，請清掉：
+
+```bash
+npm run cleanup:sync2627-scores          # 需 SUPABASE_SERVICE_ROLE_KEY
+npm run cleanup:sync2627-scores:sql      # 只產 SQL → scripts/out/
+npm run verify:stid-score-history        # 抽查：插班生無幽靈舊分、延續生仍有歷史
+```
 
 本機從上述資料夾產生 seed：
 
@@ -122,7 +130,7 @@ npm run import:streaming:2627
 | `school_calendar` | 對齊校曆 seed CSV（`Date,Event,Category,…`） | `campus_calendar_events` |
 | `assessment_duty` | `grade,category,semester,part,note,teacher_initial,weight,section,ec_slot` | `assessment_duty_years` |
 | `dept_duty` | `category,title,teacher_initial,role,notes` | `dept_duty_years` |
-| `semester_scores` | `stid,semester,daily,reading,writing` | `semester_records` |
+| `semester_scores` | `stid,semester,daily,reading,writing` | `semester_records`（僅 totals；正式對帳請用 Excel 入分腳本） |
 | `grade_deadlines` | `grade,activity_title,activity_due,submitted` | `grade_deadlines_years` |
 
 班級分派下拉與白名單 CSV **同源**（寫入 `teacher_whitelist_years`）。成績截止日期「提交」會持久化至 `grade_deadlines_years`。

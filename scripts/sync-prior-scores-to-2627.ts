@@ -1,9 +1,17 @@
 /**
- * Copy 2024/25 semester_records onto 2026/27 roster student_no rows
- * so 分數-個人 can show prior years before 2627 workbooks are imported.
+ * @deprecated Prefer client-side STID linking in `src/data/supabaseStudents.ts`.
+ * Do not copy prior scores onto a new roster year — seat/class fallbacks caused
+ * transfer students to inherit another pupil's history. If denormalized copies
+ * already exist, run:
  *
- *   npm run sync:prior-scores:2627
- *   npm run sync:prior-scores:2627 -- --sql
+ *   npm run cleanup:sync2627-scores
+ *
+ * This script only matches by official STID (no class+number fallback) and is
+ * gated behind `--force`. New academic years should import roster + that year's
+ * Excel scores only; prior years appear automatically via STID.
+ *
+ *   npm run sync:prior-scores:2627 -- --force
+ *   npm run sync:prior-scores:2627 -- --force --sql
  */
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
@@ -67,14 +75,6 @@ function gradeFromClassId(classId: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-function priorClassId(classId: string, yearOffset: number): string | null {
-  const match = classId.match(/^(c-)(\d+)(.*)$/i)
-  if (!match || yearOffset <= 0) return null
-  const grade = Number(match[2]) - yearOffset
-  if (grade < 7 || grade > 12) return null
-  return `${match[1]}${grade}${match[3]}`
-}
-
 function mappedGradeForRecord(
   current: StudentRow,
   recordYear: number,
@@ -86,46 +86,6 @@ function mappedGradeForRecord(
   if (offset <= 0) return sourceGrade
   const mapped = currentGrade - offset
   return mapped >= 7 && mapped <= 12 ? mapped : sourceGrade
-}
-
-function isExpectedGrade(anchor: StudentRow, hit: StudentRow): boolean {
-  const from = gradeFromClassId(anchor.class_id)
-  const to = gradeFromClassId(hit.class_id)
-  if (from == null || to == null) return true
-  return to === from + (hit.academic_year_start - anchor.academic_year_start)
-}
-
-function matchByClassAndNumber(
-  anchor: StudentRow,
-  rows: StudentRow[],
-): StudentRow | null {
-  if (anchor.class_number <= 0) return null
-  const hits = rows.filter(
-    (row) =>
-      row.class_id === anchor.class_id &&
-      row.class_number === anchor.class_number,
-  )
-  const expected = hits.filter((hit) => isExpectedGrade(anchor, hit))
-  if (expected.length === 1) return expected[0]
-  return null
-}
-
-function matchByPromotedClass(
-  anchor: StudentRow,
-  priorYear: number,
-  rows: StudentRow[],
-): StudentRow | null {
-  const offset = TARGET_YEAR - priorYear
-  if (offset <= 0 || anchor.class_number <= 0) return null
-  const priorClass = priorClassId(anchor.class_id, offset)
-  if (!priorClass) return null
-  const hits = rows.filter(
-    (row) =>
-      row.class_id === priorClass &&
-      row.class_number === anchor.class_number,
-  )
-  const expected = hits.filter((hit) => isExpectedGrade(anchor, hit))
-  return expected.length === 1 ? expected[0] : null
 }
 
 function priorStudentNos(official: string, year: number): string[] {
@@ -142,17 +102,31 @@ async function main() {
   const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const sqlOnly = process.argv.includes('--sql')
+  const force = process.argv.includes('--force')
+
+  if (!force) {
+    console.error(`Deprecated: copying prior scores onto ${TARGET_YEAR} student_no is no longer needed.
+Score history is linked at read time by official STID only.
+
+To remove old sync copies:
+  npm run cleanup:sync2627-scores
+
+To run this script anyway (STID-only matches):
+  npm run sync:prior-scores:2627 -- --force`)
+    process.exit(1)
+  }
 
   if (!sqlOnly && (!url || !serviceKey)) {
     console.error('Need SUPABASE_SERVICE_ROLE_KEY (or pass --sql)')
     process.exit(1)
   }
 
-  const client = url && serviceKey
-    ? createClient(url, serviceKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-    : null
+  const client =
+    url && serviceKey
+      ? createClient(url, serviceKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        })
+      : null
 
   const roster = await fetchAll<StudentRow>('students', (from, to) => {
     if (!client) return Promise.resolve({ data: [], error: null })
@@ -201,37 +175,18 @@ async function main() {
   const copies: SemesterRow[] = []
   const seen = new Set<string>()
   let stidHits = 0
-  let classHits = 0
 
   for (const current of roster) {
     const official = officialStudentNo(current.student_no)
-    let anchor: StudentRow = current
 
     for (const year of [...SOURCE_YEARS].sort((a, b) => b - a)) {
       const yearStudents = studentsByYear.get(year) ?? []
-      let sourceNo: string | null = null
-
       const stidMatch = yearStudents.filter(
         (row) => officialStudentNo(row.student_no) === official,
       )
-      if (stidMatch.length === 1) {
-        sourceNo = stidMatch[0].student_no
-        anchor = stidMatch[0]
-        stidHits++
-      } else {
-        const classMatch =
-          matchByPromotedClass(current, year, yearStudents) ??
-          matchByPromotedClass(anchor, year, yearStudents) ??
-          matchByClassAndNumber(anchor, yearStudents) ??
-          matchByClassAndNumber(current, yearStudents)
-        if (classMatch) {
-          sourceNo = classMatch.student_no
-          anchor = classMatch
-          classHits++
-        }
-      }
-
-      if (!sourceNo) continue
+      if (stidMatch.length !== 1) continue
+      stidHits++
+      const sourceNo = stidMatch[0].student_no
 
       for (const no of priorStudentNos(officialStudentNo(sourceNo), year)) {
         const key = `${no}|${year}`
@@ -242,7 +197,11 @@ async function main() {
           copies.push({
             ...rec,
             student_no: current.student_no,
-            grade: mappedGradeForRecord(current, rec.academic_year_start, rec.grade),
+            grade: mappedGradeForRecord(
+              current,
+              rec.academic_year_start,
+              rec.grade,
+            ),
             source_file: `sync2627:${rec.source_file || rec.academic_year_start}`,
           })
         }
@@ -253,11 +212,14 @@ async function main() {
   console.log(
     `Prepared ${copies.length} semester_records for ${roster.length} students (${TARGET_YEAR}/27 roster)`,
   )
-  console.log(`  STID matches: ${stidHits}, class+number fallbacks: ${classHits}`)
+  console.log(`  STID matches: ${stidHits} (class+number fallback disabled)`)
 
   const byYear = new Map<number, number>()
   for (const row of copies) {
-    byYear.set(row.academic_year_start, (byYear.get(row.academic_year_start) ?? 0) + 1)
+    byYear.set(
+      row.academic_year_start,
+      (byYear.get(row.academic_year_start) ?? 0) + 1,
+    )
   }
   for (const [year, count] of [...byYear.entries()].sort()) {
     console.log(`  academic_year_start=${year}: ${count} rows`)
@@ -267,7 +229,8 @@ async function main() {
     mkdirSync('scripts/out', { recursive: true })
     const path = 'scripts/out/sync-prior-scores-2627.sql'
     const lines = [
-      '-- Sync 2024/25 scores onto 2026/27 roster student_no',
+      '-- DEPRECATED: Sync 2024/25 scores onto 2026/27 roster (STID-only)',
+      '-- Prefer cleanup:sync2627-scores + client STID linking instead.',
       '',
     ]
     const chunk = 100
