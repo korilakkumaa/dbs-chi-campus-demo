@@ -9302,11 +9302,57 @@ tbody tr.table-row-link:focus-visible {
   gap: 0.85rem;
 }
 
+.papers-grade-edit-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.papers-grade-edit-jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
 .papers-grade-edit-card {
   padding: 0.75rem;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: color-mix(in srgb, var(--panel) 97%, white);
+}
+
+.papers-grade-edit-details[open] .papers-grade-chevron {
+  transform: rotate(90deg);
+}
+
+.papers-grade-edit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.papers-grade-edit-summary::-webkit-details-marker {
+  display: none;
+}
+
+.papers-grade-edit-summary::marker {
+  content: '';
+}
+
+.papers-grade-edit-summary .duty-title-input {
+  flex: 1 1 12rem;
+}
+
+.papers-grade-edit-meta {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 .papers-grade-edit-head {
@@ -9315,6 +9361,19 @@ tbody tr.table-row-link:focus-visible {
 
 .papers-grade-edit-head .duty-title-input {
   flex: 1 1 12rem;
+}
+
+.papers-grade-edit-body {
+  margin-top: 0.65rem;
+  padding-top: 0.35rem;
+}
+
+.papers-appendix-edit-details .papers-appendix-head {
+  align-items: center;
+}
+
+.papers-appendix-edit-details .papers-appendix-body {
+  margin-top: 0.75rem;
 }
 
 .papers-category-edit {

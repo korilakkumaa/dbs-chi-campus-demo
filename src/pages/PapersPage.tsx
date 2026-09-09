@@ -163,7 +163,11 @@ export function PapersPage() {
   }, [displayDuty, ownCode, user?.role, startYear])
 
   useEffect(() => {
-    if (!displayDuty || view === 'mine' || editing) return
+    if (!displayDuty || view === 'mine') return
+    if (editing) {
+      setAppendixOpen(false)
+      return
+    }
     setGradeOpen(buildInitialGradeOpen(displayDuty))
     setAppendixOpen(false)
   }, [displayDuty, startYear, view, editing])
@@ -474,7 +478,9 @@ export function PapersPage() {
               <GlassPanel className="table-panel reveal-up delay-2">
                 <div className="table-panel-head">
                   <h2>編輯年級矩陣</h2>
-                  <p className="duties-source-note">{draft.label}</p>
+                  <p className="duties-source-note">
+                    {draft.label} · 點年級可專注編輯其餘會折疊
+                  </p>
                 </div>
                 <EditableGradeMatrix
                   duty={draft}
@@ -484,14 +490,30 @@ export function PapersPage() {
                 />
               </GlassPanel>
               <GlassPanel className="papers-appendix reveal-up delay-3">
-                <div className="table-panel-head">
-                  <h2>編輯 EC 附錄</h2>
-                </div>
-                <EditableEcAppendix
-                  rows={draft.ecAppendix}
-                  nameMap={nameMap}
-                  onChange={(ecAppendix: EcAppendixRow[]) => patchDraft({ ecAppendix })}
-                />
+                <details
+                  className="papers-appendix-details papers-appendix-edit-details"
+                  open={appendixOpen}
+                  onToggle={(event) => setAppendixOpen(event.currentTarget.open)}
+                >
+                  <summary className="papers-appendix-head">
+                    <span className="papers-grade-chevron" aria-hidden="true" />
+                    <h2>編輯 EC 附錄</h2>
+                    <span className="papers-grade-edit-meta">
+                      {draft.ecAppendix.length
+                        ? `${draft.ecAppendix.length} 列`
+                        : '尚無列'}
+                    </span>
+                  </summary>
+                  <div className="papers-appendix-body">
+                    <EditableEcAppendix
+                      rows={draft.ecAppendix}
+                      nameMap={nameMap}
+                      onChange={(ecAppendix: EcAppendixRow[]) =>
+                        patchDraft({ ecAppendix })
+                      }
+                    />
+                  </div>
+                </details>
               </GlassPanel>
             </>
           ) : view === 'mine' ? (
