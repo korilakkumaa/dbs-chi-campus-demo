@@ -17,6 +17,9 @@ import {
   buildScorePools,
   descendingRank,
   lookupPercentile,
+  recordCohortAcademicYear,
+  scorePoolSemesterKey,
+  scorePoolTotalKey,
   percentileRank,
   quartileFromPercentile,
   recordHasSemester,
@@ -75,11 +78,27 @@ function YearHistoryCharts({
             )
           : null
         const total = yearPoints(record)
-        const yearPool = pools.sameYearTotal.get(String(record.grade)) ?? []
+        const cohortYear = recordCohortAcademicYear(record)
+        const yearPool =
+          pools.sameYearTotal.get(
+            scorePoolTotalKey(record.grade, cohortYear),
+          ) ?? []
         const firstPool =
-          pools.sameYearSemester.get(`${record.grade}-first`) ?? []
+          pools.sameYearSemester.get(
+            scorePoolSemesterKey(
+              record.grade,
+              'first',
+              firstBand.academicYearStart,
+            ),
+          ) ?? []
         const secondPool =
-          pools.sameYearSemester.get(`${record.grade}-second`) ?? []
+          pools.sameYearSemester.get(
+            scorePoolSemesterKey(
+              record.grade,
+              'second',
+              secondBand.academicYearStart,
+            ),
+          ) ?? []
         const yearPct = percentileRank(total, yearPool)
         const yearRank = descendingRank(total, yearPool)
         const yearCohort = yearPool.length
@@ -132,6 +151,7 @@ function YearHistoryCharts({
                   semester,
                   subject,
                   earned,
+                  band.academicYearStart,
                 )
                 const tone = quartileFromPercentile(sameYear)
                 const fill = max > 0 ? (earned / max) * 100 : 0

@@ -262,7 +262,52 @@ export function quartileLabel(q: Quartile): string {
   return '末 25%'
 }
 
-/** Build score pools for same-year and same-paper cross-year percentiles. */
+/**
+ * Academic year the year-total belongs to (for cohort ranking).
+ * Prefer the semester that contributed marks; fall back to whichever is set.
+ */
+export function recordCohortAcademicYear(
+  record: YearRecord,
+): number | undefined {
+  if (recordHasSemester(record, 'second') && record.secondAcademicYearStart != null) {
+    return record.secondAcademicYearStart
+  }
+  if (recordHasSemester(record, 'first') && record.firstAcademicYearStart != null) {
+    return record.firstAcademicYearStart
+  }
+  return record.secondAcademicYearStart ?? record.firstAcademicYearStart
+}
+
+/** Pool key: same display grade + same earned academic year (not mixed cohorts). */
+export function scorePoolTotalKey(
+  grade: number,
+  academicYearStart: number | undefined,
+): string {
+  return academicYearStart != null ? `${academicYearStart}|${grade}` : String(grade)
+}
+
+export function scorePoolSemesterKey(
+  grade: number,
+  semester: SemesterKey,
+  academicYearStart: number | undefined,
+): string {
+  return academicYearStart != null
+    ? `${academicYearStart}|${grade}|${semester}`
+    : `${grade}-${semester}`
+}
+
+export function scorePoolSubjectKey(
+  grade: number,
+  semester: SemesterKey,
+  subject: SubjectKey,
+  academicYearStart: number | undefined,
+): string {
+  return academicYearStart != null
+    ? `${academicYearStart}|${grade}|${semester}|${subject}`
+    : `${grade}-${semester}-${subject}`
+}
+
+/** Build score pools for same-cohort and same-paper cross-year percentiles. */
 export function buildScorePools(students: Student[]) {
   const sameYearSubject = new Map<string, number[]>()
   const sameYearSemester = new Map<string, number[]>()
@@ -278,13 +323,18 @@ export function buildScorePools(students: Student[]) {
   for (const student of students) {
     for (const record of student.yearHistory) {
       const { grade } = record
-      push(sameYearTotal, String(grade), yearPoints(record))
+      const cohortYear = recordCohortAcademicYear(record)
+      push(
+        sameYearTotal,
+        scorePoolTotalKey(grade, cohortYear),
+        yearPoints(record),
+      )
       for (const semester of ['first', 'second'] as const) {
         if (!recordHasSemester(record, semester)) continue
         const band = scoringBandForSemester(record, semester)
         push(
           sameYearSemester,
-          `${grade}-${semester}`,
+          scorePoolSemesterKey(grade, semester, band.academicYearStart),
           semesterPoints(
             record[semester],
             band.grade,
@@ -300,7 +350,12 @@ export function buildScorePools(students: Student[]) {
           )
           push(
             sameYearSubject,
-            `${grade}-${semester}-${subject}`,
+            scorePoolSubjectKey(
+              grade,
+              semester,
+              subject,
+              band.academicYearStart,
+            ),
             earned,
           )
           const crossList = crossPaper.get(paperKey(semester, subject))
@@ -320,9 +375,12 @@ export function lookupPercentile(
   semester: SemesterKey,
   subject: SubjectKey,
   earned: number,
+  academicYearStart?: number,
 ): { sameYear: number; crossYear: number } {
   const sameYear =
-    pools.sameYearSubject.get(`${grade}-${semester}-${subject}`) ?? []
+    pools.sameYearSubject.get(
+      scorePoolSubjectKey(grade, semester, subject, academicYearStart),
+    ) ?? []
   const crossYear = pools.crossPaper.get(paperKey(semester, subject)) ?? []
   return {
     sameYear: percentileRank(earned, sameYear),
