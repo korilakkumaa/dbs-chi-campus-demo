@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { AsyncStatus } from '../components/AsyncStatus'
 import {
   DutyConfirmDialog,
   DutyEditBar,
@@ -32,6 +33,9 @@ import type { GradeDutyRow } from '../data/assessmentDutyTypes'
 import type { EcAppendixRow } from '../data/assessmentDutyParse'
 import { peekAssessmentDuty } from '../data/dutyStore'
 import { useAssessmentDutyEditor } from '../hooks/useAssessmentDutyEditor'
+import { useDirtyNavigationGuard } from '../hooks/useDirtyNavigationGuard'
+import { canPreviewAllTeachers } from '../lib/permissions'
+import { supabaseConfigured } from '../lib/supabase'
 
 type ViewMode = 'mine' | 'grade' | 'teacher'
 type TeacherSortKey = 'name' | 'totalWeight'
@@ -76,6 +80,7 @@ export function PapersPage() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [pendingDeleteGrade, setPendingDeleteGrade] = useState<string | null>(null)
   const [bootstrapping, setBootstrapping] = useState(false)
+  const [pendingNavDiscard, setPendingNavDiscard] = useState(false)
 
   const {
     isAdmin,
@@ -93,6 +98,19 @@ export function PapersPage() {
     bootstrap,
     save,
   } = useAssessmentDutyEditor(startYear, user)
+
+  const { navigationBlocked, confirmNavigation, cancelNavigation } =
+    useDirtyNavigationGuard(dirty && editing)
+
+  useEffect(() => {
+    if (!navigationBlocked) return
+    setPendingNavDiscard(true)
+    setDialog({
+      kind: 'confirm',
+      title: '離開此頁？',
+      message: '未儲存的出卷修改將會遺失。',
+    })
+  }, [navigationBlocked])
 
   const academicYears = listAcademicYearStarts()
   const yearOptions = useMemo(() => {
@@ -156,11 +174,11 @@ export function PapersPage() {
     if (!displayDuty) return
     const fallback =
       ownCode ??
-      (user?.role === 'admin' ? ADMIN_PREVIEW_CODE : null) ??
+      (canPreviewAllTeachers(user) ? ADMIN_PREVIEW_CODE : null) ??
       displayDuty.teachers[0]?.code ??
       null
     setSelectedCode(fallback)
-  }, [displayDuty, ownCode, user?.role, startYear])
+  }, [displayDuty, ownCode, user, startYear])
 
   useEffect(() => {
     if (!displayDuty || view === 'mine') return
@@ -232,7 +250,7 @@ export function PapersPage() {
     setTeacherSortDir(nextDir)
   }
 
-  const showTeacherPicker = user?.role === 'admin' && view === 'mine' && !editing
+  const showTeacherPicker = canPreviewAllTeachers(user) && view === 'mine' && !editing
 
   const syncYearToUrl = (y: number) => {
     const next = new URLSearchParams(searchParams)
@@ -262,6 +280,7 @@ export function PapersPage() {
 
   const onDiscard = () => {
     setPendingDeleteGrade(null)
+    setPendingNavDiscard(false)
     if (!dirty) {
       exitEdit()
       return
@@ -276,6 +295,10 @@ export function PapersPage() {
   const confirmDiscard = () => {
     setDialog(null)
     exitEdit()
+    if (pendingNavDiscard) {
+      setPendingNavDiscard(false)
+      confirmNavigation()
+    }
   }
 
   const onSave = async () => {
@@ -297,6 +320,7 @@ export function PapersPage() {
 
   const requestDeleteGrade = (gradeLabel: string) => {
     setPendingDeleteGrade(gradeLabel)
+    setPendingNavDiscard(false)
     setDialog({
       kind: 'confirm',
       title: '刪除年級列？',
@@ -364,14 +388,14 @@ export function PapersPage() {
       </header>
 
       {loading && !displayDuty ? (
-        <GlassPanel className="reveal-up delay-1">
-          <p className="empty-note">載入出卷資料中…</p>
-        </GlassPanel>
+        <AsyncStatus variant="loading" message="載入出卷資料中…" />
       ) : !displayDuty ? (
         <GlassPanel className="reveal-up delay-1">
-          <p className="empty-note">
-            {formatAcademicYearLabel(startYear)} 的出卷分工資料尚未匯入。
-          </p>
+          <AsyncStatus
+            variant="empty"
+            panel={false}
+            message={`${formatAcademicYearLabel(startYear)} 的出卷分工資料尚未匯入。`}
+          />
           {isAdmin ? (
             <div className="papers-bootstrap-actions">
               <button
@@ -400,12 +424,40 @@ export function PapersPage() {
         </GlassPanel>
       ) : (
         <>
+          {!supabaseConfigured ? (
+            <AsyncStatus
+              variant="offline"
+              panel={false}
+              message="目前未連線資料庫，顯示的是本機種子資料。"
+            />
+          ) : null}
           <GlassPanel className="papers-toolbar reveal-up delay-1">
-            <div className="papers-view-tabs" role="tablist" aria-label="出卷資料檢視">
+            <div
+              className="papers-view-tabs"
+              role="tablist"
+              aria-label="出卷資料檢視"
+              onKeyDown={(e) => {
+                if (editing) return
+                const tabs = (['mine', 'grade', 'teacher'] as const).filter(
+                  (t) => !(editing && t !== 'grade'),
+                )
+                const idx = tabs.indexOf(view as (typeof tabs)[number])
+                if (idx < 0) return
+                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                  e.preventDefault()
+                  const next =
+                    e.key === 'ArrowRight'
+                      ? tabs[(idx + 1) % tabs.length]
+                      : tabs[(idx - 1 + tabs.length) % tabs.length]
+                  setView(next)
+                }
+              }}
+            >
               <button
                 type="button"
                 role="tab"
                 aria-selected={view === 'mine'}
+                tabIndex={view === 'mine' ? 0 : -1}
                 className={`papers-view-tab${view === 'mine' ? ' active' : ''}`}
                 disabled={editing}
                 onClick={() => setView('mine')}
@@ -416,6 +468,7 @@ export function PapersPage() {
                 type="button"
                 role="tab"
                 aria-selected={view === 'grade'}
+                tabIndex={view === 'grade' ? 0 : -1}
                 className={`papers-view-tab${view === 'grade' ? ' active' : ''}`}
                 onClick={() => setView('grade')}
               >
@@ -425,6 +478,7 @@ export function PapersPage() {
                 type="button"
                 role="tab"
                 aria-selected={view === 'teacher'}
+                tabIndex={view === 'teacher' ? 0 : -1}
                 className={`papers-view-tab${view === 'teacher' ? ' active' : ''}`}
                 disabled={editing}
                 onClick={() => setView('teacher')}
@@ -634,6 +688,10 @@ export function PapersPage() {
           onClose={() => {
             setDialog(null)
             setPendingDeleteGrade(null)
+            if (pendingNavDiscard) {
+              setPendingNavDiscard(false)
+              cancelNavigation()
+            }
           }}
           onConfirm={() => {
             if (dialog.kind !== 'confirm') return

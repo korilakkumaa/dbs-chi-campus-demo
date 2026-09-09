@@ -232,7 +232,7 @@ function MonthAddRow({
         pattern="[0-9]*"
         className="year-ov-add-day"
         value={day}
-        placeholder="Day"
+        placeholder="日子"
         maxLength={2}
         onChange={(e) => {
           const next = e.target.value.replace(/\D/g, '').slice(0, 2)

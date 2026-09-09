@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { formatAcademicYearLabel } from '../data/academicYear'
 import { formatScore } from '../lib/format'
 import { useCampus } from '../context/CampusContext'
+import { AsyncStatus } from '../components/AsyncStatus'
 import { GlassPanel } from '../components/GlassPanel'
 import { SortHeader } from '../components/SortHeader'
 import { ScoresYearSelect } from '../components/ScoresYearSelect'
@@ -544,14 +545,20 @@ export function IndividualPage() {
             {formatAcademicYearLabel(startYear)}學年名冊 · 追蹤圖只帶入過往學年成績。勾選名冊學生以對比檔案；名冊年級篩選獨立於頂部班級選擇。
           </p>
           {campusDataError && (
-            <p className="campus-data-notice" role="status">
-              {campusDataError}
-            </p>
+            <AsyncStatus
+              variant={
+                campusDataError.includes('尚未連線') ? 'offline' : 'error'
+              }
+              panel={false}
+              message={campusDataError}
+            />
           )}
           {campusDataLoading && (
-            <p className="campus-data-notice" role="status">
-              正在載入 {formatAcademicYearLabel(startYear)} 學年成績…
-            </p>
+            <AsyncStatus
+              variant="loading"
+              panel={false}
+              message={`正在載入 ${formatAcademicYearLabel(startYear)} 學年成績…`}
+            />
           )}
         </div>
         <ScoresYearSelect

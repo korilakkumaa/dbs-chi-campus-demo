@@ -63,7 +63,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
   const usesGoogleLogin = authMethod === 'google'
 
   const ensureGoogleSync = useCallback(async () => {
-    if (!user || authMethod === 'password') {
+    if (!user || authMethod !== 'google') {
       setGoogleReady(false)
       setGoogleNeedsAuth(false)
       return
@@ -116,7 +116,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
   }, [loadFeed])
 
   const authorizeGoogleCalendar = useCallback(async () => {
-    if (authMethod === 'password') return
+    if (authMethod !== 'google') return
     sessionStorage.removeItem(GOOGLE_CALENDAR_AUTH_ATTEMPTED)
     setMessage({
       tone: 'info',

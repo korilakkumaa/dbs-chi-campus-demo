@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AsyncStatus } from '../components/AsyncStatus'
 import { useNavigate } from 'react-router-dom'
 import { formatAcademicYearLabel } from '../data/academicYear'
 import { average } from '../lib/stats'
@@ -131,9 +132,13 @@ export function ClassPage() {
             {formatAcademicYearLabel(startYear)}學年 · 並排檢視已選班級的概況。長條為每位學生學期總分（初中滿分 100：CA 20+閱40+寫40；高中滿分 100：CA 15+閱40+寫45）。點擊班級卡片可開啟該班個人頁；點擊長條可開啟該生檔案。
           </p>
           {campusDataError && (
-            <p className="campus-data-notice" role="status">
-              {campusDataError}
-            </p>
+            <AsyncStatus
+              variant={
+                campusDataError.includes('尚未連線') ? 'offline' : 'error'
+              }
+              panel={false}
+              message={campusDataError}
+            />
           )}
         </div>
         <ScoresYearSelect
@@ -145,9 +150,11 @@ export function ClassPage() {
       </header>
 
       {campusDataLoading && (
-        <p className="campus-data-notice" role="status">
-          正在載入 {formatAcademicYearLabel(startYear)} 學年成績…
-        </p>
+        <AsyncStatus
+          variant="loading"
+          panel={false}
+          message={`正在載入 ${formatAcademicYearLabel(startYear)} 學年成績…`}
+        />
       )}
 
       {availableGrades.length > 0 && (

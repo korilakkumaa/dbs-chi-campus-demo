@@ -13,7 +13,6 @@ import {
   isAdminEmail,
   resolveStaffUser,
   roleForStaff,
-  staffUsers,
 } from '../data/staffUsers'
 import { oauthRedirectTo, supabase } from '../lib/supabase'
 import { persistGoogleTokensFromSession } from '../data/googleCalendarSync'
@@ -33,11 +32,10 @@ interface AuthContextValue {
   user: User | null
   ready: boolean
   authError: string | null
-  /** How the user signed in — Google OAuth required for direct Calendar sync. */
-  authMethod: 'google' | 'password' | null
+  /** Google OAuth only — required for Calendar sync. */
+  authMethod: 'google' | null
   /** TWL / LKL / YLN school accounts may toggle 管理員 ↔ 老師 after sign-in. */
   canSwitchRole: boolean
-  login: (username: string, password: string) => User | string
   loginWithGoogle: () => Promise<string | void>
   switchRole: (role: Role) => void
   logout: () => void
@@ -59,25 +57,6 @@ function isRole(value: string | null): value is Role {
   return value === 'admin' || value === 'teacher' || value === 'student'
 }
 
-function loadUser(): User | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { id: string }
-    const stored = staffUsers.find((u) => u.id === parsed.id) ?? null
-    if (!stored) return null
-    if (stored.username.includes('@')) {
-      return resolveStaffUser(
-        stored.username,
-        roleForStaff(stored.username, readStoredRole()),
-      )
-    }
-    return stored
-  } catch {
-    return null
-  }
-}
-
 function persistUser(user: User) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: user.id }))
 }
@@ -91,19 +70,26 @@ function readStoredRole(): Role | null {
   return isRole(raw) ? raw : null
 }
 
-function persistMethod(method: 'google' | 'password' | null) {
+function persistMethod(method: 'google' | null) {
   if (!method) localStorage.removeItem(METHOD_KEY)
   else localStorage.setItem(METHOD_KEY, method)
-}
-
-function readMethod(): 'google' | 'password' | null {
-  const raw = localStorage.getItem(METHOD_KEY)
-  return raw === 'google' || raw === 'password' ? raw : null
 }
 
 function clearPersistedAuth() {
   localStorage.removeItem(STORAGE_KEY)
   persistMethod(null)
+}
+
+/** Drop legacy password sessions from older builds. */
+function clearLegacyPasswordSession() {
+  try {
+    if (localStorage.getItem(METHOD_KEY) === 'password') {
+      clearPersistedAuth()
+      localStorage.removeItem(ROLE_KEY)
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 const GOOGLE_NOT_WHITELISTED = '此 Google 帳戶不在教師名單內。'
@@ -112,16 +98,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [authMethod, setAuthMethod] = useState<'google' | 'password' | null>(
-    () => readMethod(),
-  )
+  const [authMethod, setAuthMethod] = useState<'google' | null>(null)
 
   const applySession = useCallback(async (session: Session | null) => {
     const email = session?.user?.email
     if (!email) {
-      if (readMethod() === 'password') setUser(loadUser())
-      else setUser(null)
-      setAuthMethod(readMethod())
+      setUser(null)
+      setAuthMethod(null)
       return
     }
 
@@ -147,9 +130,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    clearLegacyPasswordSession()
+
     if (!supabase) {
-      setUser(readMethod() === 'google' ? null : loadUser())
-      setAuthMethod(readMethod())
+      setUser(null)
+      setAuthMethod(null)
       setReady(true)
       return
     }
@@ -188,28 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authError,
       authMethod,
       canSwitchRole: Boolean(user && isAdminEmail(user.username)),
-      login: (username, password) => {
-        const found = staffUsers.find(
-          (u) =>
-            u.username.toLowerCase() === username.trim().toLowerCase() &&
-            u.password === password,
-        )
-        if (!found) return '帳戶或密碼不正確。'
-        const resolved = found.username.includes('@')
-          ? resolveStaffUser(
-              found.username,
-              roleForStaff(found.username, readStoredRole()),
-            )
-          : found
-        if (!resolved) return '此帳戶無法登入。'
-        persistUser(resolved)
-        persistRole(resolved.role)
-        persistMethod('password')
-        setAuthMethod('password')
-        setAuthError(null)
-        setUser(resolved)
-        return resolved
-      },
       loginWithGoogle: async () => {
         if (!supabase) return '尚未連接 Google 登入（缺少 Supabase 設定）。'
         const { error } = await supabase.auth.signInWithOAuth({

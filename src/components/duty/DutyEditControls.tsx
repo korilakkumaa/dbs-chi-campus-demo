@@ -1,8 +1,12 @@
+import { useEffect, useRef } from 'react'
 import type { User } from '../../types'
 
 type DialogState =
   | { kind: 'info'; title: string; message: string }
   | { kind: 'confirm'; title: string; message: string; items?: string[] }
+
+export type { DialogState }
+export type DutyEditorUser = User
 
 export function DutyEditBar({
   dirty,
@@ -54,9 +58,46 @@ export function DutyConfirmDialog({
   onClose: () => void
   onConfirm?: () => void
 }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const previousFocus = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    previousFocus.current = document.activeElement as HTMLElement | null
+    const panel = panelRef.current
+    const focusable = panel?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    )
+    focusable?.[0]?.focus()
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab' || !panel || !focusable?.length) return
+      const list = [...focusable]
+      const first = list[0]
+      const last = list[list.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      previousFocus.current?.focus?.()
+    }
+  }, [onClose])
+
   return (
     <div className="admin-dialog-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={panelRef}
         className="admin-dialog"
         role="alertdialog"
         aria-modal="true"
@@ -142,6 +183,3 @@ export function teacherSelectOptions(
     .sort((a, b) => a.localeCompare(b, 'en'))
     .map((code) => ({ code, name: nameMap.get(code) ?? code }))
 }
-
-export type { DialogState }
-export type DutyEditorUser = User

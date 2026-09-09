@@ -16,6 +16,7 @@ type NavChild = {
   to: string
   label: string
   end?: boolean
+  upcoming?: boolean
 }
 
 type NavItem = {
@@ -40,7 +41,7 @@ const navItems: NavItem[] = [
     children: [
       { to: '/timetable', label: '個人', end: true },
       { to: '/timetable/class', label: '班級' },
-      { to: '/timetable/school', label: '全校' },
+      { to: '/timetable/school', label: '全校', upcoming: true },
     ],
   },
   {
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
     children: [
       { to: '/class', label: '班級', end: true },
       { to: '/class/individual', label: '個人' },
+      { to: '/overview', label: '總覽' },
     ],
   },
   {
@@ -57,7 +59,7 @@ const navItems: NavItem[] = [
     children: [
       { to: '/resources/papers', label: '出卷' },
       { to: '/resources/duties', label: '職責' },
-      { to: '/resources/scope', label: '測考範圍' },
+      { to: '/resources/scope', label: '測考範圍', upcoming: true },
       { to: '/reading', label: '廣泛閱讀' },
     ],
   },
@@ -217,6 +219,7 @@ function StaffNavbar({
   const location = useLocation()
   const navigate = useNavigate()
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
   const linksRef = useRef<HTMLUListElement>(null)
   const [indicator, setIndicator] = useState({
@@ -283,7 +286,17 @@ function StaffNavbar({
 
   useEffect(() => {
     setOpenMenu(null)
+    setMobileNavOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!mobileNavOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mobileNavOpen])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(syncIndicatorToActive)
@@ -296,7 +309,19 @@ function StaffNavbar({
   }, [location.pathname, user?.role])
 
   return (
-    <nav className={`top-nav glass${openMenu ? ' branch-open' : ''}`}>
+    <nav
+      className={`top-nav glass${openMenu ? ' branch-open' : ''}${
+        mobileNavOpen ? ' nav-drawer-open' : ''
+      }`}
+    >
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          className="nav-drawer-backdrop"
+          aria-label="關閉選單"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
       <div className="brand-block">
         <button
           type="button"
@@ -335,10 +360,21 @@ function StaffNavbar({
             </p>
           )}
         </div>
+        <button
+          type="button"
+          className="nav-menu-toggle"
+          aria-expanded={mobileNavOpen}
+          aria-controls="staff-nav-links"
+          aria-label={mobileNavOpen ? '關閉主選單' : '開啟主選單'}
+          onClick={() => setMobileNavOpen((o) => !o)}
+        >
+          <span className="nav-menu-toggle-bars" aria-hidden />
+        </button>
       </div>
 
       <div
         className="nav-links-wrap"
+        id="staff-nav-links"
         onMouseLeave={syncIndicatorToActive}
       >
         <ul className="nav-links" ref={linksRef}>
@@ -386,8 +422,12 @@ function StaffNavbar({
                           `branch-link${isActive ? ' active' : ''}`
                         }
                         onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => setMobileNavOpen(false)}
                       >
                         {child.label}
+                        {child.upcoming ? (
+                          <span className="page-upcoming-badge">即將推出</span>
+                        ) : null}
                       </NavLink>
                     ))}
                   </div>
@@ -405,6 +445,7 @@ function StaffNavbar({
                   className={({ isActive }) =>
                     `nav-link${isActive ? ' active' : ''}`
                   }
+                  onClick={() => setMobileNavOpen(false)}
                 >
                   {item.label}
                 </NavLink>
@@ -422,6 +463,7 @@ function StaffNavbar({
                 className={({ isActive }) =>
                   `nav-link${isActive ? ' active' : ''}`
                 }
+                onClick={() => setMobileNavOpen(false)}
               >
                 分派
               </NavLink>

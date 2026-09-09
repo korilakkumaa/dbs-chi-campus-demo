@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AsyncStatus } from '../components/AsyncStatus'
 import { GlassPanel } from '../components/GlassPanel'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -8,6 +9,7 @@ import {
 } from '../data/homeworkAbs'
 import { officialStudentNo } from '../data/campusScoresYear'
 import { latestTeacherWhitelistYear } from '../data/teacherWhitelist'
+import { isAdmin } from '../lib/permissions'
 import { supabaseConfigured } from '../lib/supabase'
 
 function statusLabel(status: HomeworkAbsEmailLog['status']) {
@@ -45,7 +47,7 @@ export function HomeworkAbsMailPage() {
       }
       setLoading(true)
       const data = await fetchHomeworkAbsEmailLogs({
-        teacherId: user.role === 'admin' ? undefined : user.id,
+        teacherId: isAdmin(user) ? undefined : user.id,
         academicYearStart: year,
         limit: 300,
       })
@@ -96,10 +98,18 @@ export function HomeworkAbsMailPage() {
           <span>失敗 {counts.failed}</span>
         </div>
 
-        {loading && <p className="empty-note">載入中…</p>}
-        {!loading && error && <p className="empty-note">{error}</p>}
+        {loading && (
+          <AsyncStatus variant="loading" panel={false} message="載入中…" />
+        )}
+        {!loading && error && (
+          <AsyncStatus
+            variant={error.includes('尚未連線') ? 'offline' : 'error'}
+            panel={false}
+            message={error}
+          />
+        )}
         {!loading && !error && logs.length === 0 && (
-          <p className="empty-note">尚無郵件紀錄。</p>
+          <AsyncStatus variant="empty" panel={false} message="尚無郵件紀錄。" />
         )}
 
         {!loading && !error && logs.length > 0 && (

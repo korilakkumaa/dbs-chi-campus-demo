@@ -29,8 +29,10 @@ const deptHydrated = new Set<number>()
 const assessmentKnownYears = new Set<number>(listAssessmentDutyYears())
 let assessmentRemoteYearsLoaded = false
 
+import { canMutateDutyDocs } from '../lib/permissions'
+
 export function canMutateDuty(user: User | null | undefined): boolean {
-  return user?.role === 'admin'
+  return canMutateDutyDocs(user)
 }
 
 function seedAssessment(startYear: number): AssessmentDutyYear | null {
