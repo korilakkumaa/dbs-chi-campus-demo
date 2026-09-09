@@ -395,10 +395,18 @@ export function PapersPage() {
       </header>
 
       {isAdmin && user ? (
-        <div className="reveal-up delay-1">
+        <div className="papers-csv-slot reveal-up delay-1">
           <CsvYearImportPanel
             kind="assessment_duty"
             startYear={startYear}
+            variant="page"
+            statusText={
+              displayDuty
+                ? `${displayDuty.teachers.length} 位教師`
+                : '尚未有資料'
+            }
+            statusTone={displayDuty ? 'ready' : 'empty'}
+            description="下載範本或匯出現有出卷矩陣，離線修改後上傳；成功寫入後會重新載入此頁。"
             exportCsv={
               displayDuty || peekAssessmentDuty(startYear)
                 ? assessmentDutyToCsv(displayDuty ?? peekAssessmentDuty(startYear)!)

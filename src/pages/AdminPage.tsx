@@ -76,6 +76,29 @@ type YearStatus = {
   deadlinesSaved: boolean
 }
 
+type CheckTone = 'ready' | 'empty' | 'partial' | 'unknown'
+
+type ChecklistItem = {
+  id: string
+  label: string
+  detail: string
+  tone: CheckTone
+  href?: string
+}
+
+function toneFromCount(count: number | null | undefined, emptyIsUnknown = false): CheckTone {
+  if (count == null) return emptyIsUnknown ? 'unknown' : 'empty'
+  if (count <= 0) return 'empty'
+  return 'ready'
+}
+
+function toneLabel(tone: CheckTone): string {
+  if (tone === 'ready') return '已就緒'
+  if (tone === 'partial') return '部分完成'
+  if (tone === 'empty') return '尚未完成'
+  return '載入中'
+}
+
 export function AdminPage() {
   const { user } = useAuth()
   const {
@@ -196,14 +219,134 @@ export function AdminPage() {
     id: user!.id,
   }
 
+  const whitelistCount = status?.whitelistCount ?? yearTeachers.length
+  const rosterCount = status?.rosterCount ?? 0
+  const streamingTone: CheckTone =
+    status?.streamingCoverage == null
+      ? rosterCount > 0
+        ? 'empty'
+        : 'unknown'
+      : status.streamingCoverage >= 90
+        ? 'ready'
+        : status.streamingCoverage > 0
+          ? 'partial'
+          : 'empty'
+
+  const checklist: ChecklistItem[] = [
+    {
+      id: 'whitelist',
+      label: '教師白名單',
+      detail: `${whitelistCount} 人`,
+      tone: toneFromCount(whitelistCount),
+    },
+    {
+      id: 'roster',
+      label: '學生名單',
+      detail: `${rosterCount} 人`,
+      tone: toneFromCount(status?.rosterCount, !supabase),
+    },
+    {
+      id: 'streaming',
+      label: '中文分組',
+      detail:
+        status?.streamingCoverage == null
+          ? rosterCount > 0
+            ? '尚無分組'
+            : '尚無名冊'
+          : `${status.streamingCoverage}% 已有 teaching_group`,
+      tone: streamingTone,
+    },
+    {
+      id: 'calendar',
+      label: '校曆事件',
+      detail:
+        status?.calendarCount == null
+          ? '—'
+          : `${status.calendarCount} 筆`,
+      tone: toneFromCount(status?.calendarCount, !supabase),
+    },
+    {
+      id: 'assessment',
+      label: '出卷文件',
+      detail: status?.hasAssessment ? '已有資料' : '未建立',
+      tone: status?.hasAssessment ? 'ready' : 'empty',
+      href: '/resources/papers',
+    },
+    {
+      id: 'dept',
+      label: '職責文件',
+      detail: status?.hasDept ? '已有資料' : '未建立',
+      tone: status?.hasDept ? 'ready' : 'empty',
+      href: '/resources/duties',
+    },
+    {
+      id: 'scores',
+      label: '學期成績',
+      detail:
+        status?.scoreCount == null ? '—' : `${status.scoreCount} 列`,
+      tone: toneFromCount(status?.scoreCount, !supabase),
+    },
+    {
+      id: 'deadlines',
+      label: '截止日期',
+      detail: status?.deadlinesSaved ? '已存檔' : '尚未寫入資料庫',
+      tone: status?.deadlinesSaved ? 'ready' : 'empty',
+    },
+  ]
+
+  const readyCount = checklist.filter((item) => item.tone === 'ready').length
+  const progressPct = Math.round((readyCount / checklist.length) * 100)
+
+  const csvStatus = {
+    teacher_whitelist: {
+      text: `${whitelistCount} 人`,
+      tone: toneFromCount(whitelistCount) as CheckTone,
+    },
+    student_roster: {
+      text: `${rosterCount} 人`,
+      tone: toneFromCount(status?.rosterCount, !supabase) as CheckTone,
+    },
+    chinese_streaming: {
+      text:
+        status?.streamingCoverage == null
+          ? '—'
+          : `${status.streamingCoverage}%`,
+      tone: streamingTone,
+    },
+    school_calendar: {
+      text:
+        status?.calendarCount == null
+          ? '—'
+          : `${status.calendarCount} 筆`,
+      tone: toneFromCount(status?.calendarCount, !supabase) as CheckTone,
+    },
+    semester_scores: {
+      text:
+        status?.scoreCount == null ? '—' : `${status.scoreCount} 列`,
+      tone: toneFromCount(status?.scoreCount, !supabase) as CheckTone,
+    },
+    assessment_duty: {
+      text: status?.hasAssessment ? '已有' : '未建立',
+      tone: (status?.hasAssessment ? 'ready' : 'empty') as CheckTone,
+    },
+    dept_duty: {
+      text: status?.hasDept ? '已有' : '未建立',
+      tone: (status?.hasDept ? 'ready' : 'empty') as CheckTone,
+    },
+    grade_deadlines: {
+      text: status?.deadlinesSaved ? '已存檔' : '未存檔',
+      tone: (status?.deadlinesSaved ? 'ready' : 'empty') as CheckTone,
+    },
+  }
+
   return (
     <div className="page admin-page">
       <header className="page-header year-ov-header reveal-up">
         <div className="year-ov-header-text">
           <h1>新學年準備</h1>
           <p>
-            {yearLabel}學年 · 以 CSV 範本更新白名單、名冊、分組、校曆與其他資料；檢查清單顯示目前狀態（
-            {yearRange.from} 至 {yearRange.to}）。
+            {yearLabel}學年 · {yearRange.from} 至 {yearRange.to}
+            。先看檢查清單，再依需要展開 CSV 匯入或下方工具。
           </p>
         </div>
         <ScoresYearSelect
@@ -215,344 +358,413 @@ export function AdminPage() {
         />
       </header>
 
-      <div className="metric-row reveal-up delay-1">
-        <GlassPanel className="metric">
-          <p className="metric-label">教師人數</p>
-          <p className="metric-value">{status?.whitelistCount ?? yearTeachers.length}</p>
-        </GlassPanel>
-        <GlassPanel className="metric">
-          <p className="metric-label">名冊人數</p>
-          <p className="metric-value">{status?.rosterCount ?? '—'}</p>
-        </GlassPanel>
-        <GlassPanel className="metric">
-          <p className="metric-label">分組覆蓋</p>
-          <p className="metric-value">
-            {status?.streamingCoverage == null ? '—' : `${status.streamingCoverage}%`}
-          </p>
-        </GlassPanel>
-      </div>
-
       <GlassPanel className="admin-year-checklist reveal-up delay-1">
-        <h2>學年檢查清單</h2>
+        <div className="admin-year-checklist-head">
+          <div>
+            <h2>學年檢查清單</h2>
+            <p className="deadline-admin-lead admin-year-checklist-lead">
+              {readyCount} / {checklist.length} 項就緒
+            </p>
+          </div>
+          <div
+            className="admin-year-progress"
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`準備進度 ${progressPct}%`}
+          >
+            <div
+              className="admin-year-progress-bar"
+              style={{ width: `${progressPct}%` }}
+            />
+            <span className="admin-year-progress-label">{progressPct}%</span>
+          </div>
+        </div>
+
         <ul className="admin-checklist">
-          <li>
-            教師白名單：{status?.whitelistCount ?? 0} 人
-          </li>
-          <li>
-            學生名單：{status?.rosterCount ?? 0} 人
-          </li>
-          <li>
-            中文分組：
-            {status?.streamingCoverage == null
-              ? '尚無名冊'
-              : `${status.streamingCoverage}% 已有 teaching_group`}
-          </li>
-          <li>
-            校曆事件（資料庫）：{status?.calendarCount ?? '—'}
-          </li>
-          <li>
-            出卷文件：{status?.hasAssessment ? '已有' : '未建立'}{' '}
-            <Link to="/resources/papers">開啟出卷</Link>
-          </li>
-          <li>
-            職責文件：{status?.hasDept ? '已有' : '未建立'}{' '}
-            <Link to="/resources/duties">開啟職責</Link>
-          </li>
-          <li>
-            學期成績列：{status?.scoreCount ?? '—'}
-          </li>
-          <li>
-            截止日期：{status?.deadlinesSaved ? '已存檔' : '尚未寫入資料庫'}
-          </li>
-          <li className="admin-checklist-note">
-            個人／班級時間表仍需本機執行 <code>npm run generate:timetables</code>
-          </li>
+          {checklist.map((item) => (
+            <li
+              key={item.id}
+              className={`admin-checklist-item admin-checklist-item--${item.tone}`}
+            >
+              <span className="admin-checklist-mark" aria-hidden>
+                {item.tone === 'ready' ? '✓' : item.tone === 'partial' ? '·' : '○'}
+              </span>
+              <div className="admin-checklist-body">
+                <span className="admin-checklist-label">{item.label}</span>
+                <span className="admin-checklist-detail">{item.detail}</span>
+              </div>
+              <span className={`csv-year-status csv-year-status--${item.tone}`}>
+                {toneLabel(item.tone)}
+              </span>
+              {item.href && (
+                <Link className="admin-checklist-link" to={item.href}>
+                  開啟
+                </Link>
+              )}
+            </li>
+          ))}
         </ul>
+        <p className="admin-checklist-note">
+          個人／班級時間表仍需本機執行{' '}
+          <code>npm run generate:timetables</code>
+        </p>
       </GlassPanel>
 
-      <CsvYearImportPanel
-        kind="teacher_whitelist"
-        startYear={startYear}
-        exportCsv={whitelistToCsv(whitelist)}
-        replaceModeDefault
-        onParseAndImport={async ({ text }) => {
-          const parsed = parseWhitelistCsv(text)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'teacher_whitelist',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            whitelist: parsed.data,
-          })
-          if (result.ok) {
-            await saveTeacherWhitelist(startYear, parsed.data, importUser.id)
-            await refreshStatus()
-          }
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
+      <section className="admin-year-section reveal-up delay-1">
+        <div className="admin-year-section-head">
+          <h2>CSV 匯入</h2>
+          <p>展開項目以下載範本、匯出或上傳。狀態與上方清單同步。</p>
+        </div>
 
-      <CsvYearImportPanel
-        kind="student_roster"
-        startYear={startYear}
-        onParseAndImport={async ({ text }) => {
-          const parsed = parseRosterCsv(text, startYear)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'student_roster',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            roster: parsed.data,
-          })
-          if (result.ok) await refreshStatus()
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
+        <div className="admin-year-csv-grid">
+          <CsvYearImportPanel
+            kind="teacher_whitelist"
+            startYear={startYear}
+            exportCsv={whitelistToCsv(whitelist)}
+            replaceModeDefault
+            statusText={csvStatus.teacher_whitelist.text}
+            statusTone={csvStatus.teacher_whitelist.tone}
+            onParseAndImport={async ({ text }) => {
+              const parsed = parseWhitelistCsv(text)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'teacher_whitelist',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                whitelist: parsed.data,
+              })
+              if (result.ok) {
+                await saveTeacherWhitelist(startYear, parsed.data, importUser.id)
+                await refreshStatus()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
 
-      <CsvYearImportPanel
-        kind="chinese_streaming"
-        startYear={startYear}
-        onParseAndImport={async ({ text }) => {
-          const parsed = parseStreamingCsv(text, startYear)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'chinese_streaming',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            streaming: parsed.data,
-          })
-          if (result.ok) await refreshStatus()
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
+          <CsvYearImportPanel
+            kind="student_roster"
+            startYear={startYear}
+            statusText={csvStatus.student_roster.text}
+            statusTone={csvStatus.student_roster.tone}
+            onParseAndImport={async ({ text }) => {
+              const parsed = parseRosterCsv(text, startYear)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'student_roster',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                roster: parsed.data,
+              })
+              if (result.ok) await refreshStatus()
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
 
-      <CsvYearImportPanel
-        kind="school_calendar"
-        startYear={startYear}
-        replaceModeDefault
-        onParseAndImport={async ({ text, replaceMode }) => {
-          const parsed = parseCalendarCsv(text)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'school_calendar',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            replaceMode,
-            calendar: parsed.data,
-          })
-          if (result.ok) await refreshStatus()
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
+          <CsvYearImportPanel
+            kind="chinese_streaming"
+            startYear={startYear}
+            statusText={csvStatus.chinese_streaming.text}
+            statusTone={csvStatus.chinese_streaming.tone}
+            onParseAndImport={async ({ text }) => {
+              const parsed = parseStreamingCsv(text, startYear)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'chinese_streaming',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                streaming: parsed.data,
+              })
+              if (result.ok) await refreshStatus()
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
 
-      <CsvYearImportPanel
-        kind="semester_scores"
-        startYear={startYear}
-        onParseAndImport={async ({ text }) => {
-          const parsed = parseScoresCsv(text, startYear)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'semester_scores',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            scores: parsed.data,
-          })
-          if (result.ok) await refreshStatus()
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
+          <CsvYearImportPanel
+            kind="school_calendar"
+            startYear={startYear}
+            replaceModeDefault
+            statusText={csvStatus.school_calendar.text}
+            statusTone={csvStatus.school_calendar.tone}
+            onParseAndImport={async ({ text, replaceMode }) => {
+              const parsed = parseCalendarCsv(text)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'school_calendar',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                replaceMode,
+                calendar: parsed.data,
+              })
+              if (result.ok) await refreshStatus()
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
 
-      <CsvYearImportPanel
-        kind="assessment_duty"
-        startYear={startYear}
-        exportCsv={
-          peekAssessmentDuty(startYear)
-            ? assessmentDutyToCsv(peekAssessmentDuty(startYear)!)
-            : null
-        }
-        onParseAndImport={async ({ text }) => {
-          const base = await hydrateAssessmentDuty(startYear)
-          const parsed = parseAssessmentDutyCsv(text, startYear, base)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'assessment_duty',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            assessment: parsed.data,
-          })
-          if (result.ok) {
-            invalidateAssessmentDuty(startYear)
-            await refreshStatus()
-          }
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
-
-      <CsvYearImportPanel
-        kind="dept_duty"
-        startYear={startYear}
-        exportCsv={
-          peekDeptDuty(startYear) ? deptDutyToCsv(peekDeptDuty(startYear)!) : null
-        }
-        onParseAndImport={async ({ text }) => {
-          const base = await hydrateDeptDuty(startYear)
-          const parsed = parseDeptDutyCsv(text, startYear, base)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'dept_duty',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            dept: parsed.data,
-          })
-          if (result.ok) {
-            invalidateDeptDuty(startYear)
-            await refreshStatus()
-          }
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
-
-      <CsvYearImportPanel
-        kind="grade_deadlines"
-        startYear={startYear}
-        exportCsv={deadlinesToCsv(gradeDeadlines)}
-        onParseAndImport={async ({ text }) => {
-          const parsed = parseDeadlinesCsv(text)
-          if (!parsed.ok) {
-            return { ok: false, issues: parsed.issues, previewRows: parsed.previewRows }
-          }
-          const result = await applyYearCsvImport({
-            kind: 'grade_deadlines',
-            startYear,
-            userEmail: importUser.email,
-            userId: importUser.id,
-            deadlines: parsed.data,
-          })
-          if (result.ok) {
-            submitGradeDeadlines(parsed.data)
-            await refreshStatus()
-          }
-          return {
-            ok: result.ok,
-            issues: parsed.issues,
-            previewRows: parsed.previewRows,
-            upserted: result.upserted,
-            message: result.error,
-          }
-        }}
-      />
-
-      <AdminPapersDutyStatus startYear={startYear} />
-
-      <AdminCalendarBatchPanel
-        startYear={startYear}
-        yearLabel={yearLabel}
-        yearRange={yearRange}
-        yearTeachers={yearTeachers}
-        defaultDate={defaultDateForYear(startYear)}
-        addCalendarEventsBatch={addCalendarEventsBatch}
-      />
-
-      <AdminDeadlinesPanel
-        gradeDeadlines={gradeDeadlines}
-        updateGradeDeadline={updateGradeDeadline}
-        submitGradeDeadlines={submitGradeDeadlines}
-      />
-
-      {assignMessage && <p className="csv-year-import-msg">{assignMessage}</p>}
-
-      <AdminClassAssignPanel
-        yearClasses={yearClasses}
-        yearTeachers={yearTeachers}
-        teacherCards={teacherCards}
-        students={startYear === scoresAcademicYearStart ? students : []}
-        canAssignClasses
-        scoresAcademicYearStart={scoresAcademicYearStart}
-        assignClassToTeacher={(classId, teacherId) => {
-          const cls = yearClasses.find((c) => c.id === classId)
-          if (!cls) return
-          const initial = teacherId
-            ? teacherInitialFromUserId(teacherId)
-            : null
-          void assignClassInWhitelist(
-            startYear,
-            cls.name,
-            initial,
-            importUser.id,
-          ).then((result) => {
-            if (!result.ok) {
-              setAssignMessage(result.error ?? '分派失敗')
-              return
+          <CsvYearImportPanel
+            kind="assessment_duty"
+            startYear={startYear}
+            exportCsv={
+              peekAssessmentDuty(startYear)
+                ? assessmentDutyToCsv(peekAssessmentDuty(startYear)!)
+                : null
             }
-            setWhitelist(result.teachers)
-            setAssignMessage(`已更新 ${cls.name} 任教教師（已寫入白名單）`)
-            void refreshStatus()
-          })
-        }}
-      />
+            statusText={csvStatus.assessment_duty.text}
+            statusTone={csvStatus.assessment_duty.tone}
+            onParseAndImport={async ({ text }) => {
+              const base = await hydrateAssessmentDuty(startYear)
+              const parsed = parseAssessmentDutyCsv(text, startYear, base)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'assessment_duty',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                assessment: parsed.data,
+              })
+              if (result.ok) {
+                invalidateAssessmentDuty(startYear)
+                await refreshStatus()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+
+          <CsvYearImportPanel
+            kind="dept_duty"
+            startYear={startYear}
+            exportCsv={
+              peekDeptDuty(startYear)
+                ? deptDutyToCsv(peekDeptDuty(startYear)!)
+                : null
+            }
+            statusText={csvStatus.dept_duty.text}
+            statusTone={csvStatus.dept_duty.tone}
+            onParseAndImport={async ({ text }) => {
+              const base = await hydrateDeptDuty(startYear)
+              const parsed = parseDeptDutyCsv(text, startYear, base)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'dept_duty',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                dept: parsed.data,
+              })
+              if (result.ok) {
+                invalidateDeptDuty(startYear)
+                await refreshStatus()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+
+          <CsvYearImportPanel
+            kind="semester_scores"
+            startYear={startYear}
+            statusText={csvStatus.semester_scores.text}
+            statusTone={csvStatus.semester_scores.tone}
+            onParseAndImport={async ({ text }) => {
+              const parsed = parseScoresCsv(text, startYear)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'semester_scores',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                scores: parsed.data,
+              })
+              if (result.ok) await refreshStatus()
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+
+          <CsvYearImportPanel
+            kind="grade_deadlines"
+            startYear={startYear}
+            exportCsv={deadlinesToCsv(gradeDeadlines)}
+            statusText={csvStatus.grade_deadlines.text}
+            statusTone={csvStatus.grade_deadlines.tone}
+            onParseAndImport={async ({ text }) => {
+              const parsed = parseDeadlinesCsv(text)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'grade_deadlines',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                deadlines: parsed.data,
+              })
+              if (result.ok) {
+                submitGradeDeadlines(parsed.data)
+                await refreshStatus()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="admin-year-section reveal-up delay-2">
+        <div className="admin-year-section-head">
+          <h2>進階工具</h2>
+          <p>出卷入口、批次校曆、截止日期編輯與班級分派。</p>
+        </div>
+
+        <AdminPapersDutyStatus startYear={startYear} />
+
+        <AdminCalendarBatchPanel
+          startYear={startYear}
+          yearLabel={yearLabel}
+          yearRange={yearRange}
+          yearTeachers={yearTeachers}
+          defaultDate={defaultDateForYear(startYear)}
+          addCalendarEventsBatch={addCalendarEventsBatch}
+        />
+
+        <AdminDeadlinesPanel
+          gradeDeadlines={gradeDeadlines}
+          updateGradeDeadline={updateGradeDeadline}
+          submitGradeDeadlines={submitGradeDeadlines}
+        />
+
+        {assignMessage && (
+          <p className="csv-year-import-msg" role="status">
+            {assignMessage}
+          </p>
+        )}
+
+        <AdminClassAssignPanel
+          yearClasses={yearClasses}
+          yearTeachers={yearTeachers}
+          teacherCards={teacherCards}
+          students={startYear === scoresAcademicYearStart ? students : []}
+          canAssignClasses
+          scoresAcademicYearStart={scoresAcademicYearStart}
+          assignClassToTeacher={(classId, teacherId) => {
+            const cls = yearClasses.find((c) => c.id === classId)
+            if (!cls) return
+            const initial = teacherId
+              ? teacherInitialFromUserId(teacherId)
+              : null
+            void assignClassInWhitelist(
+              startYear,
+              cls.name,
+              initial,
+              importUser.id,
+            ).then((result) => {
+              if (!result.ok) {
+                setAssignMessage(result.error ?? '分派失敗')
+                return
+              }
+              setWhitelist(result.teachers)
+              setAssignMessage(`已更新 ${cls.name} 任教教師（已寫入白名單）`)
+              void refreshStatus()
+            })
+          }}
+        />
+      </section>
     </div>
   )
 }
