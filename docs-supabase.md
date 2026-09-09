@@ -2,7 +2,9 @@
 
 ## 1. 環境變數
 
-複製 `.env.example` 為 `.env.local`（已 gitignore）：
+**GitHub Pages / `npm run build`：** 倉庫內已有可提交的 [`.env.production`](.env.production)（只含 `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`）。Vite production build 會自動讀取；建置結束後 `verify:pages-supabase` 會確認 `docs/assets` bundle 已內嵌連線設定，否則失敗，避免再推上「未連線」的站。
+
+**本機開發／匯入腳本：** 複製 `.env.example` 為 `.env.local`（已 gitignore）：
 
 ```bash
 VITE_SUPABASE_URL=https://heriailewjegnisaqiir.supabase.co
@@ -11,7 +13,7 @@ VITE_SUPABASE_ANON_KEY=你的_anon_key
 # SUPABASE_SERVICE_ROLE_KEY=你的_service_role_key
 ```
 
-Dashboard 位置：Project Settings → API
+Dashboard 位置：Project Settings → API。`anon` key 本來就會進瀏覽器；**切勿**把 `SUPABASE_SERVICE_ROLE_KEY` 寫進 `.env.production` 或前端。
 
 ## 2. 建表（必做一次）
 

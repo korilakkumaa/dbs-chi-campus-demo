@@ -14,6 +14,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.production
 
 # Real student Excel / import dumps (PII)
 data/imports/

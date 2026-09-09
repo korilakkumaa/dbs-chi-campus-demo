@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run export:calendar-bundle && tsc -b && vite build && cp docs/index.html docs/404.html",
+    "build": "npm run export:calendar-bundle && tsc -b && vite build && cp docs/index.html docs/404.html && npm run verify:pages-supabase",
+    "verify:pages-supabase": "tsx scripts/verify-pages-supabase.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "import:scores:2425-g7": "tsx scripts/import-g7-2425-first-semester.ts",

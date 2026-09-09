@@ -1,0 +1,13 @@
+---
+description: Pages builds must bake in public Supabase Vite env
+alwaysApply: true
+---
+
+# GitHub Pages + Supabase env
+
+When running `npm run build` or committing/pushing `docs/` for GitHub Pages:
+
+- Production builds load public vars from committed `.env.production` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). Do not delete or empty that file.
+- Never put `SUPABASE_SERVICE_ROLE_KEY` in `.env.production`, Vite client code, or the Pages bundle.
+- `npm run build` must pass `verify:pages-supabase`. If it fails, fix env and rebuild — do not push `docs/`.
+- Do not deploy a Pages bundle that makes `supabase` null / shows「缺少 Supabase 設定」as the live client state.
