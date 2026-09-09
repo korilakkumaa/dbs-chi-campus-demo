@@ -337,7 +337,7 @@ export function assessmentDutyToCsv(duty: AssessmentDutyYear): string {
           slot.part ?? '',
           slot.note ?? '',
           slot.teacherCode,
-          slot.weight ?? '',
+          slot.weight != null ? String(slot.weight) : '',
           'matrix',
           '',
         ])

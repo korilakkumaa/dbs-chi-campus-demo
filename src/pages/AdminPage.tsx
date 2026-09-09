@@ -79,7 +79,6 @@ type YearStatus = {
 export function AdminPage() {
   const { user } = useAuth()
   const {
-    classes,
     students,
     gradeDeadlines,
     updateGradeDeadline,
