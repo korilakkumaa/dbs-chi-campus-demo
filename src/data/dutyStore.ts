@@ -1,5 +1,9 @@
 import type { User } from '../types'
 import { getAssessmentDuty as getSeedAssessmentDuty, listAssessmentDutyYears } from './assessmentDuty'
+import {
+  cloneAssessmentDutyForYear,
+  createEmptyAssessmentDuty,
+} from './assessmentDutyFactory'
 import { withDerivedAssessmentTeachers } from './assessmentDutyDerive'
 import type { AssessmentDutyYear } from './assessmentDutyTypes'
 import { getDeptDuty as getSeedDeptDuty, listDeptDutyYears } from './deptDuty'
@@ -7,6 +11,7 @@ import { withDerivedDeptTeachers } from './deptDutyDerive'
 import type { DeptDutyYear } from './deptDutyTypes'
 import {
   fetchAssessmentDutyYear,
+  listAssessmentDutyYearsRemote,
   payloadToAssessmentDuty,
   upsertAssessmentDutyYear,
 } from './supabaseAssessmentDuty'
@@ -20,6 +25,9 @@ const assessmentCache = new Map<number, AssessmentDutyYear>()
 const deptCache = new Map<number, DeptDutyYear>()
 const assessmentHydrated = new Set<number>()
 const deptHydrated = new Set<number>()
+/** Years known from Supabase (even before hydrate), plus any locally bootstrapped. */
+const assessmentKnownYears = new Set<number>(listAssessmentDutyYears())
+let assessmentRemoteYearsLoaded = false
 
 export function canMutateDuty(user: User | null | undefined): boolean {
   return user?.role === 'admin'
@@ -37,12 +45,25 @@ function seedDept(startYear: number): DeptDutyYear | null {
   return withDerivedDeptTeachers(seed)
 }
 
+function rememberAssessmentYear(startYear: number): void {
+  assessmentKnownYears.add(startYear)
+}
+
 export function peekAssessmentDuty(startYear: number): AssessmentDutyYear | null {
   return assessmentCache.get(startYear) ?? seedAssessment(startYear)
 }
 
 export function peekDeptDuty(startYear: number): DeptDutyYear | null {
   return deptCache.get(startYear) ?? seedDept(startYear)
+}
+
+export async function discoverAssessmentDutyYears(): Promise<number[]> {
+  if (!assessmentRemoteYearsLoaded) {
+    const remote = await listAssessmentDutyYearsRemote()
+    for (const y of remote) rememberAssessmentYear(y)
+    assessmentRemoteYearsLoaded = true
+  }
+  return listHydratedAssessmentYears()
 }
 
 export async function hydrateAssessmentDuty(
@@ -57,8 +78,12 @@ export async function hydrateAssessmentDuty(
     ? payloadToAssessmentDuty(remote)
     : seedAssessment(startYear)
 
-  if (duty) assessmentCache.set(startYear, duty)
-  else assessmentCache.delete(startYear)
+  if (duty) {
+    assessmentCache.set(startYear, duty)
+    rememberAssessmentYear(startYear)
+  } else {
+    assessmentCache.delete(startYear)
+  }
   assessmentHydrated.add(startYear)
   return duty
 }
@@ -78,6 +103,45 @@ export async function hydrateDeptDuty(startYear: number): Promise<DeptDutyYear |
   return duty
 }
 
+export type BootstrapAssessmentMode = 'empty' | 'clone'
+
+/**
+ * Create an in-memory year document for admin editing when seed/remote are missing.
+ * Does not write to Supabase until saveAssessmentDuty.
+ */
+export async function bootstrapAssessmentDuty(
+  startYear: number,
+  mode: BootstrapAssessmentMode,
+  cloneFromYear?: number,
+): Promise<{ ok: boolean; duty: AssessmentDutyYear | null; error?: string }> {
+  const existing = await hydrateAssessmentDuty(startYear)
+  if (existing) {
+    return { ok: true, duty: existing }
+  }
+
+  let duty: AssessmentDutyYear
+  if (mode === 'clone') {
+    const fromYear = cloneFromYear ?? startYear - 1
+    const source =
+      (await hydrateAssessmentDuty(fromYear)) ?? peekAssessmentDuty(fromYear)
+    if (!source) {
+      return {
+        ok: false,
+        duty: null,
+        error: `找不到可複製的學年（${fromYear}）出卷資料`,
+      }
+    }
+    duty = cloneAssessmentDutyForYear(source, startYear)
+  } else {
+    duty = createEmptyAssessmentDuty(startYear)
+  }
+
+  assessmentCache.set(startYear, duty)
+  assessmentHydrated.add(startYear)
+  rememberAssessmentYear(startYear)
+  return { ok: true, duty }
+}
+
 export async function saveAssessmentDuty(
   duty: AssessmentDutyYear,
   user: User,
@@ -92,6 +156,7 @@ export async function saveAssessmentDuty(
   }
   assessmentCache.set(next.startYear, next)
   assessmentHydrated.add(next.startYear)
+  rememberAssessmentYear(next.startYear)
   return { ok: true, duty: next }
 }
 
@@ -114,8 +179,26 @@ export async function saveDeptDuty(
 }
 
 export function listHydratedAssessmentYears(): number[] {
-  const years = new Set([...listAssessmentDutyYears(), ...assessmentCache.keys()])
+  const years = new Set([
+    ...listAssessmentDutyYears(),
+    ...assessmentKnownYears,
+    ...assessmentCache.keys(),
+  ])
   return [...years].sort((a, b) => b - a)
+}
+
+export function assessmentDutyYearStatus(startYear: number): {
+  hasSeed: boolean
+  hasCached: boolean
+  known: boolean
+} {
+  const hasSeed = Boolean(getSeedAssessmentDuty(startYear))
+  const hasCached = assessmentCache.has(startYear)
+  return {
+    hasSeed,
+    hasCached,
+    known: hasSeed || hasCached || assessmentKnownYears.has(startYear),
+  }
 }
 
 export function listHydratedDeptYears(): number[] {
