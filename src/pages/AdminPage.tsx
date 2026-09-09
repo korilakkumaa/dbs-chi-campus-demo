@@ -345,8 +345,8 @@ export function AdminPage() {
         <div className="year-ov-header-text">
           <h1>新學年準備</h1>
           <p>
-            {yearLabel}學年 · {yearRange.from} 至 {yearRange.to}
-            。先看檢查清單，再依需要展開 CSV 匯入或下方工具。
+            {yearLabel}學年（{yearRange.from}–{yearRange.to}
+            ）。依檢查清單完成匯入，或使用下方進階工具。
           </p>
         </div>
         <ScoresYearSelect
@@ -358,12 +358,12 @@ export function AdminPage() {
         />
       </header>
 
-      <GlassPanel className="admin-year-checklist reveal-up delay-1">
-        <div className="admin-year-checklist-head">
+      <GlassPanel className="table-panel admin-year-checklist reveal-up delay-1">
+        <div className="table-panel-head admin-year-checklist-head">
           <div>
             <h2>學年檢查清單</h2>
             <p className="deadline-admin-lead admin-year-checklist-lead">
-              {readyCount} / {checklist.length} 項就緒
+              {readyCount} / {checklist.length} 項就緒 · {progressPct}%
             </p>
           </div>
           <div
@@ -378,7 +378,6 @@ export function AdminPage() {
               className="admin-year-progress-bar"
               style={{ width: `${progressPct}%` }}
             />
-            <span className="admin-year-progress-label">{progressPct}%</span>
           </div>
         </div>
 
@@ -389,20 +388,18 @@ export function AdminPage() {
               className={`admin-checklist-item admin-checklist-item--${item.tone}`}
             >
               <span className="admin-checklist-mark" aria-hidden>
-                {item.tone === 'ready' ? '✓' : item.tone === 'partial' ? '·' : '○'}
+                {item.tone === 'ready' ? '✓' : item.tone === 'partial' ? '·' : '–'}
               </span>
               <div className="admin-checklist-body">
                 <span className="admin-checklist-label">{item.label}</span>
                 <span className="admin-checklist-detail">{item.detail}</span>
               </div>
-              <span className={`csv-year-status csv-year-status--${item.tone}`}>
-                {toneLabel(item.tone)}
-              </span>
-              {item.href && (
+              <span className="admin-checklist-tone">{toneLabel(item.tone)}</span>
+              {item.href ? (
                 <Link className="admin-checklist-link" to={item.href}>
                   開啟
                 </Link>
-              )}
+              ) : null}
             </li>
           ))}
         </ul>
@@ -412,13 +409,14 @@ export function AdminPage() {
         </p>
       </GlassPanel>
 
-      <section className="admin-year-section reveal-up delay-1">
-        <div className="admin-year-section-head">
+      <GlassPanel className="table-panel admin-year-csv-panel reveal-up delay-1">
+        <div className="table-panel-head">
           <h2>CSV 匯入</h2>
-          <p>展開項目以下載範本、匯出或上傳。狀態與上方清單同步。</p>
         </div>
-
-        <div className="admin-year-csv-grid">
+        <p className="deadline-admin-lead">
+          展開項目以下載範本、匯出或上傳。狀態與上方清單同步。
+        </p>
+        <div className="admin-year-csv-list">
           <CsvYearImportPanel
             kind="teacher_whitelist"
             startYear={startYear}
@@ -704,7 +702,7 @@ export function AdminPage() {
             }}
           />
         </div>
-      </section>
+      </GlassPanel>
 
       <section className="admin-year-section reveal-up delay-2">
         <div className="admin-year-section-head">
@@ -713,7 +711,6 @@ export function AdminPage() {
         </div>
 
         <AdminPapersDutyStatus startYear={startYear} />
-
         <AdminCalendarBatchPanel
           startYear={startYear}
           yearLabel={yearLabel}

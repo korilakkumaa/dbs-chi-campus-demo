@@ -416,353 +416,36 @@
   margin: 0 0 0.85rem;
 }
 
-.csv-year-import-panel {
+/* —— 新學年準備：CSV 匯入 / 檢查清單 —— */
+
+.admin-year-checklist,
+.admin-year-csv-panel {
   margin-bottom: 1rem;
-  padding: 0;
-  overflow: hidden;
-}
-
-.admin-year-csv-grid .csv-year-import-panel {
-  margin-bottom: 0;
-}
-
-.csv-year-import-details {
-  margin: 0;
-}
-
-.csv-year-import-details[open] .csv-year-import-chevron {
-  transform: rotate(90deg);
-}
-
-.csv-year-import-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 1.05rem;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-  transition: background 0.15s var(--ease-out);
-}
-
-.csv-year-import-summary:hover {
-  background: rgba(184, 104, 42, 0.04);
-}
-
-.csv-year-import-summary::-webkit-details-marker {
-  display: none;
-}
-
-.csv-year-import-summary-main {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.45rem 0.75rem;
-  min-width: 0;
-}
-
-.csv-year-import-title {
-  font-family: var(--font-display);
-  font-size: 1.02rem;
-  font-weight: 650;
-  color: var(--ink);
-}
-
-.csv-year-import-chevron {
-  flex-shrink: 0;
-  font-size: 1.15rem;
-  line-height: 1;
-  color: var(--ink-soft);
-  transition: transform 0.18s var(--ease-out);
-}
-
-.csv-year-import-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0 1.05rem 1rem;
-  border-top: 1px solid var(--line);
-}
-
-.csv-year-import-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.csv-upload-label {
-  cursor: pointer;
-}
-
-.csv-replace-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: var(--text-meta);
-  color: var(--ink-soft);
-}
-
-.csv-year-import-msg,
-.csv-year-import-hint {
-  margin: 0;
-  font-size: var(--text-meta);
-  color: var(--ink-soft);
-}
-
-.csv-year-import-msg.is-error {
-  color: var(--terracotta, #a65d3d);
-}
-
-.csv-year-import-summary-aside {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex-shrink: 0;
-}
-
-.csv-year-import-hint-inline {
-  font-size: var(--text-fine);
-  color: var(--ink-soft);
-  letter-spacing: 0.02em;
-}
-
-.csv-year-import-kicker {
-  font-size: var(--text-fine);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--amber-deep);
-}
-
-.csv-year-import-panel--page {
-  margin-bottom: 0.85rem;
-}
-
-.csv-year-import-panel--page .csv-year-import-summary {
-  padding: 0.75rem 1.1rem;
-}
-
-.csv-year-import-panel--page .csv-year-import-title {
-  font-size: 0.98rem;
-  font-weight: 650;
-}
-
-.csv-year-import-panel--page .csv-year-import-body {
-  padding: 0.85rem 1.1rem 1.05rem;
-  gap: 0.75rem;
-  background: linear-gradient(
-    180deg,
-    rgba(184, 104, 42, 0.03),
-    transparent 4.5rem
-  );
-}
-
-.csv-year-import-panel--page .csv-year-import-lead {
-  margin-bottom: 0;
-  max-width: 42rem;
-  line-height: 1.45;
-}
-
-.csv-year-import-panel--page .csv-year-import-actions {
-  gap: 0.45rem;
-}
-
-.csv-year-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.4rem 0.85rem;
-  border-radius: var(--radius-control);
-  font-family: var(--font-display);
-  font-size: var(--text-ui-md3);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  transition:
-    background 0.15s var(--ease-out),
-    border-color 0.15s var(--ease-out),
-    color 0.15s var(--ease-out),
-    transform 0.12s var(--ease-spring);
-}
-
-.csv-year-action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.csv-year-action.ghost {
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.55);
-  color: var(--ink);
-}
-
-.csv-year-action.ghost:hover:not(:disabled) {
-  border-color: rgba(184, 104, 42, 0.35);
-  color: var(--amber-deep);
-  background: rgba(184, 104, 42, 0.06);
-}
-
-.csv-year-action.primary {
-  border: 1px solid var(--amber-deep);
-  background: var(--amber-deep);
-  color: #fff8ef;
-}
-
-.csv-year-action.primary:hover:not(:disabled) {
-  background: var(--amber);
-  border-color: var(--amber);
-}
-
-.csv-year-action:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.csv-year-import-panel--page .csv-preview-wrap {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: rgba(255, 255, 255, 0.55);
-  padding: 0.35rem 0.45rem;
-}
-
-.csv-year-import-panel--page .csv-preview-wrap table {
-  font-size: var(--text-meta);
-}
-
-.papers-csv-slot {
-  margin-bottom: 0.15rem;
-}
-
-.csv-year-import-issues {
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--terracotta, #a65d3d);
-  font-size: var(--text-meta);
-}
-
-.csv-preview-wrap {
-  max-height: 12rem;
-  overflow: auto;
-}
-
-.csv-year-status {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.12rem 0.5rem;
-  border-radius: 999px;
-  font-size: var(--text-fine);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1.35;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.csv-year-status--ready {
-  color: #2f6b45;
-  background: rgba(62, 140, 90, 0.12);
-  border-color: rgba(62, 140, 90, 0.22);
-}
-
-.csv-year-status--partial {
-  color: var(--amber-deep);
-  background: rgba(184, 104, 42, 0.1);
-  border-color: rgba(184, 104, 42, 0.22);
-}
-
-.csv-year-status--empty {
-  color: var(--ink-soft);
-  background: rgba(40, 26, 14, 0.04);
-  border-color: var(--line);
-}
-
-.csv-year-status--unknown {
-  color: var(--ink-soft);
-  background: transparent;
-  border-color: var(--line);
-}
-
-.admin-year-section {
-  margin-bottom: 1.35rem;
-}
-
-.admin-year-section-head {
-  margin: 0.35rem 0 0.75rem;
-}
-
-.admin-year-section-head h2 {
-  margin: 0 0 0.2rem;
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-}
-
-.admin-year-section-head p {
-  margin: 0;
-  font-size: var(--text-meta);
-  color: var(--ink-soft);
-}
-
-.admin-year-csv-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.admin-year-checklist {
-  margin-bottom: 1.25rem;
-  padding: 1.1rem 1.15rem 1rem;
 }
 
 .admin-year-checklist-head {
-  display: flex;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.85rem;
-}
-
-.admin-year-checklist-head h2 {
-  margin: 0;
+  gap: 1rem 1.25rem;
 }
 
 .admin-year-checklist-lead {
-  margin: 0.2rem 0 0 !important;
+  margin: 0.25rem 0 0 !important;
 }
 
 .admin-year-progress {
-  position: relative;
-  flex: 1 1 10rem;
-  max-width: 14rem;
-  height: 1.65rem;
-  border-radius: 999px;
-  background: rgba(40, 26, 14, 0.06);
-  border: 1px solid var(--line);
+  flex: 1 1 9rem;
+  max-width: 12rem;
+  height: 0.4rem;
+  border-radius: var(--radius-control);
+  background: var(--track);
   overflow: hidden;
+  align-self: center;
 }
 
 .admin-year-progress-bar {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(184, 104, 42, 0.55),
-    rgba(184, 104, 42, 0.85)
-  );
+  background: var(--amber-deep);
   transition: width 0.35s var(--ease-out);
-}
-
-.admin-year-progress-label {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-size: var(--text-fine);
-  font-weight: 700;
-  color: var(--ink);
-  letter-spacing: 0.04em;
 }
 
 .admin-checklist {
@@ -771,63 +454,73 @@
   list-style: none;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
-  font-size: var(--text-body);
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: rgba(255, 253, 249, 0.45);
 }
 
 .admin-checklist-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    'mark body status'
+    'mark body tone'
     'mark body link';
-  column-gap: 0.55rem;
-  row-gap: 0.15rem;
+  column-gap: 0.65rem;
+  row-gap: 0.1rem;
   align-items: center;
-  padding: 0.65rem 0.75rem;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.35);
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: transparent;
+}
+
+.admin-checklist-item:nth-child(2n) {
+  border-right: none;
+}
+
+.admin-checklist-item:nth-last-child(-n + 2) {
+  border-bottom: none;
 }
 
 .admin-checklist-item--ready {
-  border-color: rgba(62, 140, 90, 0.28);
-  background: rgba(62, 140, 90, 0.06);
+  box-shadow: inset 3px 0 0 #3e8c5a;
 }
 
 .admin-checklist-item--partial {
-  border-color: rgba(184, 104, 42, 0.28);
-  background: rgba(184, 104, 42, 0.06);
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.admin-checklist-item--empty,
+.admin-checklist-item--unknown {
+  box-shadow: inset 3px 0 0 transparent;
 }
 
 .admin-checklist-mark {
   grid-area: mark;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.15rem;
+  height: 1.15rem;
   display: grid;
   place-items: center;
-  border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--text-fine);
   font-weight: 700;
   color: var(--ink-soft);
-  background: rgba(40, 26, 14, 0.05);
 }
 
 .admin-checklist-item--ready .admin-checklist-mark {
   color: #2f6b45;
-  background: rgba(62, 140, 90, 0.14);
 }
 
 .admin-checklist-item--partial .admin-checklist-mark {
   color: var(--amber-deep);
-  background: rgba(184, 104, 42, 0.14);
 }
 
 .admin-checklist-body {
   grid-area: body;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.08rem;
   min-width: 0;
 }
 
@@ -843,9 +536,22 @@
   line-height: 1.3;
 }
 
-.admin-checklist-item .csv-year-status {
-  grid-area: status;
+.admin-checklist-tone {
+  grid-area: tone;
   justify-self: end;
+  font-size: var(--text-fine);
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.admin-checklist-item--ready .admin-checklist-tone {
+  color: #2f6b45;
+}
+
+.admin-checklist-item--partial .admin-checklist-tone {
+  color: var(--amber-deep);
 }
 
 .admin-checklist-link {
@@ -871,10 +577,247 @@
   font-size: 0.92em;
 }
 
+.admin-year-csv-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: rgba(255, 253, 249, 0.45);
+}
+
+.csv-year-import-panel--row {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.csv-year-import-panel--row:last-child {
+  border-bottom: none;
+}
+
+.csv-year-import-panel--page {
+  margin-bottom: 0.85rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.csv-year-import-details {
+  margin: 0;
+}
+
+.csv-year-import-details[open] .csv-year-import-chevron {
+  transform: rotate(90deg);
+}
+
+.csv-year-import-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s var(--ease-out);
+}
+
+.csv-year-import-panel--page .csv-year-import-summary {
+  padding: 0.85rem 1.15rem;
+}
+
+.csv-year-import-summary:hover {
+  background: rgba(184, 104, 42, 0.04);
+}
+
+.csv-year-import-summary::-webkit-details-marker {
+  display: none;
+}
+
+.csv-year-import-summary-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  min-width: 0;
+}
+
+.csv-year-import-title {
+  font-family: var(--font-display);
+  font-size: var(--text-subhead);
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.csv-year-import-kicker {
+  font-size: var(--text-fine);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--amber-deep);
+}
+
+.csv-year-import-summary-aside {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.csv-year-import-hint-inline {
+  font-size: var(--text-fine);
+  color: var(--ink-soft);
+}
+
+.csv-year-import-chevron {
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  transition: transform 0.18s var(--ease-out);
+}
+
+.csv-year-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0 0.9rem 0.95rem;
+  border-top: 1px solid var(--line);
+}
+
+.csv-year-import-panel--page .csv-year-import-body {
+  padding: 0.85rem 1.15rem 1.05rem;
+}
+
+.csv-year-import-lead {
+  margin-bottom: 0 !important;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
+.csv-year-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.csv-year-import-actions .deadline-select-all-btn:disabled,
+.csv-year-import-actions .deadline-submit-btn:disabled,
+.csv-upload-label.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  pointer-events: none;
+}
+
+.csv-upload-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.csv-replace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.15rem;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.csv-year-import-msg,
+.csv-year-import-hint {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
+.csv-year-import-msg.is-error {
+  color: #a65d3d;
+}
+
+.csv-year-import-issues {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #a65d3d;
+  font-size: var(--text-meta);
+}
+
+.csv-preview-wrap {
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 0.35rem 0.45rem;
+}
+
+.csv-preview-wrap table {
+  font-size: var(--text-meta);
+}
+
+.csv-year-status {
+  font-size: var(--text-fine);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.csv-year-status--ready {
+  color: #2f6b45;
+}
+
+.csv-year-status--partial {
+  color: var(--amber-deep);
+}
+
+.csv-year-status--empty,
+.csv-year-status--unknown {
+  color: var(--ink-soft);
+}
+
+.papers-csv-slot {
+  margin-bottom: 0.15rem;
+}
+
+.admin-year-section {
+  margin-bottom: 1.35rem;
+}
+
+.admin-year-section-head {
+  margin: 0.15rem 0 0.75rem;
+}
+
+.admin-year-section-head h2 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 700;
+}
+
+.admin-year-section-head p {
+  margin: 0;
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+}
+
 @media (max-width: 720px) {
-  .admin-checklist,
-  .admin-year-csv-grid {
+  .admin-checklist {
     grid-template-columns: 1fr;
+  }
+
+  .admin-checklist-item {
+    border-right: none;
+  }
+
+  .admin-checklist-item:nth-last-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .admin-checklist-item:last-child {
+    border-bottom: none;
   }
 
   .admin-year-progress {
