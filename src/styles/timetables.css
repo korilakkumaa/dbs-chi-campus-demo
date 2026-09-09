@@ -89,7 +89,7 @@
 }
 
 .personal-tt-day-note.adopt {
-  color: #c45a3a;
+  color: #d6453d;
 }
 
 .personal-tt-day-note.off {
@@ -358,7 +358,7 @@
 }
 
 .personal-tt-td.common-free {
-  background: color-mix(in srgb, #2a6b52 8%, transparent);
+  background: color-mix(in srgb, #224c73 8%, transparent);
 }
 
 .personal-tt-td.stacked {
@@ -370,7 +370,7 @@
 .personal-tt-cell-common-free {
   font-size: var(--text-compact);
   font-weight: 600;
-  color: #2a6b52;
+  color: #224c73;
 }
 
 .personal-tt-cell-stack {
@@ -753,7 +753,7 @@
 }
 
 .class-tt-td.free {
-  background: color-mix(in srgb, #2a6b52 8%, transparent);
+  background: color-mix(in srgb, #224c73 8%, transparent);
   text-align: center;
   vertical-align: middle;
 }
@@ -778,7 +778,7 @@
   padding: calc(0.25rem * var(--font-scale));
   font-size: var(--text-compact-sm);
   font-weight: 600;
-  color: #1a3d30;
+  color: #1b3b5f;
   letter-spacing: 0.02em;
   line-height: 1.35;
 }

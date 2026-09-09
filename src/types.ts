@@ -79,8 +79,8 @@ export type CalendarEventKind =
   | 'assessment'
   | 'school-day'
   | 'non-school-day'
-// holiday → red day number; event → brown dot; timetable → red circle;
-// progress → yellow; department → green; assessment → blue;
+// holiday → terracotta day number; event → warm brown dot; timetable → terracotta circle;
+// progress → mustard; department → teal-navy; assessment → steel navy;
 // school-day → 正常上課日; non-school-day → 非正常上課日
 
 export type CalendarAudience =

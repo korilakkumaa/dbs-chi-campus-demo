@@ -11,18 +11,19 @@ export const CALENDAR_EVENTS_KEY = 'campus-calendar-events-v8'
 
 export const SCHOOL_CALENDAR_YEAR_KEY = 'campus-calendar-school-year-v1'
 
+/** Tokyo-station poster tones: navy / terracotta / mustard / warm cream. */
 export const EVENT_KIND_META: Record<
   CalendarEventKind,
   { label: string; color: string; mode: 'text' | 'dot' | 'circle' }
 > = {
-  holiday: { label: '學校／公共假期', color: '#c45a3a', mode: 'text' },
-  'non-school-day': { label: '非正常上課日', color: '#8a6a4a', mode: 'text' },
-  'school-day': { label: '正常上課日', color: '#2a6b52', mode: 'circle' },
-  event: { label: '校曆活動', color: '#6b4c3b', mode: 'dot' },
-  timetable: { label: '調課日', color: '#c45a3a', mode: 'circle' },
-  progress: { label: '進度表任務', color: '#c4a035', mode: 'dot' },
-  department: { label: '科組活動', color: '#355447', mode: 'dot' },
-  assessment: { label: '科組測考', color: '#5f8496', mode: 'dot' },
+  holiday: { label: '學校／公共假期', color: '#d6453d', mode: 'text' },
+  'non-school-day': { label: '非正常上課日', color: '#8b7355', mode: 'text' },
+  'school-day': { label: '正常上課日', color: '#224c73', mode: 'circle' },
+  event: { label: '校曆活動', color: '#6b5344', mode: 'dot' },
+  timetable: { label: '調課日', color: '#d6453d', mode: 'circle' },
+  progress: { label: '進度表任務', color: '#d9a74a', mode: 'dot' },
+  department: { label: '科組活動', color: '#3a5f5c', mode: 'dot' },
+  assessment: { label: '科組測考', color: '#3a6b8c', mode: 'dot' },
 }
 
 /** Academic years with built-in school calendar seed data (newest first). */

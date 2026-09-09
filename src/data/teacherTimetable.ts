@@ -49,90 +49,90 @@ export type ClassHighlight = {
   text: string
 }
 
+/** Poster-muted swatches: terracotta / navy / mustard / warm cream. */
 const CLASS_HIGHLIGHTS: Record<string, ClassHighlight> = {
-  G7P: { accent: '#d94a28', soft: 'rgba(217, 74, 40, 0.22)', text: '#7a2a18' },
-  G7L: { accent: '#2a6b52', soft: 'rgba(42, 107, 82, 0.22)', text: '#1a3d30' },
-  G7A: { accent: '#c9a010', soft: 'rgba(201, 160, 16, 0.24)', text: '#6b5610' },
-  G7S: { accent: '#3d7fa0', soft: 'rgba(61, 127, 160, 0.22)', text: '#2a4f63' },
-  G7J: { accent: '#8a5234', soft: 'rgba(138, 82, 52, 0.22)', text: '#4a2e20' },
+  G7P: { accent: '#d6453d', soft: 'rgba(214, 69, 61, 0.22)', text: '#7a2a24' },
+  G7L: { accent: '#224c73', soft: 'rgba(34, 76, 115, 0.22)', text: '#1b3b5f' },
+  G7A: { accent: '#d9a74a', soft: 'rgba(217, 167, 74, 0.24)', text: '#6b4e18' },
+  G7S: { accent: '#3a6b8c', soft: 'rgba(58, 107, 140, 0.22)', text: '#1e3a4f' },
+  G7J: { accent: '#6b5344', soft: 'rgba(107, 83, 68, 0.22)', text: '#4a2e20' },
   'G11M, G11P': {
-    accent: '#8a5234',
-    soft: 'rgba(138, 82, 52, 0.22)',
+    accent: '#6b5344',
+    soft: 'rgba(107, 83, 68, 0.22)',
     text: '#4a2e20',
   },
   'G11P, G11M': {
-    accent: '#8a5234',
-    soft: 'rgba(138, 82, 52, 0.22)',
+    accent: '#6b5344',
+    soft: 'rgba(107, 83, 68, 0.22)',
     text: '#4a2e20',
   },
-  G11M: { accent: '#a85a2e', soft: 'rgba(168, 90, 46, 0.22)', text: '#5c3218' },
-  G11P: { accent: '#8a5c42', soft: 'rgba(138, 92, 66, 0.22)', text: '#4a3228' },
+  G11M: { accent: '#c85a3a', soft: 'rgba(200, 90, 58, 0.22)', text: '#6b3020' },
+  G11P: { accent: '#8b7355', soft: 'rgba(139, 115, 85, 0.22)', text: '#4a3a28' },
   'G9 EC': {
-    accent: '#2f7a5c',
-    soft: 'rgba(47, 122, 92, 0.22)',
-    text: '#1e4a38',
+    accent: '#3a5f5c',
+    soft: 'rgba(58, 95, 92, 0.22)',
+    text: '#243f3c',
   },
   'G9G, G9L': {
-    accent: '#2f7a5c',
-    soft: 'rgba(47, 122, 92, 0.22)',
-    text: '#1e4a38',
+    accent: '#3a5f5c',
+    soft: 'rgba(58, 95, 92, 0.22)',
+    text: '#243f3c',
   },
-  '12L': { accent: '#8a4a6e', soft: 'rgba(138, 74, 110, 0.22)', text: '#4a2840' },
+  '12L': { accent: '#4a5a6b', soft: 'rgba(74, 90, 107, 0.22)', text: '#2a3440' },
 }
 
 const FALLBACK_HIGHLIGHTS: ClassHighlight[] = [
-  { accent: '#d94a28', soft: 'rgba(217, 74, 40, 0.22)', text: '#7a2a18' },
-  { accent: '#2a6b52', soft: 'rgba(42, 107, 82, 0.22)', text: '#1a3d30' },
-  { accent: '#3d7fa0', soft: 'rgba(61, 127, 160, 0.22)', text: '#2a4f63' },
-  { accent: '#c9a010', soft: 'rgba(201, 160, 16, 0.24)', text: '#6b5610' },
-  { accent: '#8a5234', soft: 'rgba(138, 82, 52, 0.22)', text: '#4a2e20' },
-  { accent: '#2f7a5c', soft: 'rgba(47, 122, 92, 0.22)', text: '#1e4a38' },
+  { accent: '#d6453d', soft: 'rgba(214, 69, 61, 0.22)', text: '#7a2a24' },
+  { accent: '#224c73', soft: 'rgba(34, 76, 115, 0.22)', text: '#1b3b5f' },
+  { accent: '#3a6b8c', soft: 'rgba(58, 107, 140, 0.22)', text: '#1e3a4f' },
+  { accent: '#d9a74a', soft: 'rgba(217, 167, 74, 0.24)', text: '#6b4e18' },
+  { accent: '#6b5344', soft: 'rgba(107, 83, 68, 0.22)', text: '#4a2e20' },
+  { accent: '#3a5f5c', soft: 'rgba(58, 95, 92, 0.22)', text: '#243f3c' },
 ]
 
 /**
  * Grade × subject family swatches for personal timetable.
- * Within each grade, subjects sit far apart on the hue wheel; yellows /
- * golds are used as anchors so neighbouring grades (esp. G9 vs G10 CHIN)
- * never share a near-identical pink/red.
+ * Muted poster palette; within each grade subjects stay distinct, and
+ * neighbouring-grade CHIN tones (esp. G9 mustard vs G10 steel) stay apart.
  */
 const LESSON_KIND_HIGHLIGHTS: Record<string, ClassHighlight> = {
-  // G7 — crimson / teal / sunflower / violet
-  '7-CHIN': { accent: '#dc2626', soft: 'rgba(220, 38, 38, 0.32)', text: '#7f1d1d' },
-  '7-CHIS': { accent: '#0d9488', soft: 'rgba(13, 148, 136, 0.32)', text: '#115e59' },
-  '7-PTH': { accent: '#eab308', soft: 'rgba(234, 179, 8, 0.34)', text: '#713f12' },
-  '7-EC': { accent: '#7c3aed', soft: 'rgba(124, 58, 237, 0.32)', text: '#4c1d95' },
-  // G8 — orange / emerald / blue / fuchsia
-  '8-CHIN': { accent: '#ea580c', soft: 'rgba(234, 88, 12, 0.32)', text: '#9a3412' },
-  '8-CHIS': { accent: '#059669', soft: 'rgba(5, 150, 105, 0.32)', text: '#065f46' },
-  '8-PTH': { accent: '#2563eb', soft: 'rgba(37, 99, 235, 0.32)', text: '#1e3a8a' },
-  '8-EC': { accent: '#c026d3', soft: 'rgba(192, 38, 211, 0.32)', text: '#86198f' },
-  // G9 — bright gold / indigo / rose / lime  (CHIN deliberately yellow)
-  '9-CHIN': { accent: '#ca8a04', soft: 'rgba(202, 138, 4, 0.36)', text: '#713f12' },
-  '9-CHIS': { accent: '#4f46e5', soft: 'rgba(79, 70, 229, 0.32)', text: '#312e81' },
-  '9-PTH': { accent: '#e11d48', soft: 'rgba(225, 29, 72, 0.32)', text: '#9f1239' },
-  '9-EC': { accent: '#65a30d', soft: 'rgba(101, 163, 13, 0.32)', text: '#3f6212' },
-  // G10 — deep cyan / pink / bronze / green  (CHIN far from G9 gold)
-  '10-CHIN': { accent: '#0891b2', soft: 'rgba(8, 145, 178, 0.32)', text: '#155e75' },
-  '10-CHIS': { accent: '#db2777', soft: 'rgba(219, 39, 119, 0.32)', text: '#9d174d' },
-  '10-PTH': { accent: '#a16207', soft: 'rgba(161, 98, 7, 0.32)', text: '#713f12' },
-  '10-EC': { accent: '#16a34a', soft: 'rgba(22, 163, 74, 0.32)', text: '#14532d' },
-  // G11 — indigo / coral / forest / lemon
-  '11-CHIN': { accent: '#4338ca', soft: 'rgba(67, 56, 202, 0.32)', text: '#312e81' },
-  '11-CHIS': { accent: '#f97316', soft: 'rgba(249, 115, 22, 0.32)', text: '#9a3412' },
-  '11-PTH': { accent: '#15803d', soft: 'rgba(21, 128, 61, 0.32)', text: '#14532d' },
-  '11-EC': { accent: '#facc15', soft: 'rgba(250, 204, 21, 0.36)', text: '#854d0e' },
-  // G12 — sky / crimson / purple / mustard
-  '12-CHIN': { accent: '#0284c7', soft: 'rgba(2, 132, 199, 0.32)', text: '#0c4a6e' },
-  '12-CHIS': { accent: '#be123c', soft: 'rgba(190, 18, 60, 0.32)', text: '#9f1239' },
-  '12-PTH': { accent: '#6d28d9', soft: 'rgba(109, 40, 217, 0.32)', text: '#4c1d95' },
-  '12-EC': { accent: '#d4a017', soft: 'rgba(212, 160, 23, 0.34)', text: '#713f12' },
+  // G7 — terracotta / navy / mustard / steel
+  '7-CHIN': { accent: '#d6453d', soft: 'rgba(214, 69, 61, 0.28)', text: '#7a2a24' },
+  '7-CHIS': { accent: '#224c73', soft: 'rgba(34, 76, 115, 0.28)', text: '#1b3b5f' },
+  '7-PTH': { accent: '#d9a74a', soft: 'rgba(217, 167, 74, 0.32)', text: '#6b4e18' },
+  '7-EC': { accent: '#5a7a94', soft: 'rgba(90, 122, 148, 0.28)', text: '#2a4055' },
+  // G8 — deep terracotta / deep navy / ochre / mid navy
+  '8-CHIN': { accent: '#b84838', soft: 'rgba(184, 72, 56, 0.28)', text: '#6b2a20' },
+  '8-CHIS': { accent: '#1b3b5f', soft: 'rgba(27, 59, 95, 0.28)', text: '#14283f' },
+  '8-PTH': { accent: '#c49a3c', soft: 'rgba(196, 154, 60, 0.30)', text: '#6b5218' },
+  '8-EC': { accent: '#3a6b8c', soft: 'rgba(58, 107, 140, 0.28)', text: '#1e3a4f' },
+  // G9 — mustard / mid navy / terracotta / olive
+  '9-CHIN': { accent: '#d9a74a', soft: 'rgba(217, 167, 74, 0.34)', text: '#6b4e18' },
+  '9-CHIS': { accent: '#2a5578', soft: 'rgba(42, 85, 120, 0.28)', text: '#1b3b5f' },
+  '9-PTH': { accent: '#d6453d', soft: 'rgba(214, 69, 61, 0.28)', text: '#7a2a24' },
+  '9-EC': { accent: '#5a6b45', soft: 'rgba(90, 107, 69, 0.28)', text: '#3a4528' },
+  // G10 — steel / dusty rose / deep ochre / teal-navy
+  '10-CHIN': { accent: '#3a6b8c', soft: 'rgba(58, 107, 140, 0.28)', text: '#1e3a4f' },
+  '10-CHIS': { accent: '#b85a52', soft: 'rgba(184, 90, 82, 0.28)', text: '#6b302c' },
+  '10-PTH': { accent: '#a87830', soft: 'rgba(168, 120, 48, 0.30)', text: '#5c4018' },
+  '10-EC': { accent: '#3a5f5c', soft: 'rgba(58, 95, 92, 0.28)', text: '#243f3c' },
+  // G11 — deep navy / warm terracotta / forest-teal / light mustard
+  '11-CHIN': { accent: '#1d4477', soft: 'rgba(29, 68, 119, 0.28)', text: '#14283f' },
+  '11-CHIS': { accent: '#c85a3a', soft: 'rgba(200, 90, 58, 0.28)', text: '#6b3020' },
+  '11-PTH': { accent: '#355447', soft: 'rgba(53, 84, 71, 0.28)', text: '#1e332a' },
+  '11-EC': { accent: '#e5b25d', soft: 'rgba(229, 178, 93, 0.32)', text: '#6b5218' },
+  // G12 — sky navy / deep terracotta / slate / mustard
+  '12-CHIN': { accent: '#4a7a9a', soft: 'rgba(74, 122, 154, 0.28)', text: '#1e3a4f' },
+  '12-CHIS': { accent: '#b83a32', soft: 'rgba(184, 58, 50, 0.28)', text: '#6b2419' },
+  '12-PTH': { accent: '#4a5a6b', soft: 'rgba(74, 90, 107, 0.28)', text: '#2a3440' },
+  '12-EC': { accent: '#d4a017', soft: 'rgba(212, 160, 23, 0.32)', text: '#6b5218' },
 }
 
 const OTHER_LESSON_HIGHLIGHTS: ClassHighlight[] = [
-  { accent: '#b45309', soft: 'rgba(180, 83, 9, 0.32)', text: '#7c2d12' },
-  { accent: '#0e7490', soft: 'rgba(14, 116, 144, 0.32)', text: '#164e63' },
-  { accent: '#7e22ce', soft: 'rgba(126, 34, 206, 0.32)', text: '#581c87' },
-  { accent: '#4b5563', soft: 'rgba(75, 85, 99, 0.32)', text: '#1f2937' },
+  { accent: '#a87830', soft: 'rgba(168, 120, 48, 0.28)', text: '#5c4018' },
+  { accent: '#3a6b8c', soft: 'rgba(58, 107, 140, 0.28)', text: '#1e3a4f' },
+  { accent: '#6b5344', soft: 'rgba(107, 83, 68, 0.28)', text: '#4a2e20' },
+  { accent: '#4a5a6b', soft: 'rgba(74, 90, 107, 0.28)', text: '#2a3440' },
 ]
 
 function normalizeGroupKey(group: string) {

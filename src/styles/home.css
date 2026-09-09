@@ -595,12 +595,12 @@
 }
 
 .mini-cal-day.holiday {
-  background: rgba(196, 90, 58, 0.12);
+  background: rgba(214, 69, 61, 0.12);
   border-radius: 6px;
 }
 
 .mini-cal-day.holiday:hover {
-  background: rgba(196, 90, 58, 0.18);
+  background: rgba(214, 69, 61, 0.18);
 }
 
 .mini-cal-day.today .mini-cal-day-num {
@@ -621,25 +621,25 @@
 }
 
 .mini-cal-day-num.holiday {
-  color: #c45a3a;
+  color: #d6453d;
   font-weight: 700;
 }
 
 .mini-cal-day-num.timetable {
-  box-shadow: inset 0 0 0 1.5px #c45a3a;
+  box-shadow: inset 0 0 0 1.5px #d6453d;
   border-radius: 999px;
   width: 1.45rem;
   height: 1.45rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #c45a3a;
+  color: #d6453d;
   font-weight: 700;
 }
 
 .mini-cal-day.today .mini-cal-day-num.timetable {
   box-shadow:
-    inset 0 0 0 1.5px #c45a3a,
+    inset 0 0 0 1.5px #d6453d,
     0 0 0 2px color-mix(in srgb, var(--amber) 55%, transparent);
 }
 
@@ -689,7 +689,7 @@
   font-weight: 700;
   font-size: var(--text-mini);
   font-variant-numeric: tabular-nums;
-  color: #c45a3a;
+  color: #d6453d;
   line-height: 1;
 }
 
