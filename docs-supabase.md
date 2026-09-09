@@ -51,12 +51,15 @@ Dashboard 位置：Project Settings → API。`anon` key 本來就會進瀏覽�
 
 **分數頁**：`/class` 學年選擇器會依 `academic_year_start` 重新向 Supabase 載入成績，並套用該學年白名單（2526／2627）顯示任教老師。跨年歷史**只依官方 STID** 連結；不依班級座號猜測，避免插班生繼承他人舊分。畫面多為 0–100 換算分，與登分檔加權貢獻對照時請用同一公式驗算。
 
+**級名次分母**：個人頁 Top%／級名次只跟「**同一 `academic_year_start` + 同一顯示年級**」比（例如 2025 G7 ≈／233），不會把 2024 G7 與 2025 G7 混成四百多人。匯入時每列必須帶正確的 `academic_year_start`；前端 `yearHistory` 必須寫入 `firstAcademicYearStart`／`secondAcademicYearStart`。更新成績後請跑下方 verify。
+
 **勿再複製往年分數到新年 `student_no`**：舊的 `sync:prior-scores:2627`（含座位 fallback）已停用；若 DB 仍有 `source_file` 以 `sync2627:` 開頭的列，請清掉：
 
 ```bash
 npm run cleanup:sync2627-scores          # 需 SUPABASE_SERVICE_ROLE_KEY
 npm run cleanup:sync2627-scores:sql      # 只產 SQL → scripts/out/
 npm run verify:stid-score-history        # 抽查：插班生無幽靈舊分、延續生仍有歷史
+npm run verify:score-rank-cohorts        # 抽查：級名次分母不跨屆混算
 ```
 
 本機從上述資料夾產生 seed：

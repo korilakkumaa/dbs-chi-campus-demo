@@ -22,6 +22,7 @@
     "cleanup:sync2627-scores": "tsx scripts/cleanup-sync2627-scores.ts",
     "cleanup:sync2627-scores:sql": "tsx scripts/cleanup-sync2627-scores.ts --sql",
     "verify:stid-score-history": "tsx scripts/verify-stid-score-history.ts",
+    "verify:score-rank-cohorts": "tsx scripts/verify-score-rank-cohorts.ts",
     "sync:prior-scores:2627": "tsx scripts/sync-prior-scores-to-2627.ts",
     "sync:prior-scores:2627:sql": "tsx scripts/sync-prior-scores-to-2627.ts --sql",
     "generate:timetables": "tsx scripts/generate-teacher-timetables.ts --year 2026",
