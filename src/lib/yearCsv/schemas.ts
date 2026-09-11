@@ -11,6 +11,12 @@ import {
 import { formatAcademicYearLabel } from '../../data/academicYear'
 import { emptyGradeDeadlines } from '../../data/gradeDeadlines'
 import { storedStudentNo } from '../../data/campusScoresYear'
+import {
+  academicYearWindowForIso,
+  type DayPeriod,
+  type SchoolWeekday,
+  type TeacherTimetableEntry,
+} from '../../data/teacherTimetable'
 
 export type YearCsvKind =
   | 'teacher_whitelist'
@@ -21,6 +27,7 @@ export type YearCsvKind =
   | 'dept_duty'
   | 'semester_scores'
   | 'grade_deadlines'
+  | 'teacher_timetable'
 
 export type CsvIssue = { row: number; message: string }
 
@@ -40,6 +47,7 @@ export const YEAR_CSV_KIND_LABEL: Record<YearCsvKind, string> = {
   dept_duty: '職責',
   semester_scores: '學期成績',
   grade_deadlines: '成績截止日期',
+  teacher_timetable: '時間表（個人／班級）',
 }
 
 export const WHITELIST_HEADERS = [
@@ -705,6 +713,155 @@ export function parseDeadlinesCsv(text: string): ParsedYearCsv<GradeDeadline[]> 
   }
 }
 
+export const TIMETABLE_HEADERS = [
+  'teacher_initial',
+  'weekday',
+  'start',
+  'end',
+  'type',
+  'subject',
+  'group',
+  'room',
+  'label',
+] as const
+
+export type TimetableYearMap = Record<string, TeacherTimetableEntry>
+
+function isSchoolWeekday(n: number): n is SchoolWeekday {
+  return n === 1 || n === 2 || n === 3 || n === 4 || n === 5
+}
+
+export function timetableTemplateCsv(): string {
+  return toCsv([...TIMETABLE_HEADERS], [
+    ['FYC', 1, '08:30', '09:15', 'lesson', 'CHIN', '7A', 'R101', ''],
+    ['FYC', 1, '09:15', '09:30', 'break', '', '', '', '小息'],
+    ['FYC', 1, '09:30', '10:15', 'free', '', '', '', ''],
+  ])
+}
+
+export function timetablesToCsv(timetables: TimetableYearMap): string {
+  const rows: Array<Array<string | number>> = []
+  const teacherIds = Object.keys(timetables).sort((a, b) => a.localeCompare(b))
+  for (const teacherId of teacherIds) {
+    const initial = teacherId.replace(/^u-/i, '').toUpperCase()
+    const entry = timetables[teacherId]
+    for (const day of [1, 2, 3, 4, 5] as const) {
+      for (const period of entry.weekly[day] ?? []) {
+        rows.push([
+          initial,
+          day,
+          period.start,
+          period.end,
+          period.type,
+          period.type === 'lesson' ? period.subject : '',
+          period.type === 'lesson' ? period.group : '',
+          period.type === 'lesson' ? period.room : '',
+          period.type === 'break' ? period.label ?? '' : '',
+        ])
+      }
+    }
+  }
+  return toCsv([...TIMETABLE_HEADERS], rows)
+}
+
+export function parseTimetableCsv(
+  text: string,
+  startYear: number,
+): ParsedYearCsv<TimetableYearMap> {
+  const { rows } = parseCsv(text)
+  const issues: CsvIssue[] = []
+  const previewRows: string[][] = []
+  const byTeacher = new Map<
+    string,
+    { initial: string; weekly: Record<SchoolWeekday, DayPeriod[]> }
+  >()
+  const year = academicYearWindowForIso(`${startYear}-09-01`)
+
+  rows.forEach((row, idx) => {
+    const line = idx + 2
+    const initial = cell(row, 'teacher_initial', 'Initial', 'teacher').toUpperCase()
+    const weekdayRaw = cell(row, 'weekday', 'day', 'Dow')
+    const start = cell(row, 'start', 'Start')
+    const end = cell(row, 'end', 'End')
+    const type = cell(row, 'type', 'Type').toLowerCase()
+    if (!initial && !start && !type) return
+    if (!initial) {
+      issues.push({ row: line, message: '缺少 teacher_initial' })
+      return
+    }
+    const weekday = Number(weekdayRaw)
+    if (!isSchoolWeekday(weekday)) {
+      issues.push({ row: line, message: 'weekday 須為 1–5（一至五）' })
+      return
+    }
+    if (!/^\d{1,2}:\d{2}$/.test(start) || !/^\d{1,2}:\d{2}$/.test(end)) {
+      issues.push({ row: line, message: 'start / end 須為 HH:MM' })
+      return
+    }
+    const nt = (t: string) => {
+      const [h, min] = t.split(':')
+      return `${Number(h).toString().padStart(2, '0')}:${min}`
+    }
+    const startN = nt(start)
+    const endN = nt(end)
+    let period: DayPeriod | null = null
+    if (type === 'lesson') {
+      period = {
+        type: 'lesson',
+        start: startN,
+        end: endN,
+        subject: cell(row, 'subject', 'Subject'),
+        group: cell(row, 'group', 'Group', 'class'),
+        room: cell(row, 'room', 'Room'),
+      }
+    } else if (type === 'free') {
+      period = { type: 'free', start: startN, end: endN }
+    } else if (type === 'break') {
+      period = {
+        type: 'break',
+        start: startN,
+        end: endN,
+        label: cell(row, 'label', 'Label') || undefined,
+      }
+    } else {
+      issues.push({ row: line, message: `type 須為 lesson / free / break（收到 ${type || '空白'}）` })
+      return
+    }
+    let bucket = byTeacher.get(initial)
+    if (!bucket) {
+      bucket = {
+        initial,
+        weekly: { 1: [], 2: [], 3: [], 4: [], 5: [] },
+      }
+      byTeacher.set(initial, bucket)
+    }
+    bucket.weekly[weekday].push(period)
+    previewRows.push([
+      initial,
+      String(weekday),
+      startN,
+      endN,
+      type,
+      period.type === 'lesson' ? period.subject : period.type === 'break' ? period.label ?? '' : '',
+    ])
+  })
+
+  const data: TimetableYearMap = {}
+  for (const [initial, bucket] of byTeacher) {
+    data[`u-${initial.toLowerCase()}`] = {
+      academicYear: { ...year },
+      weekly: bucket.weekly,
+    }
+  }
+
+  return {
+    ok: issues.length === 0 && Object.keys(data).length > 0,
+    data,
+    issues,
+    previewRows,
+  }
+}
+
 export function emptyTemplateForKind(kind: YearCsvKind): string {
   switch (kind) {
     case 'teacher_whitelist':
@@ -723,5 +880,7 @@ export function emptyTemplateForKind(kind: YearCsvKind): string {
       return scoresTemplateCsv()
     case 'grade_deadlines':
       return deadlinesTemplateCsv()
+    case 'teacher_timetable':
+      return timetableTemplateCsv()
   }
 }

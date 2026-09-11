@@ -239,8 +239,8 @@ export function academicYearWindowForIso(iso: string): AcademicYearWindow {
   }
 }
 
-/** Weekly grids keyed by academic-year start (2025 → 2025/26, 2026 → 2026/27). */
-const TIMETABLES_BY_YEAR: Record<
+/** Committed seed grids keyed by academic-year start (2025 → 2025/26, …). */
+const SEED_TIMETABLES_BY_YEAR: Record<
   number,
   Record<string, TeacherTimetableEntry>
 > = {
@@ -248,12 +248,51 @@ const TIMETABLES_BY_YEAR: Record<
   2026: TEACHER_WEEKLY_2627,
 }
 
+/** Runtime overlays from Supabase (set by timetableStore after hydrate/save). */
+const TIMETABLE_OVERLAY: Record<
+  number,
+  Record<string, TeacherTimetableEntry>
+> = {}
+
+export function setTeacherTimetableOverlay(
+  startYear: number,
+  timetables: Record<string, TeacherTimetableEntry> | null,
+): void {
+  if (timetables == null) {
+    delete TIMETABLE_OVERLAY[startYear]
+    return
+  }
+  TIMETABLE_OVERLAY[startYear] = timetables
+}
+
+/** Seed-only map (ignores remote overlay). */
+export function seedTimetablesForYear(
+  startYear: number,
+): Record<string, TeacherTimetableEntry> {
+  return SEED_TIMETABLES_BY_YEAR[startYear] ?? {}
+}
+
+export function seedTimetableYears(): number[] {
+  return Object.keys(SEED_TIMETABLES_BY_YEAR)
+    .map(Number)
+    .filter((y) => Object.keys(SEED_TIMETABLES_BY_YEAR[y] ?? {}).length > 0)
+    .sort((a, b) => a - b)
+}
+
+export function hasSeedTimetableYear(startYear: number): boolean {
+  return Object.keys(seedTimetablesForYear(startYear)).length > 0
+}
+
 /** Resolve imported timetable for a teacher and academic year. */
 export function teacherTimetableEntry(
   teacherId: string,
   startYear: number,
 ): TeacherTimetableEntry | null {
-  return TIMETABLES_BY_YEAR[startYear]?.[teacherId] ?? null
+  return (
+    TIMETABLE_OVERLAY[startYear]?.[teacherId] ??
+    SEED_TIMETABLES_BY_YEAR[startYear]?.[teacherId] ??
+    null
+  )
 }
 
 /** Whether this teacher has an imported grid for the given academic year. */
@@ -266,23 +305,26 @@ export function hasTeacherTimetableForYear(
 
 /** Whether we have any weekly timetable data for this academic year. */
 export function hasTimetableForSchoolYear(startYear: number): boolean {
-  const map = TIMETABLES_BY_YEAR[startYear]
-  return map != null && Object.keys(map).length > 0
+  const map = weeklyTimetablesForYear(startYear)
+  return Object.keys(map).length > 0
 }
 
 /** Academic years with imported weekly timetables (newest first). */
 export function listTimetableAcademicYearStarts(): number[] {
-  return Object.keys(TIMETABLES_BY_YEAR)
-    .map(Number)
+  const years = new Set([
+    ...Object.keys(SEED_TIMETABLES_BY_YEAR).map(Number),
+    ...Object.keys(TIMETABLE_OVERLAY).map(Number),
+  ])
+  return [...years]
     .filter((y) => hasTimetableForSchoolYear(y))
     .sort((a, b) => b - a)
 }
 
-/** All imported teacher grids for one academic year. */
+/** All imported teacher grids for one academic year (overlay wins over seed). */
 export function weeklyTimetablesForYear(
   startYear: number,
 ): Record<string, TeacherTimetableEntry> {
-  return TIMETABLES_BY_YEAR[startYear] ?? {}
+  return TIMETABLE_OVERLAY[startYear] ?? SEED_TIMETABLES_BY_YEAR[startYear] ?? {}
 }
 
 /**
@@ -294,8 +336,8 @@ export function defaultTimetableWeekMonday(today = isoDateLocal()): string {
   const nextStart = currentStart + 1
   const sep1 = `${nextStart}-09-01`
   if (today < sep1 && hasTimetableForSchoolYear(nextStart)) {
-    const currentCount = Object.keys(TIMETABLES_BY_YEAR[currentStart] ?? {}).length
-    const nextCount = Object.keys(TIMETABLES_BY_YEAR[nextStart] ?? {}).length
+    const currentCount = Object.keys(weeklyTimetablesForYear(currentStart)).length
+    const nextCount = Object.keys(weeklyTimetablesForYear(nextStart)).length
     if (nextCount > currentCount) {
       return mondayOfWeekIso(sep1)
     }
@@ -318,6 +360,7 @@ export function timetableViewStartYear(weekMonday: string): number {
 /** Default export: 2026/27 grids (used by grade distribution views). */
 export const DEFAULT_TIMETABLE_ACADEMIC_YEAR_START = 2026
 
+/** @deprecated Prefer weeklyTimetablesForYear(startYear) so overlays apply. */
 export const TEACHER_WEEKLY_TIMETABLES: Record<string, TeacherTimetableEntry> =
   TEACHER_WEEKLY_2627
 
@@ -333,13 +376,10 @@ export function listTeachersWithTimetables(
 ): TimetableTeacherOption[] {
   const ids = new Set<string>()
   if (startYear != null) {
-    const map = TIMETABLES_BY_YEAR[startYear]
-    if (map) {
-      for (const id of Object.keys(map)) ids.add(id)
-    }
+    for (const id of Object.keys(weeklyTimetablesForYear(startYear))) ids.add(id)
   } else {
-    for (const map of Object.values(TIMETABLES_BY_YEAR)) {
-      for (const id of Object.keys(map)) ids.add(id)
+    for (const y of listTimetableAcademicYearStarts()) {
+      for (const id of Object.keys(weeklyTimetablesForYear(y))) ids.add(id)
     }
   }
   const whitelist =
@@ -359,8 +399,9 @@ export function isTeacherFreeAt(
   day: SchoolWeekday,
   start: string,
   end: string,
+  startYear: number = DEFAULT_TIMETABLE_ACADEMIC_YEAR_START,
 ): boolean {
-  const entry = TEACHER_WEEKLY_TIMETABLES[teacherId]
+  const entry = teacherTimetableEntry(teacherId, startYear)
   if (!entry) return false
   const period = entry.weekly[day].find(
     (p) => p.start === start && p.end === end,
@@ -404,8 +445,8 @@ export function resolveTimetableTeacherId(
   role: string | undefined,
 ): string | null {
   if (!userId || role === 'admin') return null
-  for (const map of Object.values(TIMETABLES_BY_YEAR)) {
-    if (map[userId]) return userId
+  for (const y of listTimetableAcademicYearStarts()) {
+    if (weeklyTimetablesForYear(y)[userId]) return userId
   }
   return null
 }

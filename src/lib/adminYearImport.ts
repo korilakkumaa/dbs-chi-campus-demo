@@ -16,11 +16,13 @@ import type {
   RosterCsvRow,
   ScoreCsvRow,
   StreamingCsvRow,
+  TimetableYearMap,
 } from './yearCsv/schemas'
 import { upsertTeacherWhitelistYear } from '../data/supabaseTeacherWhitelist'
 import { upsertGradeDeadlinesYear } from '../data/supabaseGradeDeadlines'
 import { upsertAssessmentDutyYear } from '../data/supabaseAssessmentDuty'
 import { upsertDeptDutyYear } from '../data/supabaseDeptDuty'
+import { upsertTeacherTimetableYear } from '../data/supabaseTeacherTimetable'
 import { classNameToId } from '../data/teacherWhitelist'
 
 export type YearImportResult = {
@@ -236,6 +238,7 @@ export async function applyYearCsvImport(input: {
   dept?: DeptDutyYear
   scores?: ScoreCsvRow[]
   deadlines?: GradeDeadline[]
+  timetables?: TimetableYearMap
 }): Promise<YearImportResult> {
   if (!isAdminEmail(input.userEmail)) {
     return {
@@ -255,7 +258,8 @@ export async function applyYearCsvImport(input: {
     input.assessment ??
     input.dept ??
     input.scores ??
-    input.deadlines
+    input.deadlines ??
+    input.timetables
 
   const edge = await invokeEdge(input.kind, input.startYear, edgePayload, replaceMode)
   if (edge) return edge
@@ -305,6 +309,20 @@ export async function applyYearCsvImport(input: {
       return ok
         ? { ok: true, kind: input.kind, upserted: input.dept.items.length }
         : { ok: false, kind: input.kind, upserted: 0, error: '職責寫入失敗' }
+    }
+    case 'teacher_timetable': {
+      if (!input.timetables) {
+        return { ok: false, kind: input.kind, upserted: 0, error: '缺少時間表資料' }
+      }
+      const ok = await upsertTeacherTimetableYear(
+        input.startYear,
+        input.timetables,
+        input.userId,
+      )
+      const count = Object.keys(input.timetables).length
+      return ok
+        ? { ok: true, kind: input.kind, upserted: count }
+        : { ok: false, kind: input.kind, upserted: 0, error: '時間表寫入失敗' }
     }
     case 'student_roster':
       return applyRosterLocal(input.startYear, input.roster ?? [], input.userId)

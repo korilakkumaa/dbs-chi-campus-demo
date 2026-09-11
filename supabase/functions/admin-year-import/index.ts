@@ -17,6 +17,7 @@ type ImportKind =
   | 'dept_duty'
   | 'semester_scores'
   | 'grade_deadlines'
+  | 'teacher_timetable'
 
 type Body = {
   kind?: ImportKind
@@ -267,6 +268,28 @@ Deno.serve(async (req) => {
       })
       if (error) return json({ ok: false, kind, upserted: 0, error: error.message }, 500)
       return json({ ok: true, kind, upserted: events.length })
+    }
+
+    if (kind === 'teacher_timetable') {
+      const timetables =
+        body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload)
+          ? body.payload
+          : {}
+      const { error } = await admin.from('teacher_timetable_years').upsert(
+        {
+          start_year: startYear,
+          timetables,
+          updated_by: updatedBy,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'start_year' },
+      )
+      if (error) return json({ ok: false, kind, upserted: 0, error: error.message }, 500)
+      return json({
+        ok: true,
+        kind,
+        upserted: Object.keys(timetables as Record<string, unknown>).length,
+      })
     }
 
     return json({ ok: false, error: `Unknown kind: ${kind}` }, 400)

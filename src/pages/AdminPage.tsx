@@ -40,6 +40,8 @@ import {
   parseAssessmentDutyCsv,
   deptDutyToCsv,
   parseDeptDutyCsv,
+  timetablesToCsv,
+  parseTimetableCsv,
 } from '../lib/yearCsv/schemas'
 import { applyYearCsvImport } from '../lib/adminYearImport'
 import {
@@ -49,8 +51,16 @@ import {
   peekDeptDuty,
 } from '../data/dutyStore'
 import { invalidateAssessmentDuty, invalidateDeptDuty } from '../data/dutyStore'
+import {
+  hydrateTeacherTimetables,
+  peekTeacherTimetables,
+  publishSeedTimetables,
+  saveTeacherTimetables,
+} from '../data/timetableStore'
+import { hasSeedTimetableYear } from '../data/teacherTimetable'
 import { supabase } from '../lib/supabase'
 import type { WhitelistTeacher } from '../data/teacherWhitelist'
+import type { TimetableYearMap } from '../lib/yearCsv/schemas'
 
 function listAdminYearStarts(): number[] {
   return [...new Set([...teacherWhitelistYears(), ...SCHOOL_CALENDAR_YEARS])].sort(
@@ -74,6 +84,7 @@ type YearStatus = {
   hasDept: boolean
   scoreCount: number | null
   deadlinesSaved: boolean
+  timetableTeacherCount: number
 }
 
 type CheckTone = 'ready' | 'empty' | 'partial' | 'unknown'
@@ -116,8 +127,12 @@ export function AdminPage() {
   const [whitelist, setWhitelist] = useState<WhitelistTeacher[]>(() =>
     peekTeacherWhitelist(defaultStart),
   )
+  const [timetables, setTimetables] = useState<TimetableYearMap>(() =>
+    peekTeacherTimetables(defaultStart),
+  )
   const [status, setStatus] = useState<YearStatus | null>(null)
   const [assignMessage, setAssignMessage] = useState<string | null>(null)
+  const [timetableMessage, setTimetableMessage] = useState<string | null>(null)
 
   const yearRange = useMemo(
     () => academicYearDateRange(startYear),
@@ -142,6 +157,8 @@ export function AdminPage() {
   const refreshStatus = useCallback(async () => {
     const teachers = await hydrateTeacherWhitelist(startYear)
     setWhitelist(teachers)
+    const yearTimetables = await hydrateTeacherTimetables(startYear)
+    setTimetables(yearTimetables)
     const assessment = await hydrateAssessmentDuty(startYear)
     const dept = await hydrateDeptDuty(startYear)
 
@@ -196,6 +213,7 @@ export function AdminPage() {
       hasDept: Boolean(dept),
       scoreCount,
       deadlinesSaved,
+      timetableTeacherCount: Object.keys(yearTimetables).length,
     })
   }, [startYear])
 
@@ -292,6 +310,19 @@ export function AdminPage() {
       detail: status?.deadlinesSaved ? '已存檔' : '尚未寫入資料庫',
       tone: status?.deadlinesSaved ? 'ready' : 'empty',
     },
+    {
+      id: 'timetable',
+      label: '時間表（個人／班級）',
+      detail:
+        (status?.timetableTeacherCount ?? Object.keys(timetables).length) > 0
+          ? `${status?.timetableTeacherCount ?? Object.keys(timetables).length} 位教師 · 班級時間表由此衍生`
+          : '尚未匯入',
+      tone:
+        (status?.timetableTeacherCount ?? Object.keys(timetables).length) > 0
+          ? 'ready'
+          : 'empty',
+      href: '/timetable',
+    },
   ]
 
   const readyCount = checklist.filter((item) => item.tone === 'ready').length
@@ -336,6 +367,15 @@ export function AdminPage() {
     grade_deadlines: {
       text: status?.deadlinesSaved ? '已存檔' : '未存檔',
       tone: (status?.deadlinesSaved ? 'ready' : 'empty') as CheckTone,
+    },
+    teacher_timetable: {
+      text:
+        (status?.timetableTeacherCount ?? Object.keys(timetables).length) > 0
+          ? `${status?.timetableTeacherCount ?? Object.keys(timetables).length} 人`
+          : '尚未匯入',
+      tone: toneFromCount(
+        status?.timetableTeacherCount ?? Object.keys(timetables).length,
+      ) as CheckTone,
     },
   }
 
@@ -404,8 +444,7 @@ export function AdminPage() {
           ))}
         </ul>
         <p className="admin-checklist-note">
-          個人／班級時間表仍需本機執行{' '}
-          <code>npm run generate:timetables</code>
+          個人與班級時間表同源：管理員在下方 CSV 匯入或「發布本機種子」後，其他老師重新整理即可看到更新。
         </p>
       </GlassPanel>
 
@@ -701,7 +740,86 @@ export function AdminPage() {
               }
             }}
           />
+
+          <CsvYearImportPanel
+            kind="teacher_timetable"
+            startYear={startYear}
+            exportCsv={
+              Object.keys(timetables).length > 0
+                ? timetablesToCsv(timetables)
+                : null
+            }
+            replaceModeDefault
+            statusText={csvStatus.teacher_timetable.text}
+            statusTone={csvStatus.teacher_timetable.tone}
+            description="匯出／上傳個人週課表。班級時間表（時間表→班級）會自動跟個人課表同步。亦可先「發布本機種子」再離線編輯。"
+            onParseAndImport={async ({ text }) => {
+              const parsed = parseTimetableCsv(text, startYear)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'teacher_timetable',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                timetables: parsed.data,
+              })
+              if (result.ok) {
+                await saveTeacherTimetables(startYear, parsed.data, importUser.id)
+                setTimetableMessage(
+                  `已寫入 ${Object.keys(parsed.data).length} 位教師時間表（班級頁同步）`,
+                )
+                await refreshStatus()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
         </div>
+        {hasSeedTimetableYear(startYear) ? (
+          <div className="admin-year-csv-list" style={{ marginTop: '0.75rem' }}>
+            <button
+              type="button"
+              className="deadline-select-all-btn"
+              onClick={() => {
+                setTimetableMessage(null)
+                void publishSeedTimetables(startYear, importUser.id).then(
+                  (result) => {
+                    if (!result.ok) {
+                      setTimetableMessage(result.error ?? '發布種子失敗')
+                      return
+                    }
+                    setTimetableMessage(
+                      `已將本機種子發布至雲端（${result.teacherCount} 位教師）；其他老師重新整理後可見。`,
+                    )
+                    void refreshStatus()
+                  },
+                )
+              }}
+            >
+              發布本機時間表種子至雲端
+            </button>
+            {timetableMessage ? (
+              <p className="csv-year-import-msg" role="status">
+                {timetableMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : timetableMessage ? (
+          <p className="csv-year-import-msg" role="status">
+            {timetableMessage}
+          </p>
+        ) : null}
       </GlassPanel>
 
       <section className="admin-year-section reveal-up delay-2">

@@ -15,6 +15,7 @@ import {
   roleForStaff,
 } from '../data/staffUsers'
 import { hydrateAllSeedWhitelistYears } from '../data/whitelistStore'
+import { hydrateAllSeedTimetableYears } from '../data/timetableStore'
 import { oauthRedirectTo, supabase } from '../lib/supabase'
 import { persistGoogleTokensFromSession } from '../data/googleCalendarSync'
 import type { Role, User } from '../types'
@@ -145,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         await hydrateAllSeedWhitelistYears()
+        await hydrateAllSeedTimetableYears()
         if (cancelled) return
         const { data } = await supabase.auth.getSession()
         if (cancelled) return

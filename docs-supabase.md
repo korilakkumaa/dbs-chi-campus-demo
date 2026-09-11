@@ -135,10 +135,11 @@ npm run import:streaming:2627
 | `dept_duty` | `category,title,teacher_initial,role,notes` | `dept_duty_years` |
 | `semester_scores` | `stid,semester,daily,reading,writing` | `semester_records`（僅 totals；正式對帳請用 Excel 入分腳本） |
 | `grade_deadlines` | `grade,activity_title,activity_due,submitted` | `grade_deadlines_years` |
+| `teacher_timetable` | `teacher_initial,weekday,start,end,type,subject,group,room,label` | `teacher_timetable_years`（班級時間表由此衍生） |
 
 班級分派下拉與白名單 CSV **同源**（寫入 `teacher_whitelist_years`）。成績截止日期「提交」會持久化至 `grade_deadlines_years`。
 
-時間表 xlsx 仍用本機 `npm run generate:timetables`（檢查清單會提示）。
+時間表（個人／班級）寫入 `teacher_timetable_years`（migration [`20260911120000_teacher_timetable_years.sql`](supabase/migrations/20260911120000_teacher_timetable_years.sql)）。管理員可在 `#/admin` 匯出／上傳 CSV，或「發布本機種子」；班級時間表由個人週課表衍生，無需另存。遠端已有該學年列時，改本機 `teacherWeekly*.generated.ts` 不會影響線上資料——請用 CSV 或重新發布。
 
 **勿**把 `SUPABASE_SERVICE_ROLE_KEY` 放進 Pages／Vite 前端。
 ## 3e. 外部日曆訂閱（Google / Apple）與 Google 直接同步
