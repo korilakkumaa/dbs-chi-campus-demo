@@ -185,7 +185,9 @@ export function CsvYearImportPanel({
               void onFile(file)
             }}
           />
-          {(kind === 'school_calendar' || kind === 'teacher_whitelist') && (
+          {(kind === 'school_calendar' ||
+            kind === 'teacher_whitelist' ||
+            kind === 'teacher_timetable') && (
             <label className="csv-replace-toggle">
               <input
                 type="checkbox"
