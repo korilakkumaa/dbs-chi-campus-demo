@@ -6,7 +6,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 }
 
-const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN', 'HT']
+const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN', 'HT', 'MYI']
 
 type ImportKind =
   | 'teacher_whitelist'
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     }
     if (!isAdmin) {
       const local = email.split('@')[0] ?? ''
-      isAdmin = ['dbstwl', 'dbslkl', 'dbsyln', 'dbsht'].includes(local)
+      isAdmin = ['dbstwl', 'dbslkl', 'dbsyln', 'dbsht', 'dbsmyi'].includes(local)
     }
     if (!isAdmin) {
       return json({ ok: false, kind: null, upserted: 0, error: '僅管理員可匯入' }, 403)

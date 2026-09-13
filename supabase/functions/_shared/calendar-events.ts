@@ -135,7 +135,7 @@ function adminUserIds(): Set<string> {
     return new Set(fromBundle)
   }
   // Fallback if an older bundle is still deployed.
-  return new Set(['u-admin', 'u-twl', 'u-lkl', 'u-yln', 'u-ht'])
+  return new Set(['u-admin', 'u-twl', 'u-lkl', 'u-yln', 'u-ht', 'u-myi'])
 }
 
 /** Match frontend admin whitelist so Apple/cron feeds keep full *shared* calendars. */

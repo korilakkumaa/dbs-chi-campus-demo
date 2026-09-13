@@ -35,7 +35,7 @@ interface AuthContextValue {
   authError: string | null
   /** Google OAuth only — required for Calendar sync. */
   authMethod: 'google' | null
-  /** TWL / LKL / YLN school accounts may toggle 管理員 ↔ 老師 after sign-in. */
+  /** TWL / LKL / YLN / HT / MYI school accounts may toggle 管理員 ↔ 老師 after sign-in. */
   canSwitchRole: boolean
   loginWithGoogle: () => Promise<string | void>
   switchRole: (role: Role) => void
