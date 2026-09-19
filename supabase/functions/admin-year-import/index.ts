@@ -6,7 +6,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 }
 
-const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN', 'HT', 'MYI']
+const ADMIN_INITIALS = ['TWL', 'LKL', 'YLN', 'HT', 'MYI', 'LWW']
 
 type ImportKind =
   | 'teacher_whitelist'
