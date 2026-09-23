@@ -1,15 +1,21 @@
 /**
- * 測考範圍 — information architecture
+ * 測考範圍 — layout + visual plan
  *
- * User question:「某學期、某卷別，各級考哪些篇章？」
- * Path: 學期 → 卷別 →（可選）年級 → 單元／篇章列表
+ * IA: 學期 → 卷別 →（可選）年級 → 單元／篇章
  *
- * Display fields
- * - Primary: 單元、篇章名
- * - Secondary: 教授學期（何時教過，輔助判斷新／舊篇）
- * - Hidden here: 分數分配、review_count、cohort 學年欄（出卷／後台用，非查範圍主線）
+ * Visual (why it felt crowded)
+ * - One GlassPanel held filters + result + nested bordered accordions + row hairlines
+ * - Three equal-weight filter rows competed with content
+ * - Titles, unit heads, and meta shared similar size / contrast
  *
- * Layout: one filter bar + one result panel（避免上／下學期雙欄同時展開造成掃讀負擔）
+ * Visual rules for this pass
+ * 1. Two zones: slim filter dock (controls) + reading sheet (content)
+ * 2. Hierarchy by type & space, not nested boxes — drop accordion chrome borders
+ * 3. Vertical rhythm: generous gaps between grade / unit; no per-row rules
+ * 4. Type: 篇章 = primary; 單元 = quiet label; 教授學期 = whisper meta
+ * 5. Motion: soft accordion / filter transitions only（presence, not noise）
+ *
+ * Fields: 單元、篇章名（primary）；教授學期（secondary, deduped on unit）
  */
 import { useMemo, useState } from 'react'
 import { GlassPanel } from '../components/GlassPanel'
@@ -32,7 +38,7 @@ const GRADES: Array<ExamScopeGrade | 'all'> = ['all', 'f4', 'f5', 'f6']
 const PAPER_HINT: Record<ExamScopePaper, string> = {
   test: '階段性統測指定篇章',
   paper1: '卷一甲部（閱讀）指定篇章',
-  paper2: '卷二（寫作）— 暫無篇章式範圍',
+  paper2: '卷二（寫作）暫無篇章式範圍',
 }
 
 function formatTitle(title: string) {
@@ -52,10 +58,10 @@ function ScopeGradeBlock({
 }) {
   const count = countTitles(section)
   return (
-    <details className="exam-scope-grade-details" open={defaultOpen}>
+    <details className="exam-scope-grade" open={defaultOpen}>
       <summary className="exam-scope-grade-summary">
         <span className="exam-scope-grade-chevron" aria-hidden="true" />
-        <h2>{section.gradeLabel}</h2>
+        <span className="exam-scope-grade-name">{section.gradeLabel}</span>
         <span className="exam-scope-grade-meta">{count} 篇</span>
         {section.note ? (
           <span className="exam-scope-grade-note">{section.note}</span>
@@ -69,14 +75,14 @@ function ScopeGradeBlock({
           const sharedTaught =
             taughtTerms.length === 1 ? taughtTerms[0] : null
           return (
-            <div key={unit.unit} className="exam-scope-unit">
-              <div className="exam-scope-unit-head">
+            <section key={unit.unit} className="exam-scope-unit">
+              <header className="exam-scope-unit-head">
                 <h3>{unit.unit}</h3>
                 {sharedTaught ? (
                   <span className="exam-scope-taught">{sharedTaught}</span>
                 ) : null}
-              </div>
-              <ul className="exam-scope-title-list">
+              </header>
+              <ul className="exam-scope-titles">
                 {unit.titles.map((item) => (
                   <li key={item.title}>
                     <span className="exam-scope-title">
@@ -90,11 +96,53 @@ function ScopeGradeBlock({
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )
         })}
       </div>
     </details>
+  )
+}
+
+function SegControl<T extends string>({
+  label,
+  labelId,
+  options,
+  value,
+  onChange,
+  getLabel,
+}: {
+  label: string
+  labelId: string
+  options: readonly T[]
+  value: T
+  onChange: (next: T) => void
+  getLabel: (key: T) => string
+}) {
+  return (
+    <div className="exam-scope-control">
+      <span className="exam-scope-control-label" id={labelId}>
+        {label}
+      </span>
+      <div
+        className="exam-scope-seg"
+        role="tablist"
+        aria-labelledby={labelId}
+      >
+        {options.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={value === key}
+            className={`exam-scope-seg-btn${value === key ? ' active' : ''}`}
+            onClick={() => onChange(key)}
+          >
+            {getLabel(key)}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -116,65 +164,48 @@ export function ScopePage() {
     <div className="page exam-scope-page">
       <header className="page-header reveal-up">
         <h1>測考範圍</h1>
-        <p>查閱高中指定篇章：先選學期與卷別，再按年級展開列表。</p>
+        <p>高中指定篇章 · 依學期與卷別查閱</p>
       </header>
 
-      <GlassPanel className="exam-scope-panel reveal-up delay-1">
-        <div className="exam-scope-filters">
-          <div className="exam-scope-filter-row">
-            <span className="exam-scope-filter-label" id="exam-scope-sem-label">
-              學期
-            </span>
-            <div
-              className="exam-scope-seg"
-              role="tablist"
-              aria-labelledby="exam-scope-sem-label"
-            >
-              {SEMESTERS.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={semester === key}
-                  className={`exam-scope-seg-btn${semester === key ? ' active' : ''}`}
-                  onClick={() => setSemester(key)}
-                >
-                  {EXAM_SCOPE_SEMESTER_LABELS[key]}
-                </button>
-              ))}
-            </div>
+      <div className="exam-scope-layout reveal-up delay-1">
+        <GlassPanel className="exam-scope-dock" as="section">
+          <div className="exam-scope-dock-row">
+            <SegControl
+              label="學期"
+              labelId="exam-scope-sem-label"
+              options={SEMESTERS}
+              value={semester}
+              onChange={setSemester}
+              getLabel={(k) => EXAM_SCOPE_SEMESTER_LABELS[k]}
+            />
+            <SegControl
+              label="卷別"
+              labelId="exam-scope-paper-label"
+              options={PAPERS}
+              value={paper}
+              onChange={setPaper}
+              getLabel={(k) => EXAM_SCOPE_PAPER_LABELS[k]}
+            />
           </div>
+        </GlassPanel>
 
-          <div className="exam-scope-filter-row">
-            <span className="exam-scope-filter-label" id="exam-scope-paper-label">
-              卷別
-            </span>
-            <div
-              className="exam-scope-seg"
-              role="tablist"
-              aria-labelledby="exam-scope-paper-label"
-            >
-              {PAPERS.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={paper === key}
-                  className={`exam-scope-seg-btn${paper === key ? ' active' : ''}`}
-                  onClick={() => setPaper(key)}
-                >
-                  {EXAM_SCOPE_PAPER_LABELS[key]}
-                </button>
-              ))}
+        <GlassPanel className="exam-scope-sheet" as="section">
+          <header className="exam-scope-sheet-head">
+            <div className="exam-scope-sheet-title-block">
+              <h2 className="exam-scope-sheet-title">{selectionLabel}</h2>
+              <p className="exam-scope-sheet-hint">{PAPER_HINT[paper]}</p>
             </div>
-          </div>
+            {paper !== 'paper2' && sections.length > 0 ? (
+              <p className="exam-scope-sheet-count">{totalTitles} 篇</p>
+            ) : null}
+          </header>
 
-          <div className="exam-scope-filter-row">
-            <span className="exam-scope-filter-label" id="exam-scope-grade-label">
+          <div className="exam-scope-grade-filter">
+            <span className="exam-scope-control-label" id="exam-scope-grade-label">
               年級
             </span>
             <div
-              className="exam-scope-seg exam-scope-seg-grades"
+              className="exam-scope-chips"
               role="tablist"
               aria-labelledby="exam-scope-grade-label"
             >
@@ -184,7 +215,7 @@ export function ScopePage() {
                   type="button"
                   role="tab"
                   aria-selected={grade === key}
-                  className={`exam-scope-seg-btn${grade === key ? ' active' : ''}`}
+                  className={`exam-scope-chip${grade === key ? ' active' : ''}`}
                   onClick={() => setGrade(key)}
                 >
                   {key === 'all' ? '全部' : EXAM_SCOPE_GRADE_LABELS[key]}
@@ -192,40 +223,32 @@ export function ScopePage() {
               ))}
             </div>
           </div>
-        </div>
 
-        <div className="exam-scope-result-head">
-          <p className="exam-scope-selection-label">{selectionLabel}</p>
-          <p className="exam-scope-selection-hint">{PAPER_HINT[paper]}</p>
-          {paper !== 'paper2' && sections.length > 0 ? (
-            <p className="exam-scope-result-count">共 {totalTitles} 篇</p>
-          ) : null}
-        </div>
-
-        <div className="exam-scope-result" role="tabpanel">
-          {paper === 'paper2' || sections.length === 0 ? (
-            <AsyncStatus
-              variant="empty"
-              panel={false}
-              message={
-                paper === 'paper2'
-                  ? '卷二暫未提供篇章式考核範圍。'
-                  : '此篩選條件下沒有篇章。'
-              }
-            />
-          ) : (
-            <div className="exam-scope-grade-list">
-              {sections.map((section, index) => (
-                <ScopeGradeBlock
-                  key={section.grade}
-                  section={section}
-                  defaultOpen={grade !== 'all' || index === 0}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </GlassPanel>
+          <div className="exam-scope-sheet-body" role="tabpanel">
+            {paper === 'paper2' || sections.length === 0 ? (
+              <AsyncStatus
+                variant="empty"
+                panel={false}
+                message={
+                  paper === 'paper2'
+                    ? '卷二暫未提供篇章式考核範圍。'
+                    : '此篩選條件下沒有篇章。'
+                }
+              />
+            ) : (
+              <div className="exam-scope-grades">
+                {sections.map((section, index) => (
+                  <ScopeGradeBlock
+                    key={section.grade}
+                    section={section}
+                    defaultOpen={grade !== 'all' || index === 0}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </GlassPanel>
+      </div>
     </div>
   )
 }
