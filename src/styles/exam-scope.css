@@ -1,0 +1,163 @@
+/* 測考範圍 — semester cards + paper tabs */
+
+.exam-scope-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.exam-scope-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.exam-scope-card-head h2 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  letter-spacing: 0.04em;
+}
+
+.exam-scope-card-head p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+}
+
+.exam-scope-paper-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.exam-scope-paper-tab {
+  font: inherit;
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease-out),
+    color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
+}
+
+.exam-scope-paper-tab:hover {
+  color: var(--ink);
+  border-color: rgba(90, 60, 30, 0.28);
+}
+
+.exam-scope-paper-tab.active {
+  background: rgba(196, 132, 58, 0.12);
+  border-color: rgba(196, 132, 58, 0.45);
+  color: var(--amber-deep);
+}
+
+.exam-scope-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 8rem;
+}
+
+.exam-scope-selection-label {
+  margin: 0;
+  font-size: var(--text-compact);
+  font-weight: 700;
+  color: var(--amber-deep);
+  letter-spacing: 0.02em;
+}
+
+.exam-scope-grades {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.exam-scope-grade-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.65rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.exam-scope-grade-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-subhead);
+  letter-spacing: 0.03em;
+}
+
+.exam-scope-grade-note {
+  font-size: var(--text-fine);
+  color: var(--ink-faint);
+}
+
+.exam-scope-units {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.exam-scope-unit h4 {
+  margin: 0 0 0.25rem;
+  font-size: var(--text-ui-md);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.exam-scope-unit ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.exam-scope-unit li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title scheme'
+    'taught taught';
+  column-gap: 0.55rem;
+  row-gap: 0.05rem;
+  padding: 0.2rem 0;
+  font-size: var(--text-ui-sm);
+  line-height: 1.4;
+}
+
+.exam-scope-title {
+  grid-area: title;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.exam-scope-scheme {
+  grid-area: scheme;
+  font-family: var(--font-input);
+  font-size: var(--text-fine);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.exam-scope-taught {
+  grid-area: taught;
+  font-size: var(--text-fine);
+  color: var(--ink-faint);
+}
+
+@media (max-width: 820px) {
+  .exam-scope-cards {
+    grid-template-columns: 1fr;
+  }
+}

@@ -28,6 +28,9 @@ const PapersPage = lazy(() =>
 const DutiesPage = lazy(() =>
   import('./pages/DutiesPage').then((m) => ({ default: m.DutiesPage })),
 )
+const ScopePage = lazy(() =>
+  import('./pages/ScopePage').then((m) => ({ default: m.ScopePage })),
+)
 const ClassPage = lazy(() =>
   import('./pages/ClassPage').then((m) => ({ default: m.ClassPage })),
 )
@@ -194,11 +197,9 @@ function AppRoutes() {
           <Route
             path="/resources/scope"
             element={
-              <PlaceholderPage
-                title="測考範圍"
-                description="各級測考範圍與相關說明。"
-                upcoming
-              />
+              <LazyRoute>
+                <ScopePage />
+              </LazyRoute>
             }
           />
           <Route

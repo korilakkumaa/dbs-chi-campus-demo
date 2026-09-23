@@ -6,6 +6,7 @@
 @import './styles/scores.css';
 @import './styles/tower.css';
 @import './styles/papers-duty.css';
+@import './styles/exam-scope.css';
 @import './styles/timetables.css';
 
 /* Shared async / route chrome added in architecture pass */
