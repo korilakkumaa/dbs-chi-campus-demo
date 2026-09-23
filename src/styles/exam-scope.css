@@ -175,6 +175,22 @@
   border-top: 1px solid var(--line);
 }
 
+.exam-scope-unit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.3rem;
+}
+
+.exam-scope-unit-head h3 {
+  margin: 0;
+  font-size: var(--text-ui-md);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
 .exam-scope-unit h3 {
   margin: 0 0 0.3rem;
   font-size: var(--text-ui-md);

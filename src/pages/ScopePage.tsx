@@ -62,23 +62,37 @@ function ScopeGradeBlock({
         ) : null}
       </summary>
       <div className="exam-scope-grade-body">
-        {section.units.map((unit) => (
-          <div key={unit.unit} className="exam-scope-unit">
-            <h3>{unit.unit}</h3>
-            <ul className="exam-scope-title-list">
-              {unit.titles.map((item) => (
-                <li key={item.title}>
-                  <span className="exam-scope-title">
-                    {formatTitle(item.title)}
-                  </span>
-                  <span className="exam-scope-taught">
-                    {item.firstTaughtFormTerm}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {section.units.map((unit) => {
+          const taughtTerms = [
+            ...new Set(unit.titles.map((t) => t.firstTaughtFormTerm)),
+          ]
+          const sharedTaught =
+            taughtTerms.length === 1 ? taughtTerms[0] : null
+          return (
+            <div key={unit.unit} className="exam-scope-unit">
+              <div className="exam-scope-unit-head">
+                <h3>{unit.unit}</h3>
+                {sharedTaught ? (
+                  <span className="exam-scope-taught">{sharedTaught}</span>
+                ) : null}
+              </div>
+              <ul className="exam-scope-title-list">
+                {unit.titles.map((item) => (
+                  <li key={item.title}>
+                    <span className="exam-scope-title">
+                      {formatTitle(item.title)}
+                    </span>
+                    {!sharedTaught ? (
+                      <span className="exam-scope-taught">
+                        {item.firstTaughtFormTerm}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })}
       </div>
     </details>
   )
