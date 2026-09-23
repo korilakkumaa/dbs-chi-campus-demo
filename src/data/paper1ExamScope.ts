@@ -115,7 +115,6 @@ export function getPaper1ExamScopeSections(
     sections.push({
       grade,
       gradeLabel: EXAM_SCOPE_GRADE_LABELS[grade],
-      note: grade === 'f6' ? '中六考核不分學期' : undefined,
       units: groupByUnit(matched),
     })
   }
