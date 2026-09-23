@@ -106,18 +106,20 @@ npm run import:streaming:2627
 2. 管理員在「詳細日曆」新增、改標題或刪除的**全校活動**會寫入 `campus_calendar_events`，教師重新整理（或即時推送）後即可看到。
 3. 教師自己點課節新增的私人備註會同步至 Supabase（依 `audience.ownerId`），供 iCal 訂閱與 Google 同步使用。
 
-## 3d. 出卷／職責（admin 編輯）
+## 3d. 出卷／職責／測考範圍（admin 編輯）
 
-1. 在 SQL Editor 執行 [`supabase/migrations/20260906120000_duty_year_docs.sql`](supabase/migrations/20260906120000_duty_year_docs.sql)
+1. 在 SQL Editor 執行 [`supabase/migrations/20260906120000_duty_year_docs.sql`](supabase/migrations/20260906120000_duty_year_docs.sql) 與 [`supabase/migrations/20260923120000_exam_scope_years.sql`](supabase/migrations/20260923120000_exam_scope_years.sql)
 2. **出卷** 的矩陣編輯器在 `/resources/papers`（工具列 **編輯**）。管理員「新學年準備」頁有入口，深連結 `#/resources/papers?year=YYYY&edit=1`。
 3. 架構（可維護性）：
    - **單一編輯面**：出卷 UI 只在 `PapersPage` + `PapersEdit`；`AdminPage` 只做狀態摘要與導航，避免複製一整套矩陣編輯器。
    - **資料層**：`dutyStore` 統一 hydrate／bootstrap／save；靜態 seed（`assessmentDuty*.generated.ts`）僅後備；`assessment_duty_years` 為寫入後的來源。
+   - **測考範圍**：`examScopeStore` + `exam_scope_years`；靜態 seed（`paper1ExamScopeData.ts`／`data/paper1_exam_scope.csv`）為後備；管理員以 CSV 上傳覆寫後，全體教師的 `#/resources/scope` 讀遠端列。
    - **衍生資料**：教師工作量由 `assessmentDutyDerive` 從矩陣 + EC 重算，不另存。
 4. 管理員可改派、增刪年級／格子／EC；無資料學年可 **建立空白** 或 **從上學年複製**，**儲存** 後寫入：
    - `assessment_duty_years`（年級矩陣 + EC 附錄）
    - `dept_duty_years`（科組職責；在「職責」頁同樣可建立空白／從上學年複製）
-5. 一般教師帳號只讀。若遠端已有該學年列，改種子檔不會影響線上資料——請用編輯器修正。
+   - `exam_scope_years`（高中指定篇章測考範圍；以 CSV 為主）
+5. 一般教師帳號只讀。若遠端已有該學年列，改種子檔不會影響線上資料——請用編輯器或 CSV 修正。
 
 ## 3e. 新學年準備（CSV 範本）
 
@@ -133,6 +135,7 @@ npm run import:streaming:2627
 | `school_calendar` | 對齊校曆 seed CSV（`Date,Event,Category,…`） | `campus_calendar_events` |
 | `assessment_duty` | `grade,category,semester,part,note,teacher_initial,weight,section,ec_slot` | `assessment_duty_years` |
 | `dept_duty` | `category,title,teacher_initial,role,notes` | `dept_duty_years` |
+| `exam_scope` | 對齊 `data/paper1_exam_scope.csv`（`cohort,unit,title,f4_s1_test,…`） | `exam_scope_years` |
 | `semester_scores` | `stid,semester,daily,reading,writing` | `semester_records`（僅 totals；正式對帳請用 Excel 入分腳本） |
 | `grade_deadlines` | `grade,activity_title,activity_due,submitted` | `grade_deadlines_years` |
 

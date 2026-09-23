@@ -10,6 +10,7 @@ import type { YearCsvKind } from './yearCsv/schemas'
 import type { WhitelistTeacher } from '../data/teacherWhitelist'
 import type { AssessmentDutyYear } from '../data/assessmentDutyTypes'
 import type { DeptDutyYear } from '../data/deptDutyTypes'
+import type { ExamScopeYear } from '../data/examScopeTypes'
 import type { GradeDeadline } from '../types'
 import type {
   CalendarCsvRow,
@@ -21,6 +22,7 @@ import { upsertTeacherWhitelistYear } from '../data/supabaseTeacherWhitelist'
 import { upsertGradeDeadlinesYear } from '../data/supabaseGradeDeadlines'
 import { upsertAssessmentDutyYear } from '../data/supabaseAssessmentDuty'
 import { upsertDeptDutyYear } from '../data/supabaseDeptDuty'
+import { upsertExamScopeYear } from '../data/supabaseExamScope'
 import { classNameToId } from '../data/teacherWhitelist'
 
 export type YearImportResult = {
@@ -234,6 +236,7 @@ export async function applyYearCsvImport(input: {
   calendar?: CalendarCsvRow[]
   assessment?: AssessmentDutyYear
   dept?: DeptDutyYear
+  examScope?: ExamScopeYear
   scores?: ScoreCsvRow[]
   deadlines?: GradeDeadline[]
 }): Promise<YearImportResult> {
@@ -254,6 +257,7 @@ export async function applyYearCsvImport(input: {
     input.calendar ??
     input.assessment ??
     input.dept ??
+    input.examScope ??
     input.scores ??
     input.deadlines
 
@@ -305,6 +309,15 @@ export async function applyYearCsvImport(input: {
       return ok
         ? { ok: true, kind: input.kind, upserted: input.dept.items.length }
         : { ok: false, kind: input.kind, upserted: 0, error: '職責寫入失敗' }
+    }
+    case 'exam_scope': {
+      if (!input.examScope) {
+        return { ok: false, kind: input.kind, upserted: 0, error: '缺少測考範圍資料' }
+      }
+      const ok = await upsertExamScopeYear(input.examScope, input.userId)
+      return ok
+        ? { ok: true, kind: input.kind, upserted: input.examScope.rows.length }
+        : { ok: false, kind: input.kind, upserted: 0, error: '測考範圍寫入失敗' }
     }
     case 'student_roster':
       return applyRosterLocal(input.startYear, input.roster ?? [], input.userId)

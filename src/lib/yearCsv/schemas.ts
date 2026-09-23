@@ -4,6 +4,9 @@ import type { GradeDeadline } from '../../types'
 import type { AssessmentDutyYear, AssessmentDutyCategoryKey, GradeDutyRow } from '../../data/assessmentDutyTypes'
 import type { DutyPart, DutySemester, DutySlot, EcAppendixRow } from '../../data/assessmentDutyParse'
 import type { DeptDutyItem, DeptDutyPerson, DeptDutyYear } from '../../data/deptDutyTypes'
+import type { ExamScopeYear } from '../../data/examScopeTypes'
+import type { ExamScopeCohort, Paper1ExamScopeRow } from '../../data/paper1ExamScopeData'
+import { PAPER1_EXAM_SCOPE_ROWS } from '../../data/paper1ExamScopeData'
 import {
   createEmptyAssessmentDuty,
   DEFAULT_ASSESSMENT_CATEGORY_LABELS,
@@ -19,6 +22,7 @@ export type YearCsvKind =
   | 'school_calendar'
   | 'assessment_duty'
   | 'dept_duty'
+  | 'exam_scope'
   | 'semester_scores'
   | 'grade_deadlines'
 
@@ -38,6 +42,7 @@ export const YEAR_CSV_KIND_LABEL: Record<YearCsvKind, string> = {
   school_calendar: '校曆活動',
   assessment_duty: '出卷分工',
   dept_duty: '職責',
+  exam_scope: '測考範圍',
   semester_scores: '學期成績',
   grade_deadlines: '成績截止日期',
 }
@@ -583,6 +588,170 @@ export function parseDeptDutyCsv(
   }
 }
 
+export const EXAM_SCOPE_HEADERS = [
+  'cohort',
+  'cohort_f4_year',
+  'cohort_f5_year',
+  'cohort_f6_year',
+  'first_taught_form_term',
+  'unit',
+  'title',
+  'score_scheme',
+  'f4_s1_test',
+  'f4_s1_exam',
+  'f4_s2_test',
+  'f4_s2_exam',
+  'f5_s1_test',
+  'f5_s1_exam',
+  'f5_s2_test',
+  'f5_s2_exam',
+  'f6_test',
+  'f6_exam',
+  'review_count',
+] as const
+
+const EXAM_SCOPE_COHORTS: ExamScopeCohort[] = ['中四甲部', '中五甲部', '中六甲部']
+
+function flagCell(value: boolean): string {
+  return value ? '1.0' : '0.0'
+}
+
+/** Accept 1 / 1.0 / Y / yes / 是 as true (source CSV uses 1.0 / 0.0). */
+function examScopeFlag(raw: string): boolean {
+  const s = raw.trim().toLowerCase()
+  if (!s) return false
+  if (s === '0' || s === '0.0' || s === 'n' || s === 'no' || s === 'false' || s === '否') {
+    return false
+  }
+  if (truthyFlag(raw)) return true
+  const n = Number(s)
+  return Number.isFinite(n) && n !== 0
+}
+
+function paper1RowsToCsvMatrix(rows: Paper1ExamScopeRow[]): Array<Array<string | number>> {
+  return rows.map((r) => [
+    r.cohort,
+    r.cohortF4Year,
+    r.cohortF5Year,
+    r.cohortF6Year,
+    r.firstTaughtFormTerm,
+    r.unit,
+    r.title,
+    r.scoreScheme ?? '',
+    flagCell(r.flags.f4_s1_test),
+    flagCell(r.flags.f4_s1_exam),
+    flagCell(r.flags.f4_s2_test),
+    flagCell(r.flags.f4_s2_exam),
+    flagCell(r.flags.f5_s1_test),
+    flagCell(r.flags.f5_s1_exam),
+    flagCell(r.flags.f5_s2_test),
+    flagCell(r.flags.f5_s2_exam),
+    flagCell(r.flags.f6_test),
+    flagCell(r.flags.f6_exam),
+    r.reviewCount,
+  ])
+}
+
+export function examScopeTemplateCsv(): string {
+  return toCsv([...EXAM_SCOPE_HEADERS], paper1RowsToCsvMatrix(PAPER1_EXAM_SCOPE_ROWS.slice(0, 3)))
+}
+
+export function examScopeToCsv(doc: ExamScopeYear): string {
+  return toCsv([...EXAM_SCOPE_HEADERS], paper1RowsToCsvMatrix(doc.rows))
+}
+
+export function paper1ExamScopeRowsToCsv(rows: Paper1ExamScopeRow[]): string {
+  return toCsv([...EXAM_SCOPE_HEADERS], paper1RowsToCsvMatrix(rows))
+}
+
+export function parseExamScopeCsv(
+  text: string,
+  startYear: number,
+  base?: ExamScopeYear | null,
+): ParsedYearCsv<ExamScopeYear> {
+  const { rows } = parseCsv(text)
+  const issues: CsvIssue[] = []
+  const dataRows: Paper1ExamScopeRow[] = []
+  const previewRows: string[][] = []
+
+  rows.forEach((row, idx) => {
+    const line = idx + 2
+    const cohort = cell(row, 'cohort', 'Cohort', '組別') as ExamScopeCohort | ''
+    const unit = cell(row, 'unit', 'Unit', '單元')
+    const title = cell(row, 'title', 'Title', '篇章')
+    if (!cohort && !unit && !title) return
+    if (!cohort) {
+      issues.push({ row: line, message: '缺少 cohort' })
+      return
+    }
+    if (!EXAM_SCOPE_COHORTS.includes(cohort)) {
+      issues.push({
+        row: line,
+        message: `cohort 須為 ${EXAM_SCOPE_COHORTS.join('／')}`,
+      })
+      return
+    }
+    if (!unit) {
+      issues.push({ row: line, message: '缺少 unit' })
+      return
+    }
+    if (!title) {
+      issues.push({ row: line, message: '缺少 title' })
+      return
+    }
+    const scoreSchemeRaw = cell(row, 'score_scheme', 'scoreScheme')
+    const reviewRaw = cell(row, 'review_count', 'reviewCount')
+    const reviewCount = reviewRaw === '' ? 0 : Number(reviewRaw)
+    if (reviewRaw !== '' && !Number.isFinite(reviewCount)) {
+      issues.push({ row: line, message: 'review_count 無效' })
+      return
+    }
+    dataRows.push({
+      cohort,
+      cohortF4Year: cell(row, 'cohort_f4_year', 'cohortF4Year'),
+      cohortF5Year: cell(row, 'cohort_f5_year', 'cohortF5Year'),
+      cohortF6Year: cell(row, 'cohort_f6_year', 'cohortF6Year'),
+      firstTaughtFormTerm: cell(
+        row,
+        'first_taught_form_term',
+        'firstTaughtFormTerm',
+        '教授學期',
+      ),
+      unit,
+      title,
+      scoreScheme: scoreSchemeRaw || null,
+      flags: {
+        f4_s1_test: examScopeFlag(cell(row, 'f4_s1_test')),
+        f4_s1_exam: examScopeFlag(cell(row, 'f4_s1_exam')),
+        f4_s2_test: examScopeFlag(cell(row, 'f4_s2_test')),
+        f4_s2_exam: examScopeFlag(cell(row, 'f4_s2_exam')),
+        f5_s1_test: examScopeFlag(cell(row, 'f5_s1_test')),
+        f5_s1_exam: examScopeFlag(cell(row, 'f5_s1_exam')),
+        f5_s2_test: examScopeFlag(cell(row, 'f5_s2_test')),
+        f5_s2_exam: examScopeFlag(cell(row, 'f5_s2_exam')),
+        f6_test: examScopeFlag(cell(row, 'f6_test')),
+        f6_exam: examScopeFlag(cell(row, 'f6_exam')),
+      },
+      reviewCount,
+    })
+    previewRows.push([cohort, unit, title, String(reviewCount)])
+  })
+
+  const doc: ExamScopeYear = {
+    startYear,
+    label: base?.label || formatAcademicYearLabel(startYear),
+    source: 'csv-import',
+    rows: dataRows,
+  }
+
+  return {
+    ok: issues.length === 0 && doc.rows.length > 0,
+    data: doc,
+    issues,
+    previewRows,
+  }
+}
+
 export const SCORES_HEADERS = [
   'stid',
   'semester',
@@ -719,6 +888,8 @@ export function emptyTemplateForKind(kind: YearCsvKind): string {
       return assessmentTemplateCsv()
     case 'dept_duty':
       return deptTemplateCsv()
+    case 'exam_scope':
+      return examScopeTemplateCsv()
     case 'semester_scores':
       return scoresTemplateCsv()
     case 'grade_deadlines':

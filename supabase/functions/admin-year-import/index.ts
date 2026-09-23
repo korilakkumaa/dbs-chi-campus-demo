@@ -15,6 +15,7 @@ type ImportKind =
   | 'school_calendar'
   | 'assessment_duty'
   | 'dept_duty'
+  | 'exam_scope'
   | 'semester_scores'
   | 'grade_deadlines'
 
@@ -173,6 +174,24 @@ Deno.serve(async (req) => {
       )
       if (error) return json({ ok: false, kind, upserted: 0, error: error.message }, 500)
       return json({ ok: true, kind, upserted: items.length })
+    }
+
+    if (kind === 'exam_scope') {
+      const doc = body.payload as Record<string, unknown>
+      const rows = Array.isArray(doc.rows) ? doc.rows : []
+      const { error } = await admin.from('exam_scope_years').upsert(
+        {
+          start_year: startYear,
+          label: doc.label ?? '',
+          source: doc.source ?? 'csv-import',
+          rows,
+          updated_by: updatedBy,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'start_year' },
+      )
+      if (error) return json({ ok: false, kind, upserted: 0, error: error.message }, 500)
+      return json({ ok: true, kind, upserted: rows.length })
     }
 
     if (kind === 'student_roster') {

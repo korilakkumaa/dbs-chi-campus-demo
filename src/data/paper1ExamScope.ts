@@ -97,10 +97,12 @@ function groupByUnit(rows: Paper1ExamScopeRow[]): ExamScopeUnitGroup[] {
  * Build grade sections for a semester + paper selection.
  * Paper 2 has no scope data yet → returns empty list (UI shows empty state).
  * F6 flags are year-level (no s1/s2), so the same list appears in both semester cards.
+ * Pass `rows` to use admin-uploaded / remote data; defaults to static seed.
  */
 export function getPaper1ExamScopeSections(
   semester: ExamScopeSemester,
   paper: ExamScopePaper,
+  rows: Paper1ExamScopeRow[] = PAPER1_EXAM_SCOPE_ROWS,
 ): ExamScopeGradeSection[] {
   if (paper === 'paper2') return []
 
@@ -108,7 +110,7 @@ export function getPaper1ExamScopeSections(
   for (const grade of GRADES) {
     const cohort = COHORT_FOR_GRADE[grade]
     const flag = flagKeyFor(grade, semester, paper)
-    const matched = PAPER1_EXAM_SCOPE_ROWS.filter(
+    const matched = rows.filter(
       (row) => row.cohort === cohort && row.flags[flag],
     )
     if (!matched.length) continue

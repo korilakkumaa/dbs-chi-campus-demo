@@ -17,9 +17,22 @@
  *
  * Fields: 單元、篇章名（primary）；教授學期（secondary, deduped on unit）
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { GlassPanel } from '../components/GlassPanel'
 import { AsyncStatus } from '../components/AsyncStatus'
+import { CsvYearImportPanel } from '../components/admin/CsvYearImportPanel'
+import { ScoresYearSelect } from '../components/ScoresYearSelect'
+import { useAuth } from '../context/AuthContext'
+import {
+  defaultAcademicYearStart,
+  formatAcademicYearLabel,
+  listAcademicYearStarts,
+} from '../data/academicYear'
+import {
+  hydrateExamScope,
+  invalidateExamScope,
+} from '../data/examScopeStore'
 import {
   EXAM_SCOPE_GRADE_LABELS,
   EXAM_SCOPE_PAPER_LABELS,
@@ -30,6 +43,9 @@ import {
   type ExamScopePaper,
   type ExamScopeSemester,
 } from '../data/paper1ExamScope'
+import { useExamScope } from '../hooks/useExamScope'
+import { applyYearCsvImport } from '../lib/adminYearImport'
+import { examScopeToCsv, parseExamScopeCsv } from '../lib/yearCsv/schemas'
 
 const SEMESTERS: ExamScopeSemester[] = ['first', 'second']
 const PAPERS: ExamScopePaper[] = ['test', 'paper1', 'paper2']
@@ -39,6 +55,12 @@ const PAPER_HINT: Record<ExamScopePaper, string> = {
   test: '階段性統測指定篇章',
   paper1: '卷一甲部（閱讀）指定篇章',
   paper2: '卷二（寫作）暫無篇章式範圍',
+}
+
+function parseYearParam(raw: string | null, fallback: number): number {
+  if (!raw) return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 2000 && n <= 2100 ? n : fallback
 }
 
 function formatTitle(title: string) {
@@ -147,26 +169,114 @@ function SegControl<T extends string>({
 }
 
 export function ScopePage() {
+  const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const defaultStart = defaultAcademicYearStart()
+  const initialYear = parseYearParam(searchParams.get('year'), defaultStart)
+
+  const [startYear, setStartYear] = useState(initialYear)
   const [semester, setSemester] = useState<ExamScopeSemester>('first')
   const [paper, setPaper] = useState<ExamScopePaper>('test')
   const [grade, setGrade] = useState<ExamScopeGrade | 'all'>('all')
 
+  const { isAdmin, doc, loading, knownYears } = useExamScope(startYear, user)
+
+  const yearParam = searchParams.get('year')
+  useEffect(() => {
+    const fromUrl = parseYearParam(yearParam, defaultStart)
+    setStartYear((prev) => (fromUrl !== prev ? fromUrl : prev))
+  }, [yearParam, defaultStart])
+
+  const academicYears = listAcademicYearStarts()
+  const yearOptions = useMemo(() => {
+    const base = knownYears.length ? knownYears : [startYear]
+    return [...new Set([...academicYears, ...base, startYear])].sort(
+      (a, b) => b - a,
+    )
+  }, [academicYears, knownYears, startYear])
+
+  const syncYearToUrl = (y: number) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('year', String(y))
+    setSearchParams(next, { replace: true })
+  }
+
+  const onSelectYear = (y: number) => {
+    setStartYear(y)
+    syncYearToUrl(y)
+  }
+
   const sections = useMemo(() => {
-    const all = getPaper1ExamScopeSections(semester, paper)
+    const all = getPaper1ExamScopeSections(semester, paper, doc.rows)
     if (grade === 'all') return all
     return all.filter((s) => s.grade === grade)
-  }, [semester, paper, grade])
+  }, [semester, paper, grade, doc.rows])
 
   const totalTitles = sections.reduce((n, s) => n + countTitles(s), 0)
   const selectionLabel = `${EXAM_SCOPE_SEMESTER_LABELS[semester]} · ${EXAM_SCOPE_PAPER_LABELS[paper]}${paper === 'paper1' ? '（甲部）' : ''}`
 
   return (
     <div className="page exam-scope-page">
-      <header className="page-header reveal-up">
-        <h1>測考範圍</h1>
-        <p>高中指定篇章 · 依學期與卷別查閱</p>
+      <header className="page-header year-ov-header reveal-up">
+        <div className="year-ov-header-text">
+          <h1>測考範圍</h1>
+          <p>高中指定篇章 · 依學期與卷別查閱</p>
+        </div>
+        <ScoresYearSelect
+          id="scope-academic-year"
+          startYear={startYear}
+          defaultStart={defaultStart}
+          yearOptions={yearOptions}
+          onSelectYear={onSelectYear}
+        />
       </header>
 
+      {isAdmin && user ? (
+        <div className="papers-csv-slot reveal-up delay-1">
+          <CsvYearImportPanel
+            kind="exam_scope"
+            startYear={startYear}
+            variant="page"
+            statusText={`${doc.rows.length} 列篇章`}
+            statusTone={doc.rows.length > 0 ? 'ready' : 'empty'}
+            description={`下載範本或匯出 ${formatAcademicYearLabel(startYear)} 測考範圍，離線修改後上傳；成功寫入後會重新載入，其他老師即可看到更新。`}
+            exportCsv={examScopeToCsv(doc)}
+            onParseAndImport={async ({ text }) => {
+              const base = await hydrateExamScope(startYear)
+              const parsed = parseExamScopeCsv(text, startYear, base)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'exam_scope',
+                startYear,
+                userEmail: user.username,
+                userId: user.id,
+                examScope: parsed.data,
+              })
+              if (result.ok) {
+                invalidateExamScope(startYear)
+                window.location.reload()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+        </div>
+      ) : null}
+
+      {loading ? (
+        <AsyncStatus variant="loading" message="載入測考範圍中…" />
+      ) : (
       <div className="exam-scope-layout reveal-up delay-1">
         <GlassPanel className="exam-scope-dock" as="section">
           <div className="exam-scope-dock-row">
@@ -249,6 +359,7 @@ export function ScopePage() {
           </div>
         </GlassPanel>
       </div>
+      )}
     </div>
   )
 }

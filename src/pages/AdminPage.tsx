@@ -40,6 +40,8 @@ import {
   parseAssessmentDutyCsv,
   deptDutyToCsv,
   parseDeptDutyCsv,
+  examScopeToCsv,
+  parseExamScopeCsv,
 } from '../lib/yearCsv/schemas'
 import { applyYearCsvImport } from '../lib/adminYearImport'
 import {
@@ -49,6 +51,12 @@ import {
   peekDeptDuty,
 } from '../data/dutyStore'
 import { invalidateAssessmentDuty, invalidateDeptDuty } from '../data/dutyStore'
+import {
+  hydrateExamScope,
+  invalidateExamScope,
+  peekExamScope,
+} from '../data/examScopeStore'
+import { examScopePath } from '../data/examScopeLinks'
 import { supabase } from '../lib/supabase'
 import type { WhitelistTeacher } from '../data/teacherWhitelist'
 
@@ -72,6 +80,8 @@ type YearStatus = {
   calendarCount: number | null
   hasAssessment: boolean
   hasDept: boolean
+  hasExamScope: boolean
+  examScopeRowCount: number
   scoreCount: number | null
   deadlinesSaved: boolean
 }
@@ -144,6 +154,8 @@ export function AdminPage() {
     setWhitelist(teachers)
     const assessment = await hydrateAssessmentDuty(startYear)
     const dept = await hydrateDeptDuty(startYear)
+    const examScope = await hydrateExamScope(startYear)
+    let hasExamScopeRemote = false
 
     let rosterCount = 0
     let streamingWith = 0
@@ -184,6 +196,13 @@ export function AdminPage() {
         .eq('start_year', startYear)
         .maybeSingle()
       deadlinesSaved = Boolean(dl)
+
+      const { data: es } = await supabase
+        .from('exam_scope_years')
+        .select('start_year')
+        .eq('start_year', startYear)
+        .maybeSingle()
+      hasExamScopeRemote = Boolean(es)
     }
 
     setStatus({
@@ -194,6 +213,8 @@ export function AdminPage() {
       calendarCount,
       hasAssessment: Boolean(assessment),
       hasDept: Boolean(dept),
+      hasExamScope: hasExamScopeRemote,
+      examScopeRowCount: examScope.rows.length,
       scoreCount,
       deadlinesSaved,
     })
@@ -280,6 +301,15 @@ export function AdminPage() {
       href: '/resources/duties',
     },
     {
+      id: 'exam_scope',
+      label: '測考範圍',
+      detail: status?.hasExamScope
+        ? `${status.examScopeRowCount} 列`
+        : '尚未寫入資料庫（顯示種子）',
+      tone: status?.hasExamScope ? 'ready' : 'empty',
+      href: examScopePath({ year: startYear }),
+    },
+    {
       id: 'scores',
       label: '學期成績',
       detail:
@@ -332,6 +362,12 @@ export function AdminPage() {
     dept_duty: {
       text: status?.hasDept ? '已有' : '未建立',
       tone: (status?.hasDept ? 'ready' : 'empty') as CheckTone,
+    },
+    exam_scope: {
+      text: status?.hasExamScope
+        ? `${status.examScopeRowCount} 列`
+        : '種子／未存檔',
+      tone: (status?.hasExamScope ? 'ready' : 'empty') as CheckTone,
     },
     grade_deadlines: {
       text: status?.deadlinesSaved ? '已存檔' : '未存檔',
@@ -622,6 +658,43 @@ export function AdminPage() {
               })
               if (result.ok) {
                 invalidateDeptDuty(startYear)
+                await refreshStatus()
+              }
+              return {
+                ok: result.ok,
+                issues: parsed.issues,
+                previewRows: parsed.previewRows,
+                upserted: result.upserted,
+                message: result.error,
+              }
+            }}
+          />
+
+          <CsvYearImportPanel
+            kind="exam_scope"
+            startYear={startYear}
+            exportCsv={examScopeToCsv(peekExamScope(startYear))}
+            statusText={csvStatus.exam_scope.text}
+            statusTone={csvStatus.exam_scope.tone}
+            onParseAndImport={async ({ text }) => {
+              const base = await hydrateExamScope(startYear)
+              const parsed = parseExamScopeCsv(text, startYear, base)
+              if (!parsed.ok) {
+                return {
+                  ok: false,
+                  issues: parsed.issues,
+                  previewRows: parsed.previewRows,
+                }
+              }
+              const result = await applyYearCsvImport({
+                kind: 'exam_scope',
+                startYear,
+                userEmail: importUser.email,
+                userId: importUser.id,
+                examScope: parsed.data,
+              })
+              if (result.ok) {
+                invalidateExamScope(startYear)
                 await refreshStatus()
               }
               return {
