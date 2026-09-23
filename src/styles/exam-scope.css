@@ -1,48 +1,149 @@
-/* 測考範圍 — single filter path + grade accordion */
+/* 測考範圍 — filter dock + reading sheet, airy hierarchy */
 
-.exam-scope-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.exam-scope-page {
+  width: min(920px, 100%);
 }
 
-.exam-scope-filters {
+.exam-scope-layout {
   display: grid;
-  gap: 0.65rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid var(--line);
+  gap: 1.15rem;
 }
 
-.exam-scope-filter-row {
+/* —— Filter dock (controls only) —— */
+.exam-scope-dock {
+  padding: 0.95rem 1.15rem;
+}
+
+.exam-scope-dock-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem 0.75rem;
+  gap: 0.85rem 1.75rem;
 }
 
-.exam-scope-filter-label {
-  flex: 0 0 2.5rem;
-  font-size: var(--text-caption);
+.exam-scope-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+}
+
+.exam-scope-control-label {
+  font-size: var(--text-fine);
   font-weight: 700;
+  letter-spacing: 0.08em;
   color: var(--ink-faint);
-  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
 .exam-scope-seg {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: calc(var(--radius-control) + 2px);
+  background: rgba(24, 18, 12, 0.04);
 }
 
 .exam-scope-seg-btn {
   font: inherit;
-  font-size: var(--text-ui-sm);
+  font-size: var(--text-ui-md2);
   font-weight: 600;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--line);
+  padding: 0.42rem 0.9rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  background: var(--paper);
+  background: transparent;
   color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    background 0.18s var(--ease-out),
+    color 0.18s var(--ease-out),
+    border-color 0.18s var(--ease-out),
+    box-shadow 0.18s var(--ease-out);
+}
+
+.exam-scope-seg-btn:hover {
+  color: var(--ink);
+}
+
+.exam-scope-seg-btn.active {
+  background: var(--paper);
+  color: var(--amber-deep);
+  border-color: rgba(196, 132, 58, 0.28);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8), 0 4px 12px rgba(32, 20, 10, 0.06);
+}
+
+/* —— Reading sheet —— */
+.exam-scope-sheet {
+  padding: 1.35rem 1.4rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.exam-scope-sheet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-bottom: 0.15rem;
+}
+
+.exam-scope-sheet-title-block {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.exam-scope-sheet-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  line-height: var(--leading-tight);
+}
+
+.exam-scope-sheet-hint {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+
+.exam-scope-sheet-count {
+  margin: 0;
+  font-family: var(--font-input);
+  font-size: var(--text-meta);
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.exam-scope-grade-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.exam-scope-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.exam-scope-chip {
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-faint);
   cursor: pointer;
   transition:
     background 0.15s var(--ease-out),
@@ -50,67 +151,43 @@
     border-color 0.15s var(--ease-out);
 }
 
-.exam-scope-seg-btn:hover {
-  color: var(--ink);
-  border-color: rgba(90, 60, 30, 0.28);
-}
-
-.exam-scope-seg-btn.active {
-  background: rgba(196, 132, 58, 0.12);
-  border-color: rgba(196, 132, 58, 0.45);
-  color: var(--amber-deep);
-}
-
-.exam-scope-result-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 0.75rem;
-}
-
-.exam-scope-selection-label {
-  margin: 0;
-  font-size: var(--text-subhead);
-  font-weight: 700;
-  color: var(--amber-deep);
-  letter-spacing: 0.02em;
-}
-
-.exam-scope-selection-hint {
-  margin: 0;
-  font-size: var(--text-caption);
-  color: var(--ink-faint);
-}
-
-.exam-scope-result-count {
-  margin: 0 0 0 auto;
-  font-size: var(--text-caption);
+.exam-scope-chip:hover {
   color: var(--ink-soft);
+  background: rgba(24, 18, 12, 0.04);
 }
 
-.exam-scope-result {
-  min-height: 10rem;
+.exam-scope-chip.active {
+  color: var(--amber-deep);
+  background: rgba(196, 132, 58, 0.1);
+  border-color: rgba(196, 132, 58, 0.28);
 }
 
-.exam-scope-grade-list {
+.exam-scope-sheet-body {
+  min-height: 8rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--line);
+}
+
+/* —— Grade accordion (space, not boxes) —— */
+.exam-scope-grades {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.15rem;
 }
 
-.exam-scope-grade-details {
+.exam-scope-grade {
   width: 100%;
-  border-radius: var(--radius-control);
-  border: 1px solid transparent;
-  padding: 0 0.15rem;
 }
 
-.exam-scope-grade-details[open] {
-  border-color: var(--line);
-  background: rgba(255, 253, 249, 0.55);
-  padding: 0.15rem 0.65rem 0.65rem;
+.exam-scope-grade + .exam-scope-grade {
+  margin-top: 0.15rem;
 }
 
-.exam-scope-grade-details[open] .exam-scope-grade-chevron {
+.exam-scope-grade[open] + .exam-scope-grade,
+.exam-scope-grade[open] {
+  margin-top: 0.35rem;
+}
+
+.exam-scope-grade[open] .exam-scope-grade-chevron {
   transform: rotate(90deg);
 }
 
@@ -118,11 +195,17 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem 0.65rem;
-  padding: 0.45rem 0.15rem;
+  gap: 0.4rem 0.75rem;
+  padding: 0.85rem 0.2rem;
   cursor: pointer;
   list-style: none;
   user-select: none;
+  border-radius: var(--radius-control);
+  transition: background 0.15s var(--ease-out);
+}
+
+.exam-scope-grade-summary:hover {
+  background: rgba(24, 18, 12, 0.03);
 }
 
 .exam-scope-grade-summary::-webkit-details-marker {
@@ -133,46 +216,75 @@
   content: '';
 }
 
-.exam-scope-grade-summary:hover h2 {
-  color: var(--amber-deep);
-}
-
 .exam-scope-grade-chevron {
   display: inline-block;
-  width: 0.45rem;
-  height: 0.45rem;
-  margin-right: 0.1rem;
-  border-right: 2px solid var(--amber-deep);
-  border-bottom: 2px solid var(--amber-deep);
+  width: 0.42rem;
+  height: 0.42rem;
+  border-right: 1.5px solid var(--ink-faint);
+  border-bottom: 1.5px solid var(--ink-faint);
   transform: rotate(-45deg);
   transform-origin: 40% 60%;
-  transition: transform 0.18s var(--ease-out);
+  transition: transform 0.2s var(--ease-out), border-color 0.15s var(--ease-out);
   flex-shrink: 0;
   align-self: center;
 }
 
-.exam-scope-grade-summary h2 {
-  margin: 0;
+.exam-scope-grade-summary:hover .exam-scope-grade-chevron {
+  border-color: var(--amber-deep);
+}
+
+.exam-scope-grade-name {
   font-family: var(--font-display);
-  font-size: var(--text-heading);
-  letter-spacing: 0.03em;
+  font-size: calc(1.12rem * var(--font-scale));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.exam-scope-grade-summary:hover .exam-scope-grade-name {
+  color: var(--amber-deep);
 }
 
 .exam-scope-grade-meta {
-  font-size: var(--text-meta);
-  color: var(--ink-soft);
+  font-family: var(--font-input);
+  font-size: var(--text-fine);
+  color: var(--ink-faint);
 }
 
 .exam-scope-grade-note {
   font-size: var(--text-fine);
   color: var(--ink-faint);
+  opacity: 0.9;
 }
 
 .exam-scope-grade-body {
   display: grid;
-  gap: 0.75rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid var(--line);
+  gap: 1.35rem;
+  padding: 0.15rem 0.2rem 1.15rem 1.35rem;
+  animation: exam-scope-open 0.28s var(--ease-out);
+}
+
+@keyframes exam-scope-open {
+  from {
+    opacity: 0.55;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-scope-grade-body {
+    animation: none;
+  }
+}
+
+/* —— Units & titles —— */
+.exam-scope-unit {
+  display: grid;
+  gap: 0.45rem;
 }
 
 .exam-scope-unit-head {
@@ -180,69 +292,61 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.25rem 0.75rem;
-  margin-bottom: 0.3rem;
+  gap: 0.2rem 1rem;
 }
 
 .exam-scope-unit-head h3 {
   margin: 0;
-  font-size: var(--text-ui-md);
+  font-size: var(--text-caption);
   font-weight: 700;
-  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
 }
 
-.exam-scope-unit h3 {
-  margin: 0 0 0.3rem;
-  font-size: var(--text-ui-md);
-  font-weight: 700;
-  color: var(--ink-soft);
-}
-
-.exam-scope-title-list {
+.exam-scope-titles {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 0.15rem;
+  gap: 0.55rem;
 }
 
-.exam-scope-title-list li {
+.exam-scope-titles li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.28rem 0;
-  border-bottom: 1px solid rgba(24, 18, 12, 0.06);
-  font-size: var(--text-ui-sm);
-  line-height: 1.4;
-}
-
-.exam-scope-title-list li:last-child {
-  border-bottom: none;
+  gap: 1rem;
 }
 
 .exam-scope-title {
+  font-size: var(--text-ui);
+  line-height: 1.5;
   color: var(--ink);
-  min-width: 0;
+  letter-spacing: 0.01em;
 }
 
 .exam-scope-taught {
   font-size: var(--text-fine);
   color: var(--ink-faint);
   white-space: nowrap;
+  opacity: 0.85;
 }
 
-@media (max-width: 560px) {
-  .exam-scope-filter-label {
-    flex-basis: 100%;
+@media (max-width: 640px) {
+  .exam-scope-sheet {
+    padding: 1.1rem 1rem 1.35rem;
   }
 
-  .exam-scope-result-count {
-    margin-left: 0;
+  .exam-scope-grade-body {
+    padding-left: 0.85rem;
   }
 
-  .exam-scope-title-list li {
+  .exam-scope-titles li {
     grid-template-columns: 1fr;
     gap: 0.1rem;
+  }
+
+  .exam-scope-dock-row {
+    gap: 0.85rem;
   }
 }
