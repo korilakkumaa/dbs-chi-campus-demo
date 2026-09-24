@@ -1,5 +1,11 @@
 /** Document search helpers for 學與教備忘 (ported from the source HTML). */
 
+import {
+  closeTopLevelExcept,
+  expandDescendantDetails,
+  openDetailsAncestors,
+} from './teachingMemoAccordion'
+
 export type TeachingMemoHit = {
   sectionId: string
   sectionLabel: string
@@ -91,23 +97,16 @@ export function clearMarks(root: ParentNode, selector = 'mark') {
   })
 }
 
-export function openDetailsChain(el: Element | null) {
-  let cur: Element | null = el
-  while (cur) {
-    if (cur instanceof HTMLDetailsElement) cur.open = true
-    cur.classList.add('open')
-    cur = cur.parentElement
-  }
-}
-
 export function expandMatchedNests(root: Element, tokens: string[]) {
   if (!tokens.length) return
   root
     .querySelectorAll('.sub-item, [class*="sub"][class*="-item"]')
     .forEach((el) => {
       if (!textMatchesAll(el.textContent || '', tokens)) return
-      if (el instanceof HTMLDetailsElement) el.open = true
-      el.classList.add('open')
+      if (el instanceof HTMLDetailsElement) {
+        el.open = true
+        el.classList.add('open')
+      }
     })
 }
 
@@ -122,15 +121,10 @@ export function jumpToHit(
     : null
   if (!(item instanceof HTMLElement)) return
 
-  // Close sibling top-level sections, open this one
-  root.querySelectorAll('details.acc-item').forEach((d) => {
-    if (d !== item && d instanceof HTMLDetailsElement) {
-      d.open = false
-      d.classList.remove('open')
-    }
-  })
-  openDetailsChain(item)
-  expandMatchedNests(item, query ? [query] : [])
+  closeTopLevelExcept(root, item)
+  openDetailsAncestors(item)
+  expandDescendantDetails(item)
+  if (query) expandMatchedNests(item, [query])
 
   if (!query) {
     item.scrollIntoView({ behavior: 'smooth', block: 'start' })

@@ -13,16 +13,23 @@ import {
   TEACHING_MEMO_TITLE,
 } from '../data/teachingMemoMeta'
 import {
+  chapterIdAtScrollOffset,
+  openSectionById,
+  scrollElementIntoView,
+} from '../lib/teachingMemoAccordion'
+import {
   clearMarks,
   collectHits,
   filterSuggestions,
   highlightLabelParts,
   jumpToHit,
-  openDetailsChain,
   TEACHING_MEMO_PAGE_SIZE,
   tokenizeQuery,
   type TeachingMemoHit,
 } from '../lib/teachingMemoSearch'
+
+const SCROLL_SPY_OFFSET = 160
+const SCROLL_SPY_RESUME_MS = 600
 
 function bodyUrl() {
   const base = import.meta.env.BASE_URL || './'
@@ -42,32 +49,12 @@ function rewriteAssetUrls(root: HTMLElement) {
   })
 }
 
-function bindExclusiveAccordions(root: HTMLElement) {
-  const items = Array.from(root.querySelectorAll('details.acc-item'))
-  const onToggle = (e: Event) => {
-    const d = e.currentTarget
-    if (!(d instanceof HTMLDetailsElement)) return
-    if (d.open) {
-      d.classList.add('open')
-      items.forEach((it) => {
-        if (it !== d && it instanceof HTMLDetailsElement) {
-          it.open = false
-          it.classList.remove('open')
-        }
-      })
-    } else {
-      d.classList.remove('open')
-    }
-  }
-  items.forEach((d) => d.addEventListener('toggle', onToggle))
-  return () => items.forEach((d) => d.removeEventListener('toggle', onToggle))
-}
-
 export function TeachingPage() {
   const contentRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const searchBlockRef = useRef<HTMLDivElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const suppressSpyUntil = useRef(0)
 
   const [bodyHtml, setBodyHtml] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -115,7 +102,6 @@ export function TeachingPage() {
     const root = contentRef.current
     if (!root || !bodyHtml) return
     rewriteAssetUrls(root)
-    return bindExclusiveAccordions(root)
   }, [bodyHtml])
 
   useEffect(() => {
@@ -129,21 +115,26 @@ export function TeachingPage() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
+  // Scroll-spy: highlight TOC only — never open/close chapters.
   useEffect(() => {
+    if (!bodyHtml) return
     const onScroll = () => {
+      if (performance.now() < suppressSpyUntil.current) return
       const root = contentRef.current
       if (!root) return
-      const items = root.querySelectorAll('details.acc-item[id]')
-      let current: string | null = null
-      items.forEach((el) => {
-        if (el.getBoundingClientRect().top < 160) current = el.id
-      })
-      if (current) setActiveToc(current)
+      const id = chapterIdAtScrollOffset(root, SCROLL_SPY_OFFSET)
+      if (id) setActiveToc(id)
     }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      document.removeEventListener('scroll', onScroll, true)
+    }
   }, [bodyHtml])
 
+  // Search indexes hits; do not collapse reading state when the query is empty.
   useEffect(() => {
     if (!bodyHtml) return
     const root = contentRef.current
@@ -152,12 +143,6 @@ export function TeachingPage() {
     const t = window.setTimeout(() => {
       clearMarks(root)
       clearMarks(root, 'mark.cms-hl-jump')
-      root.querySelectorAll('details.acc-item').forEach((item) => {
-        if (item instanceof HTMLDetailsElement) {
-          item.open = false
-          item.classList.remove('open', 'highlight')
-        }
-      })
       const trimmed = query.trim()
       if (!trimmed) {
         setHits([])
@@ -183,36 +168,14 @@ export function TeachingPage() {
   const goToTarget = (id: string) => {
     const root = contentRef.current
     if (!root) return
-    const el = root.querySelector(`#${CSS.escape(id)}`)
-    if (!(el instanceof HTMLElement)) return
-    setActiveToc(id)
-    if (el.classList.contains('sub-item') || el.matches('[class*="sub"][class*="-item"]')) {
-      const parent = el.closest('details.acc-item')
-      if (parent instanceof HTMLElement) {
-        root.querySelectorAll('details.acc-item').forEach((d) => {
-          if (d !== parent && d instanceof HTMLDetailsElement) {
-            d.open = false
-            d.classList.remove('open')
-          }
-        })
-        openDetailsChain(parent)
-      }
-      openDetailsChain(el)
-      window.setTimeout(() => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 80)
-      return
-    }
-    root.querySelectorAll('details.acc-item').forEach((d) => {
-      if (d !== el && d instanceof HTMLDetailsElement) {
-        d.open = false
-        d.classList.remove('open')
-      }
+    const el = openSectionById(root, id, {
+      exclusive: true,
+      expandDescendants: true,
     })
-    openDetailsChain(el)
-    window.setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 80)
+    if (!el) return
+    setActiveToc(id)
+    suppressSpyUntil.current = performance.now() + SCROLL_SPY_RESUME_MS
+    scrollElementIntoView(el)
   }
 
   const selectSuggestion = (value: string) => {
@@ -263,6 +226,7 @@ export function TeachingPage() {
   const onHitClick = (hit: TeachingMemoHit) => {
     const root = contentRef.current
     if (!root) return
+    suppressSpyUntil.current = performance.now() + SCROLL_SPY_RESUME_MS
     jumpToHit(root, hit, query.trim())
     if (hit.sectionId) setActiveToc(hit.sectionId)
   }
