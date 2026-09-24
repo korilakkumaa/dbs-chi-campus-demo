@@ -8,7 +8,17 @@ import { HomeworkAbsPanel } from '../components/homework/HomeworkAbsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useCampus, useRoster } from '../context/CampusContext'
 import { formatAcademicYearLabel } from '../data/academicYear'
-import { latestTeacherWhitelistYear } from '../data/teacherWhitelist'
+import {
+  defaultScoresAcademicYearStart,
+} from '../data/campusScoresYear'
+import {
+  gradeNumberFromClassName,
+  latestTeacherWhitelistYear,
+  rosterForChineseClass,
+} from '../data/teacherWhitelist'
+import { withScoresYearQuery } from '../hooks/useScoresAcademicYear'
+import { formatScore } from '../lib/format'
+import { average } from '../lib/stats'
 
 export function ProgressPage() {
   const now = new Date()
@@ -23,73 +33,143 @@ export function ProgressPage() {
     students,
     scoresAcademicYearStart,
   } = useCampus()
-  const { teachingAccessibleClasses, teachingYearStart } = useRoster()
+  const { teachingAccessibleClasses, teachingYearStart, selectClasses } =
+    useRoster()
 
   const teachingYear = teachingYearStart ?? latestTeacherWhitelistYear()
+  const scoresDefaultStart = defaultScoresAcademicYearStart()
   const myClasses = useMemo(
     () => teachingAccessibleClasses ?? [],
     [teachingAccessibleClasses],
   )
+  const teachingGrades = useMemo(() => {
+    const grades = new Set<number>()
+    for (const cls of myClasses) {
+      const g = gradeNumberFromClassName(cls.name)
+      if (g != null) grades.add(g)
+    }
+    return [...grades].sort((a, b) => a - b)
+  }, [myClasses])
+
+  const classProgress = useMemo(
+    () =>
+      myClasses.map((cls) => {
+        const roster = rosterForChineseClass(
+          cls.id,
+          cls.name,
+          students,
+          scoresAcademicYearStart,
+        )
+        const empty = roster.length === 0
+        return {
+          cls,
+          grade: gradeNumberFromClassName(cls.name),
+          count: roster.length,
+          ca: empty ? null : average(roster.map((s) => s.progress)),
+          reading: empty ? null : average(roster.map((s) => s.readingScore)),
+          writing: empty ? null : average(roster.map((s) => s.correctRate)),
+        }
+      }),
+    [myClasses, students, scoresAcademicYearStart],
+  )
+
+  const scoresLink = (classId: string) =>
+    withScoresYearQuery(
+      `/class/individual?class=${encodeURIComponent(classId)}`,
+      scoresAcademicYearStart,
+      scoresDefaultStart,
+    )
+
+  const timetableLink = (grade: number | null) =>
+    grade != null ? `/timetable/class?grade=${grade}` : '/timetable/class'
 
   return (
     <div className="page progress-page home-page">
       <header className="page-header reveal-up">
         <div>
           <h1>首頁</h1>
-          <p>月曆、我的任教與欠交習作提醒分欄顯示。</p>
+          <p>今天該跟進的事、任教班概況與欠交提醒。</p>
         </div>
       </header>
 
       <div className="home-columns reveal-up delay-1">
-        <GlassPanel className="home-col home-col-left">
-          <MiniCalendar
-            year={year}
-            monthIndex={monthIndex}
-            events={calendarEvents}
-            onMonthChange={(y, m) => {
-              setYear(y)
-              setMonthIndex(m)
-            }}
-          />
-          <MiniCalendarDetails
-            year={year}
-            monthIndex={monthIndex}
-            events={calendarEvents}
-            user={user}
-            onUpdateTitle={(id, title) => updateCalendarEvent(id, { title })}
-            onDelete={deleteCalendarEvent}
-          />
-          <QuickEventInput
-            onAdd={({ title, date, kind }) =>
-              addCalendarEvent({ title, date, kind })
-            }
-          />
-        </GlassPanel>
+        <div className="home-left-stack">
+          <GlassPanel className="home-col home-col-left home-cal-card">
+            <div className="home-cal-split">
+              <div className="home-cal-pane">
+                <MiniCalendar
+                  year={year}
+                  monthIndex={monthIndex}
+                  events={calendarEvents}
+                  onMonthChange={(y, m) => {
+                    setYear(y)
+                    setMonthIndex(m)
+                  }}
+                />
+              </div>
+              <div className="home-cal-todo">
+                <MiniCalendarDetails
+                  year={year}
+                  monthIndex={monthIndex}
+                  events={calendarEvents}
+                  user={user}
+                  teachingGrades={teachingGrades}
+                  onUpdateTitle={(id, title) =>
+                    updateCalendarEvent(id, { title })
+                  }
+                  onDelete={deleteCalendarEvent}
+                />
+                <QuickEventInput
+                  onAdd={({ title, date, kind, time }) =>
+                    addCalendarEvent({ title, date, kind, time })
+                  }
+                />
+              </div>
+            </div>
+          </GlassPanel>
 
-        <GlassPanel className="home-col home-col-mid">
-          <h2 className="home-mid-title">我的任教</h2>
-          <p className="deadline-admin-lead">
-            教學學年 {formatAcademicYearLabel(teachingYear)}
-            {scoresAcademicYearStart !== teachingYear
-              ? `（成績／名冊學年為 ${formatAcademicYearLabel(scoresAcademicYearStart)}）`
-              : ''}
-          </p>
-          {myClasses.length === 0 ? (
-            <p className="home-placeholder-hint">此學年尚未有任教班別。</p>
-          ) : (
-            <ul className="home-teaching-list">
-              {myClasses.map((cls) => (
-                <li key={cls.id}>
-                  <span className="home-teaching-name">{cls.name}</span>
-                  <span className="home-teaching-links">
-                    <Link to="/class">分數</Link>
-                    <Link to="/timetable">時間表</Link>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </GlassPanel>
+          <GlassPanel className="home-col home-progress-panel">
+            <h2 className="home-mid-title">我的任教</h2>
+            <p className="deadline-admin-lead">
+              教學學年 {formatAcademicYearLabel(teachingYear)}
+              {scoresAcademicYearStart !== teachingYear
+                ? `（成績／名冊學年為 ${formatAcademicYearLabel(scoresAcademicYearStart)}）`
+                : ''}
+            </p>
+            {classProgress.length === 0 ? (
+              <p className="home-placeholder-hint">此學年尚未有任教班別。</p>
+            ) : (
+              <ul className="home-teaching-list">
+                {classProgress.map(({ cls, grade, count, ca, reading, writing }) => (
+                  <li key={cls.id}>
+                    <div className="home-teaching-main">
+                      <span className="home-teaching-name">{cls.name}</span>
+                      <span className="home-teaching-metrics">
+                        <span>{count} 人</span>
+                        {ca != null && <span>CA {formatScore(ca)}</span>}
+                        {reading != null && (
+                          <span>閱讀 {formatScore(reading)}</span>
+                        )}
+                        {writing != null && (
+                          <span>寫作 {formatScore(writing)}</span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="home-teaching-links">
+                      <Link
+                        to={scoresLink(cls.id)}
+                        onClick={() => selectClasses([cls.id])}
+                      >
+                        分數
+                      </Link>
+                      <Link to={timetableLink(grade)}>時間表</Link>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </GlassPanel>
+        </div>
 
         <GlassPanel className="home-col home-col-right home-col-abs">
           <HomeworkAbsPanel students={students} />

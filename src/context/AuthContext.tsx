@@ -181,9 +181,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           provider: 'google',
           options: {
             redirectTo: oauthRedirectTo(),
+            // Offline access so a refresh token can be stored for the 3h
+            // calendar-sync-google cron after Calendar scopes are granted.
             queryParams: {
               hd: 'dbs.edu.hk',
+              access_type: 'offline',
               prompt: 'select_account',
+              include_granted_scopes: 'true',
             },
           },
         })

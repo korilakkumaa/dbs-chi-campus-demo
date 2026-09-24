@@ -1,10 +1,119 @@
 /* from index.css L2178-4525 */
 .cal-detail-label {
   margin: 0;
-  font-size: var(--text-meta);
+  font-size: var(--text-ui);
   font-weight: 700;
-  color: var(--ink-soft);
+  color: var(--ink);
   letter-spacing: 0.02em;
+}
+
+.cal-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cal-detail-month {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
+.cal-detail-status-strip {
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  flex-shrink: 0;
+}
+
+.cal-detail-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(60, 40, 20, 0.1);
+  background: rgba(255, 252, 248, 0.72);
+  font-size: var(--text-fine);
+  color: var(--ink-soft);
+  max-width: none;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cal-detail-status-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 8.5rem;
+}
+
+.cal-detail-status-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: var(--text-caption);
+}
+
+.cal-detail-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  margin: 0.3rem 0 0.15rem;
+  padding: 0 0 0.35rem;
+  border-bottom: 1px solid rgba(60, 40, 20, 0.08);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  flex-shrink: 0;
+}
+
+.cal-detail-filter {
+  border: 1px solid rgba(60, 40, 20, 0.12);
+  background: rgba(255, 252, 248, 0.78);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-fine);
+  font-weight: 600;
+  padding: 0.26rem 0.52rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.cal-detail-filter:hover {
+  border-color: rgba(184, 104, 42, 0.35);
+  color: var(--ink);
+}
+
+.cal-detail-filter.active {
+  background: rgba(184, 104, 42, 0.14);
+  border-color: rgba(184, 104, 42, 0.42);
+  color: var(--amber-deep);
+}
+
+.cal-detail-past-toggle {
+  margin-top: 0.35rem;
+  border: none;
+  background: transparent;
+  color: var(--amber-deep);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.cal-detail-past-toggle:hover {
+  text-decoration: underline;
 }
 
 .cal-detail-empty {
@@ -90,10 +199,13 @@
 
 .cal-detail-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 1.6rem;
+  grid-template-columns: minmax(0, 1fr) 1.6rem;
+  grid-template-areas:
+    'when delete'
+    'title delete';
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.3rem;
+  gap: 0.15rem 0.4rem;
+  padding: 0.45rem 0.4rem;
   border-radius: 7px;
 }
 
@@ -102,10 +214,33 @@
 }
 
 .cal-detail-when {
+  grid-area: when;
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  white-space: nowrap;
+  min-width: 0;
+}
+
+.cal-detail-row.next {
+  background: rgba(184, 104, 42, 0.1);
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.cal-detail-row.past {
+  opacity: 0.62;
+}
+
+.cal-detail-row.past.selected,
+.cal-detail-row.next.selected {
+  opacity: 1;
+}
+
+.cal-detail-next-tag {
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--amber-deep);
 }
 
 .cal-detail-mark.dot {
@@ -134,6 +269,7 @@
 }
 
 .cal-detail-title {
+  grid-area: title;
   border: none;
   background: transparent;
   text-align: left;
@@ -145,9 +281,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .cal-detail-edit {
+  grid-area: title;
   width: 100%;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -164,6 +302,7 @@
 }
 
 .cal-detail-delete {
+  grid-area: delete;
   width: 1.5rem;
   height: 1.5rem;
   border: none;

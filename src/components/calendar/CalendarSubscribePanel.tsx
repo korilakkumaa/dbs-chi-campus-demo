@@ -86,6 +86,10 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
     await setGoogleCalendarSyncEnabled(user.id, true)
     setGoogleReady(true)
     setGoogleNeedsAuth(false)
+    if (supabase) {
+      const { data } = await supabase.auth.getSession()
+      persistGoogleTokensFromSession(user.id, data.session)
+    }
   }, [user, authMethod])
 
   const loadFeed = useCallback(async () => {
@@ -212,8 +216,22 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
     setLoading(false)
   }
 
+  const eventsSyncKey = useMemo(
+    () =>
+      externalEvents
+        .map(
+          (e) =>
+            `${e.id}\0${e.date}\0${e.title}\0${e.time?.start ?? ''}\0${e.time?.end ?? ''}\0${e.lesson?.subject ?? ''}`,
+        )
+        .sort()
+        .join('\n'),
+    [externalEvents],
+  )
+  const lastSyncedKeyRef = useRef<string | null>(null)
+  const googleBusyRef = useRef(false)
+
   const runGoogleSync = useCallback(async () => {
-    if (!user || !googleReady) return
+    if (!user || !googleReady || googleBusyRef.current) return
     const token = await getGoogleAccessToken()
     if (!token) {
       setGoogleNeedsAuth(true)
@@ -225,6 +243,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
       setGoogleNeedsAuth(true)
       return
     }
+    googleBusyRef.current = true
     setGoogleBusy(true)
     const calendarId = await resolveGoogleCalendarId(user.id)
     // Empty list is intentional: prune previously leaked personal notes from Google.
@@ -240,6 +259,7 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
         text: `Google 同步失敗：${result.error ?? '未知錯誤'}`,
       })
     } else {
+      lastSyncedKeyRef.current = eventsSyncKey
       setLastGoogleSyncAt(new Date())
       markGoogleSyncSuccess()
       if (result.synced > 0 || result.removed > 0) {
@@ -249,16 +269,21 @@ export function CalendarSubscribePanel({ calendarEvents }: Props) {
         })
       }
     }
+    googleBusyRef.current = false
     setGoogleBusy(false)
-  }, [user, googleReady, externalEvents, markGoogleSyncSuccess])
+  }, [user, googleReady, externalEvents, eventsSyncKey, markGoogleSyncSuccess])
 
+  // Sync when ready or when exportable events change — never re-trigger on
+  // googleBusy flipping false (that caused a continuous Google API loop).
   useEffect(() => {
-    if (!googleReady || googleBusy) return
+    if (!googleReady) return
+    if (lastSyncedKeyRef.current === eventsSyncKey) return
+    if (googleBusyRef.current) return
     const timer = window.setTimeout(() => {
       void runGoogleSync()
     }, 1200)
     return () => window.clearTimeout(timer)
-  }, [googleReady, externalEvents, runGoogleSync, googleBusy])
+  }, [googleReady, eventsSyncKey, runGoogleSync])
 
   const googleStatus = useMemo(() => {
     if (!usesGoogleLogin) return '請改用 Google 登入'

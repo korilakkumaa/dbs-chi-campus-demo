@@ -1,5 +1,6 @@
 import type { CalendarEvent, CalendarEventKind } from '../types'
 import { academicYearStartFromIso, isoInAcademicYear } from './academicYear'
+import { resolveEventTime } from './calendarIcs'
 import { buildSchoolCalendar2526Rows } from './schoolCalendar2526'
 import {
   buildSchoolCalendar2627Rows,
@@ -249,4 +250,117 @@ export function monthKey(year: number, monthIndex: number): string {
 
 export function eventInMonth(event: CalendarEvent, year: number, monthIndex: number) {
   return event.date.startsWith(monthKey(year, monthIndex))
+}
+
+function parseIsoDateParts(iso: string): { y: number; m: number; d: number } | null {
+  const parts = iso.split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null
+  return { y: parts[0], m: parts[1], d: parts[2] }
+}
+
+/** Local timestamp for an event's start, or the end of its window. */
+export function eventBoundaryMs(
+  event: CalendarEvent,
+  edge: 'start' | 'end',
+): number {
+  const parts = parseIsoDateParts(event.date)
+  if (!parts) return 0
+  const slot = resolveEventTime(event)
+  const hm = edge === 'start' ? slot?.start : slot?.end
+  if (hm) {
+    const [h, min] = hm.split(':').map(Number)
+    if (!Number.isNaN(h) && !Number.isNaN(min)) {
+      return new Date(parts.y, parts.m - 1, parts.d, h, min, 0, 0).getTime()
+    }
+  }
+  if (edge === 'end') {
+    return new Date(parts.y, parts.m - 1, parts.d, 23, 59, 59, 999).getTime()
+  }
+  return new Date(parts.y, parts.m - 1, parts.d, 0, 0, 0, 0).getTime()
+}
+
+/**
+ * Upcoming events first, soonest at the top. Once an event's window has
+ * passed, it sinks below the upcoming ones (most recent past nearest the top).
+ */
+export function compareEventsUpcomingFirst(
+  a: CalendarEvent,
+  b: CalendarEvent,
+  nowMs: number,
+): number {
+  const aUpcoming = eventBoundaryMs(a, 'end') >= nowMs
+  const bUpcoming = eventBoundaryMs(b, 'end') >= nowMs
+  if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1
+  const aStart = eventBoundaryMs(a, 'start')
+  const bStart = eventBoundaryMs(b, 'start')
+  if (aStart !== bStart) return aUpcoming ? aStart - bStart : bStart - aStart
+  return a.title.localeCompare(b.title, 'zh-Hant') || a.id.localeCompare(b.id)
+}
+
+/** Grades mentioned in titles like `G12: …`, `7S`, `G7-12`. */
+export function gradesMentionedInEventTitle(title: string): number[] {
+  const found = new Set<number>()
+  const range = title.match(/\bG\s*(\d{1,2})\s*[-–~]\s*(\d{1,2})\b/i)
+  if (range) {
+    const a = Number(range[1])
+    const b = Number(range[2])
+    if (!Number.isNaN(a) && !Number.isNaN(b)) {
+      const lo = Math.min(a, b)
+      const hi = Math.max(a, b)
+      for (let g = lo; g <= hi; g++) {
+        if (g >= 7 && g <= 12) found.add(g)
+      }
+    }
+  }
+  for (const m of title.matchAll(/\bG\s*(\d{1,2})\b/gi)) {
+    const g = Number(m[1])
+    if (g >= 7 && g <= 12) found.add(g)
+  }
+  for (const m of title.matchAll(/\b([7-9]|1[0-2])[A-Z]\b/g)) {
+    const g = Number(m[1])
+    if (g >= 7 && g <= 12) found.add(g)
+  }
+  return [...found]
+}
+
+export function eventMentionsGrades(
+  event: CalendarEvent,
+  grades: number[],
+): boolean {
+  if (grades.length === 0) return true
+  if (event.audience.type === 'grades') {
+    return event.audience.grades.some((g) => grades.includes(g))
+  }
+  if (event.audience.type === 'personal' || event.audience.type === 'all') {
+    const mentioned = gradesMentionedInEventTitle(event.title)
+    if (mentioned.length === 0) {
+      // School-wide / unscoped items stay visible under「任教相關」
+      return event.audience.type === 'all' || event.audience.type === 'personal'
+    }
+    return mentioned.some((g) => grades.includes(g))
+  }
+  return true
+}
+
+export type HomeTodoKindFilter =
+  | 'all'
+  | 'personal'
+  | 'event'
+  | 'progress'
+  | 'department'
+  | 'assessment'
+
+export function eventMatchesHomeTodoFilter(
+  event: CalendarEvent,
+  filter: HomeTodoKindFilter,
+  userId?: string,
+): boolean {
+  if (filter === 'all') return true
+  if (filter === 'personal') {
+    return (
+      event.audience.type === 'personal' &&
+      (!userId || event.audience.ownerId === userId)
+    )
+  }
+  return event.kind === filter
 }

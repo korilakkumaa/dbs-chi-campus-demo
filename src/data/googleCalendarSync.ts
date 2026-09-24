@@ -59,8 +59,15 @@ export function persistGoogleTokensFromSession(
   session: Session | null,
 ): void {
   if (!session) return
-  storeGoogleRefreshToken(userId, session.provider_refresh_token)
-  void saveGoogleRefreshToken(userId, session.provider_refresh_token)
+  // Google often returns provider_refresh_token only on the first consent.
+  // Keep a local copy and always re-upload whatever we have so the 3h cron
+  // (calendar-sync-google) can refresh access tokens when the tab is closed.
+  if (session.provider_refresh_token) {
+    storeGoogleRefreshToken(userId, session.provider_refresh_token)
+  }
+  const refresh =
+    session.provider_refresh_token ?? readStoredGoogleRefreshToken(userId)
+  void saveGoogleRefreshToken(userId, refresh)
 }
 
 export function parseGoogleApiError(raw: string): string {
@@ -352,7 +359,7 @@ export async function syncEventsToGoogleCalendar(input: {
   }
 
   return {
-    ok: !(lastError && synced === 0),
+    ok: !lastError,
     synced,
     removed,
     ...(lastError ? { error: lastError } : {}),

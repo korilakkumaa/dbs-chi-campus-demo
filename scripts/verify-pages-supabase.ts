@@ -2,11 +2,12 @@
  * Fail the Pages build if the Vite bundle was produced without
  * VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (null supabase client).
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.cwd()
 const indexPath = join(root, 'docs', 'index.html')
+const assetsDir = join(root, 'docs', 'assets')
 
 if (!existsSync(indexPath)) {
   console.error('verify-pages-supabase: docs/index.html missing — run vite build first.')
@@ -20,9 +21,9 @@ if (!match) {
   process.exit(1)
 }
 
-const jsPath = join(root, 'docs', 'assets', match[1])
-if (!existsSync(jsPath)) {
-  console.error(`verify-pages-supabase: missing ${jsPath}`)
+const indexJsPath = join(assetsDir, match[1])
+if (!existsSync(indexJsPath)) {
+  console.error(`verify-pages-supabase: missing ${indexJsPath}`)
   process.exit(1)
 }
 
@@ -30,16 +31,31 @@ const expectedUrl =
   process.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ||
   'https://heriailewjegnisaqiir.supabase.co'
 const projectRef = new URL(expectedUrl).hostname.split('.')[0]
+const jwtPrefix = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
 
-const bundle = readFileSync(jsPath, 'utf8')
-const hasUrl = bundle.includes(projectRef) && bundle.includes('supabase.co')
-const hasJwt = bundle.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')
+// Supabase client may live in a lazy/split chunk (e.g. AuthContext-*.js), not only index-*.js.
+const jsFiles = existsSync(assetsDir)
+  ? readdirSync(assetsDir).filter((name) => name.endsWith('.js'))
+  : []
+
+let hasUrl = false
+let hasJwt = false
+let foundIn: string | null = null
+for (const name of jsFiles) {
+  const bundle = readFileSync(join(assetsDir, name), 'utf8')
+  const urlOk = bundle.includes(projectRef) && bundle.includes('supabase.co')
+  const jwtOk = bundle.includes(jwtPrefix)
+  if (urlOk) hasUrl = true
+  if (jwtOk) hasJwt = true
+  if (urlOk && jwtOk && !foundIn) foundIn = name
+  if (hasUrl && hasJwt) break
+}
 
 if (!hasUrl || !hasJwt) {
   console.error(
     [
       'verify-pages-supabase: Pages bundle is missing Supabase client config.',
-      `  checked: docs/assets/${match[1]}`,
+      `  checked: docs/assets/*.js (${jsFiles.length} files; entry ${match[1]})`,
       `  has project ref (${projectRef}): ${hasUrl}`,
       `  has anon JWT prefix: ${hasJwt}`,
       '',
@@ -52,5 +68,5 @@ if (!hasUrl || !hasJwt) {
 }
 
 console.log(
-  `verify-pages-supabase: ok — docs/assets/${match[1]} includes Supabase URL + anon key.`,
+  `verify-pages-supabase: ok — docs/assets/${foundIn ?? match[1]} includes Supabase URL + anon key.`,
 )

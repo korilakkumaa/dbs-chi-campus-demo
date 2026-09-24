@@ -836,9 +836,58 @@
 }
 
 @media (max-width: 920px) {
+  .home-columns {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-left-stack,
+  .home-cal-card,
+  .home-cal-split {
+    display: contents;
+  }
+
+  .home-cal-pane,
+  .home-cal-todo {
+    padding: 1rem 1.05rem 1.1rem;
+    background: rgba(255, 252, 248, 0.66);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-soft);
+    -webkit-backdrop-filter: blur(calc(var(--blur) + 10px));
+    backdrop-filter: blur(calc(var(--blur) + 10px));
+  }
+
+  .home-cal-todo {
+    order: 1;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .home-col-abs {
+    order: 2;
+  }
+
+  .home-cal-pane {
+    order: 3;
+  }
+
+  .home-progress-panel {
+    order: 4;
+  }
+
+  .home-cal-todo .cal-detail {
+    overflow: visible;
+  }
+
+  .home-cal-todo .cal-detail-list {
+    max-height: min(42vh, 20rem);
+    overflow: auto;
+  }
+
   .login-compose,
   .split-stage,
-  .home-columns,
   .detail-cal-layout,
   .detail-cal-layout.has-admin-panel,
   .individual-layout,

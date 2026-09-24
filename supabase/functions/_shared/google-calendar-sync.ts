@@ -174,7 +174,7 @@ export async function syncEventsToGoogleCalendar(input: {
   }
 
   return {
-    ok: !(lastError && synced === 0),
+    ok: !lastError,
     synced,
     removed,
     ...(lastError ? { error: lastError } : {}),

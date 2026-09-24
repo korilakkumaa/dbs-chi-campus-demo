@@ -56,7 +56,7 @@
     'Helvetica Neue', sans-serif;
   --font-input: 'Outfit', 'Helvetica Neue', sans-serif;
   /* Typography scale — only font-size tokens scale with --font-scale (not layout). */
-  --font-scale: 1;
+  --font-scale: 1.1;
   --text-title: clamp(
     calc(1.5rem * var(--font-scale)),
     calc(2.2vw * var(--font-scale)),
@@ -94,11 +94,11 @@
 }
 
 html[data-text-size='large'] {
-  --font-scale: 1.12;
+  --font-scale: 1.22;
 }
 
 html[data-text-size='small'] {
-  --font-scale: 0.92;
+  --font-scale: 0.96;
 }
 
 *,

@@ -1,1 +1,0 @@
-function e(e){return e.length===0?0:Math.round(e.reduce((e,t)=>e+t,0)/e.length)}export{e as t};

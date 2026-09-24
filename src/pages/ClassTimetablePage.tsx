@@ -1,4 +1,5 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { GlassPanel } from '../components/GlassPanel'
 import { ScoresYearSelect } from '../components/ScoresYearSelect'
 import {
@@ -109,10 +110,36 @@ function GridCell({
 }
 
 export function ClassTimetablePage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const yearOptions = useMemo(() => listTimetableAcademicYearStarts(), [])
   const defaultStart = DEFAULT_TIMETABLE_ACADEMIC_YEAR_START
   const [startYear, setStartYear] = useState(defaultStart)
-  const [grade, setGrade] = useState<GradeLevel>(7)
+  const gradeFromQuery = Number(searchParams.get('grade'))
+  const [grade, setGrade] = useState<GradeLevel>(() =>
+    GRADE_LEVELS.includes(gradeFromQuery as GradeLevel)
+      ? (gradeFromQuery as GradeLevel)
+      : 7,
+  )
+
+  useEffect(() => {
+    const raw = Number(searchParams.get('grade'))
+    if (GRADE_LEVELS.includes(raw as GradeLevel)) {
+      setGrade(raw as GradeLevel)
+    }
+  }, [searchParams])
+
+  const selectGrade = (next: GradeLevel) => {
+    setGrade(next)
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('grade', String(next))
+        return p
+      },
+      { replace: true },
+    )
+  }
+
   const yearLabel = academicYearLabelForGradeTimetable(startYear)
 
   const pairs = useMemo(
@@ -168,7 +195,7 @@ export function ClassTimetablePage() {
               role="tab"
               aria-selected={grade === g}
               className={`class-tt-grade${grade === g ? ' active' : ''}`}
-              onClick={() => setGrade(g)}
+              onClick={() => selectGrade(g)}
             >
               {gradeLabel(g)}
             </button>

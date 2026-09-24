@@ -279,10 +279,18 @@ export async function saveGoogleRefreshToken(
   refreshToken: string | null | undefined,
 ): Promise<void> {
   if (!supabase || !refreshToken) return
+  // Preserve enabled/calendar_id on conflict; only fill defaults on insert.
+  const { data: existing } = await supabase
+    .from('google_calendar_sync')
+    .select('enabled, calendar_id')
+    .eq('user_id', userId)
+    .maybeSingle()
   const { error } = await supabase.from('google_calendar_sync').upsert(
     {
       user_id: userId,
       provider_refresh_token: refreshToken,
+      enabled: existing?.enabled ?? true,
+      calendar_id: (existing?.calendar_id as string | undefined) ?? 'primary',
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
