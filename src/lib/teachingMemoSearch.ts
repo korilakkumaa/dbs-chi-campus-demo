@@ -4,6 +4,7 @@ import {
   closeTopLevelExcept,
   expandDescendantDetails,
   openDetailsAncestors,
+  scrollElementIntoView,
 } from './teachingMemoAccordion'
 
 export type TeachingMemoHit = {
@@ -127,7 +128,7 @@ export function jumpToHit(
   if (query) expandMatchedNests(item, [query])
 
   if (!query) {
-    item.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollElementIntoView(item)
     return
   }
 
@@ -158,7 +159,7 @@ export function jumpToHit(
       if (target) break
     }
     if (!target || targetIdx < 0 || !target.parentNode) {
-      item.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollElementIntoView(item)
       return
     }
     const text = target.nodeValue || ''
@@ -173,7 +174,7 @@ export function jumpToHit(
     frag.appendChild(mark)
     if (after) frag.appendChild(document.createTextNode(after))
     target.parentNode.replaceChild(frag, target)
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    scrollElementIntoView(mark)
   }, 120)
 }
 

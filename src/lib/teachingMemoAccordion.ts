@@ -1,20 +1,14 @@
 /**
  * Accordion / TOC navigation for 學與教備忘.
  *
- * Design notes (why the first version broke reading):
- * 1. Exclusive `toggle` listeners closed sibling chapters on every nested
- *    open/close (toggle bubbles). That fought TOC/search and felt like
- *    “chapters collapse while scrolling”.
- * 2. Search clear set every `details.open = false`, wiping reading state.
- * 3. TOC often opened a chapter whose body lives only in nested `<details>`,
- *    so the panel looked empty until the user expanded subs by hand.
- * 4. `openDetailsChain` added `.open` to non-details ancestors — noisy and
- *    unrelated to native `<details>` behavior.
- *
- * Rules for this module:
- * - Only navigation helpers open/close top-level chapters (never scroll-spy).
- * - Scroll-spy may update the active TOC id only.
- * - Opening a section expands nested details so text is actually visible.
+ * Reading UX invariants (do not break these):
+ * 1. Scroll-spy must NEVER open/close `<details>` — highlight only.
+ * 2. Document body HTML is mounted imperatively once; React re-renders must
+ *    not rewrite it (that resets every `open` flag and “合上” chapters).
+ * 3. Programmatic scroll corrections must cancel on real user scroll intent
+ *    (wheel / touch / keys), or delayed `scrollTo` yanks the reader back.
+ * 4. Closing other chapters is TOC/search navigation only (`exclusive`), never
+ *    while the user is passively scrolling an open appendix.
  */
 
 export type OpenSectionOptions = {
@@ -23,6 +17,9 @@ export type OpenSectionOptions = {
   /** Open every nested `<details>` under the target section. Default true. */
   expandDescendants?: boolean
 }
+
+/** Space below sticky shell chrome when aligning a section to the top. */
+export const TEACHING_MEMO_SCROLL_OFFSET_PX = 96
 
 function isDetails(el: Element | null): el is HTMLDetailsElement {
   return el instanceof HTMLDetailsElement
@@ -69,10 +66,9 @@ export function openSectionById(
   const el = root.querySelector(`#${CSS.escape(id)}`)
   if (!(el instanceof HTMLElement)) return null
 
-  const chapter =
-    el.matches('details.acc-item')
-      ? el
-      : el.closest('details.acc-item')
+  const chapter = el.matches('details.acc-item')
+    ? el
+    : el.closest('details.acc-item')
 
   if (exclusive) closeTopLevelExcept(root, chapter)
 
@@ -89,33 +85,90 @@ export function openSectionById(
   return el
 }
 
-/** Nearest scrollable ancestor, or the scrolling element / window. */
-export function getScrollParent(el: Element | null): Element | Window {
-  let cur: Element | null = el
-  while (cur && cur !== document.body) {
-    const style = window.getComputedStyle(cur)
-    const oy = style.overflowY
-    if (
-      (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
-      cur.scrollHeight > cur.clientHeight
-    ) {
-      return cur
-    }
-    cur = cur.parentElement
-  }
-  return (document.scrollingElement as Element | null) ?? window
+function documentScroller(): Element {
+  return (document.scrollingElement as Element | null) ?? document.documentElement
 }
 
-export function scrollElementIntoView(
-  el: HTMLElement,
-  behavior: ScrollBehavior = 'smooth',
-) {
-  // Two frames: wait for `<details>` open layout before scrolling.
-  window.requestAnimationFrame(() => {
+/** Bump to cancel pending programmatic scroll corrections. */
+let scrollCorrectionToken = 0
+let programmaticScrollDepth = 0
+
+function withProgrammaticScroll(fn: () => void) {
+  programmaticScrollDepth += 1
+  try {
+    fn()
+  } finally {
     window.requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior, block: 'start' })
+      programmaticScrollDepth = Math.max(0, programmaticScrollDepth - 1)
     })
+  }
+}
+
+/** Call when the user scrolls manually so delayed jump-backs stop. */
+export function cancelScrollCorrections() {
+  scrollCorrectionToken += 1
+}
+
+/** True while our code is calling scrollTo (scrollbar drag should cancel). */
+export function isProgrammaticScroll() {
+  return programmaticScrollDepth > 0
+}
+
+/** Scroll the page so `el` sits below the sticky chrome (recalculates each call). */
+export function scrollSectionIntoView(
+  el: HTMLElement,
+  offsetPx: number = TEACHING_MEMO_SCROLL_OFFSET_PX,
+) {
+  const scroller = documentScroller()
+  const scrollTop =
+    scroller === document.documentElement || scroller === document.body
+      ? window.scrollY
+      : (scroller as HTMLElement).scrollTop
+  const y = el.getBoundingClientRect().top + scrollTop - offsetPx
+  const top = Math.max(0, y)
+  withProgrammaticScroll(() => {
+    if (scroller === document.documentElement || scroller === document.body) {
+      window.scrollTo({ top, behavior: 'auto' })
+    } else {
+      ;(scroller as HTMLElement).scrollTo({ top, behavior: 'auto' })
+    }
   })
+}
+
+/**
+ * After opening `<details>`, layout settles across frames. Scroll now, then
+ * correct a few times — but stop as soon as the user scrolls themselves.
+ */
+export function scrollElementIntoView(el: HTMLElement) {
+  const token = ++scrollCorrectionToken
+  const correct = () => {
+    if (token !== scrollCorrectionToken) return
+    scrollSectionIntoView(el)
+  }
+
+  void el.offsetHeight
+  correct()
+
+  window.requestAnimationFrame(() => {
+    correct()
+    window.requestAnimationFrame(correct)
+  })
+  window.setTimeout(correct, 50)
+  window.setTimeout(correct, 150)
+}
+
+/**
+ * Open by id and scroll in one step (preferred TOC / in-page jump entry).
+ */
+export function navigateToSection(
+  root: ParentNode,
+  id: string,
+  opts: OpenSectionOptions = {},
+): HTMLElement | null {
+  const el = openSectionById(root, id, opts)
+  if (!el) return null
+  scrollElementIntoView(el)
+  return el
 }
 
 /**
@@ -128,8 +181,17 @@ export function chapterIdAtScrollOffset(
 ): string | null {
   const items = root.querySelectorAll('details.acc-item[id]')
   let current: string | null = null
-  items.forEach((el) => {
-    if (el.getBoundingClientRect().top < offsetPx) current = el.id
+  items.forEach((node) => {
+    if (node.getBoundingClientRect().top < offsetPx) current = node.id
   })
   return current
+}
+
+/** Imperative TOC highlight — avoids React re-renders while scrolling. */
+export function setTocActiveClass(tocRoot: ParentNode | null, id: string | null) {
+  if (!tocRoot) return
+  tocRoot.querySelectorAll<HTMLElement>('[data-toc-target]').forEach((btn) => {
+    const on = id != null && btn.dataset.tocTarget === id
+    btn.classList.toggle('active', on)
+  })
 }

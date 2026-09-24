@@ -13,9 +13,12 @@ import {
   TEACHING_MEMO_TITLE,
 } from '../data/teachingMemoMeta'
 import {
+  cancelScrollCorrections,
   chapterIdAtScrollOffset,
-  openSectionById,
-  scrollElementIntoView,
+  isProgrammaticScroll,
+  navigateToSection,
+  setTocActiveClass,
+  TEACHING_MEMO_SCROLL_OFFSET_PX,
 } from '../lib/teachingMemoAccordion'
 import {
   clearMarks,
@@ -28,8 +31,8 @@ import {
   type TeachingMemoHit,
 } from '../lib/teachingMemoSearch'
 
-const SCROLL_SPY_OFFSET = 160
-const SCROLL_SPY_RESUME_MS = 600
+const SCROLL_SPY_OFFSET = TEACHING_MEMO_SCROLL_OFFSET_PX
+const SCROLL_SPY_RESUME_MS = 800
 
 function bodyUrl() {
   const base = import.meta.env.BASE_URL || './'
@@ -49,21 +52,35 @@ function rewriteAssetUrls(root: HTMLElement) {
   })
 }
 
+/**
+ * Mount handbook HTML once via `innerHTML`. Using React `dangerouslySetInnerHTML`
+ * on every parent re-render risked resetting `<details open>` (chapters appear
+ * to slam shut while scrolling appendices).
+ */
+function mountTeachingBody(host: HTMLElement, html: string) {
+  if (host.dataset.memoMounted === '1' && host.innerHTML.length > 0) return
+  host.innerHTML = html
+  host.dataset.memoMounted = '1'
+  rewriteAssetUrls(host)
+}
+
 export function TeachingPage() {
   const contentRef = useRef<HTMLDivElement>(null)
+  const tocRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const searchBlockRef = useRef<HTMLDivElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const suppressSpyUntil = useRef(0)
+  const activeTocId = useRef<string | null>(null)
 
   const [bodyHtml, setBodyHtml] = useState<string | null>(null)
+  const [contentReady, setContentReady] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [suggOpen, setSuggOpen] = useState(false)
   const [suggActive, setSuggActive] = useState(-1)
   const [hits, setHits] = useState<TeachingMemoHit[]>([])
   const [page, setPage] = useState(0)
-  const [activeToc, setActiveToc] = useState<string | null>(null)
   const [resultNote, setResultNote] = useState('')
 
   const tokens = tokenizeQuery(query)
@@ -98,10 +115,12 @@ export function TeachingPage() {
     }
   }, [])
 
+  // Imperative mount — host node stays stable across search / TOC UI updates.
   useEffect(() => {
-    const root = contentRef.current
-    if (!root || !bodyHtml) return
-    rewriteAssetUrls(root)
+    const host = contentRef.current
+    if (!host || !bodyHtml) return
+    mountTeachingBody(host, bodyHtml)
+    setContentReady(true)
   }, [bodyHtml])
 
   useEffect(() => {
@@ -115,28 +134,42 @@ export function TeachingPage() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
-  // Scroll-spy: highlight TOC only — never open/close chapters.
+  // User scroll intent cancels programmatic jump-backs (critical for long appendices).
   useEffect(() => {
-    if (!bodyHtml) return
+    const onUserScrollIntent = () => {
+      cancelScrollCorrections()
+    }
+    window.addEventListener('wheel', onUserScrollIntent, { passive: true })
+    window.addEventListener('touchmove', onUserScrollIntent, { passive: true })
+    window.addEventListener('keydown', onUserScrollIntent, { passive: true })
+    return () => {
+      window.removeEventListener('wheel', onUserScrollIntent)
+      window.removeEventListener('touchmove', onUserScrollIntent)
+      window.removeEventListener('keydown', onUserScrollIntent)
+    }
+  }, [])
+
+  // Scroll-spy: TOC class only — never setState, never touch details.open.
+  useEffect(() => {
+    if (!contentReady) return
     const onScroll = () => {
+      if (!isProgrammaticScroll()) cancelScrollCorrections()
       if (performance.now() < suppressSpyUntil.current) return
       const root = contentRef.current
       if (!root) return
       const id = chapterIdAtScrollOffset(root, SCROLL_SPY_OFFSET)
-      if (id) setActiveToc(id)
+      if (!id || id === activeTocId.current) return
+      activeTocId.current = id
+      setTocActiveClass(tocRef.current, id)
     }
     onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
-    document.addEventListener('scroll', onScroll, { passive: true, capture: true })
-    return () => {
-      window.removeEventListener('scroll', onScroll, true)
-      document.removeEventListener('scroll', onScroll, true)
-    }
-  }, [bodyHtml])
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [contentReady])
 
-  // Search indexes hits; do not collapse reading state when the query is empty.
+  // Search indexes hits; never collapse reading state when clearing the query.
   useEffect(() => {
-    if (!bodyHtml) return
+    if (!contentReady) return
     const root = contentRef.current
     if (!root) return
 
@@ -163,19 +196,23 @@ export function TeachingPage() {
       }
     }, 150)
     return () => window.clearTimeout(t)
-  }, [query, bodyHtml])
+  }, [query, contentReady])
+
+  const markToc = (id: string) => {
+    activeTocId.current = id
+    setTocActiveClass(tocRef.current, id)
+  }
 
   const goToTarget = (id: string) => {
     const root = contentRef.current
     if (!root) return
-    const el = openSectionById(root, id, {
+    suppressSpyUntil.current = performance.now() + SCROLL_SPY_RESUME_MS
+    const el = navigateToSection(root, id, {
       exclusive: true,
       expandDescendants: true,
     })
     if (!el) return
-    setActiveToc(id)
-    suppressSpyUntil.current = performance.now() + SCROLL_SPY_RESUME_MS
-    scrollElementIntoView(el)
+    markToc(id)
   }
 
   const selectSuggestion = (value: string) => {
@@ -228,7 +265,7 @@ export function TeachingPage() {
     if (!root) return
     suppressSpyUntil.current = performance.now() + SCROLL_SPY_RESUME_MS
     jumpToHit(root, hit, query.trim())
-    if (hit.sectionId) setActiveToc(hit.sectionId)
+    if (hit.sectionId) markToc(hit.sectionId)
   }
 
   return (
@@ -417,19 +454,21 @@ export function TeachingPage() {
         </GlassPanel>
       ) : null}
 
-      {query.trim() && hits.length === 0 && bodyHtml ? (
+      {query.trim() && hits.length === 0 && contentReady ? (
         <p className="teaching-memo-empty reveal-up">沒有符合的內容。</p>
       ) : null}
 
       <div className="teaching-memo-layout reveal-up delay-2">
-        <nav className="teaching-memo-toc" aria-label="目錄">
+        <nav className="teaching-memo-toc" aria-label="目錄" ref={tocRef}>
           <h2>目錄</h2>
           <ul>
             {TEACHING_MEMO_SECTIONS.map((sec) => (
               <li key={sec.id}>
                 <button
                   type="button"
-                  className={`teaching-memo-toc-link${activeToc === sec.id ? ' active' : ''}`}
+                  data-toc-target={sec.id}
+                  className="teaching-memo-toc-link"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => goToTarget(sec.id)}
                 >
                   {sec.tocLabel}
@@ -440,9 +479,9 @@ export function TeachingPage() {
                       <li key={sub.id}>
                         <button
                           type="button"
-                          className={`teaching-memo-toc-link teaching-memo-toc-sub-link${
-                            activeToc === sub.id ? ' active' : ''
-                          }`}
+                          data-toc-target={sub.id}
+                          className="teaching-memo-toc-link teaching-memo-toc-sub-link"
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => goToTarget(sub.id)}
                         >
                           {sub.title}
@@ -459,15 +498,16 @@ export function TeachingPage() {
         <GlassPanel className="teaching-memo-sheet">
           {loadError ? (
             <AsyncStatus variant="error" panel={false} message={loadError} />
-          ) : !bodyHtml ? (
+          ) : null}
+          {!contentReady && !loadError ? (
             <AsyncStatus variant="loading" panel={false} message="載入備忘中…" />
-          ) : (
-            <div
-              ref={contentRef}
-              className="teaching-memo-body"
-              dangerouslySetInnerHTML={{ __html: bodyHtml }}
-            />
-          )}
+          ) : null}
+          {/* Stable host: never swap this node for loading UI (would wipe open state). */}
+          <div
+            ref={contentRef}
+            className="teaching-memo-body"
+            hidden={!contentReady}
+          />
         </GlassPanel>
       </div>
     </div>
