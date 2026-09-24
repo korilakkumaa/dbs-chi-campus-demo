@@ -1,0 +1,485 @@
+/* 學與教備忘 — app visual language over source accordion HTML */
+
+.teaching-page {
+  width: min(1180px, 100%);
+}
+
+.teaching-memo-copy {
+  color: var(--ink-faint);
+}
+
+.teaching-memo-dock {
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.teaching-memo-search {
+  width: min(36rem, 100%);
+}
+
+.teaching-memo-result-note {
+  margin: 0.65rem 0 0;
+  font-size: var(--text-caption);
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+
+.teaching-memo-hits {
+  padding: 0.9rem 1rem 1rem;
+  margin-bottom: 0.85rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.teaching-memo-hits-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.teaching-memo-hits-head p {
+  margin: 0;
+  font-size: var(--text-ui);
+  color: var(--ink-soft);
+}
+
+.teaching-memo-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--text-caption);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.teaching-memo-pager button {
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.teaching-memo-pager button:hover:not(:disabled) {
+  color: var(--amber-deep);
+  border-color: rgba(196, 132, 58, 0.35);
+}
+
+.teaching-memo-pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.teaching-memo-hit-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.teaching-memo-hit {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: rgba(24, 18, 12, 0.03);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
+}
+
+.teaching-memo-hit:hover {
+  background: rgba(168, 95, 40, 0.08);
+  border-color: rgba(196, 132, 58, 0.22);
+}
+
+.teaching-memo-hit-sec {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: var(--text-ui-md2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.teaching-memo-hit-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(168, 95, 40, 0.12);
+  color: var(--amber-deep);
+  font-family: var(--font-input);
+  font-size: var(--text-fine);
+  font-weight: 700;
+}
+
+.teaching-memo-hit-snip {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.teaching-memo-empty {
+  margin: 0 0 0.85rem;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: var(--text-ui);
+}
+
+.teaching-memo-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.teaching-memo-toc {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 0.85rem 0.7rem;
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  border: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+
+.teaching-memo-toc h2 {
+  margin: 0 0 0.55rem 0.35rem;
+  font-size: var(--text-fine);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+
+.teaching-memo-toc > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.teaching-memo-toc-sub {
+  list-style: none;
+  margin: 0.15rem 0 0.35rem 0.55rem;
+  padding: 0 0 0 0.55rem;
+  border-left: 2px solid rgba(24, 18, 12, 0.08);
+  display: grid;
+  gap: 0.05rem;
+}
+
+.teaching-memo-toc-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.42rem 0.55rem;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-caption);
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+
+.teaching-memo-toc-link:hover {
+  background: rgba(24, 18, 12, 0.04);
+  color: var(--amber-deep);
+}
+
+.teaching-memo-toc-link.active {
+  background: rgba(168, 95, 40, 0.12);
+  color: var(--amber-deep);
+  font-weight: 600;
+}
+
+.teaching-memo-toc-sub-link {
+  font-size: var(--text-fine);
+  color: var(--ink-faint);
+  font-weight: 500;
+  padding: 0.28rem 0.5rem;
+}
+
+.teaching-memo-sheet {
+  padding: 1.1rem 1.2rem 1.4rem;
+  min-width: 0;
+}
+
+/* —— Injected accordion body —— */
+.teaching-memo-body {
+  min-width: 0;
+}
+
+.teaching-memo-body .group-heading {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.teaching-memo-body .section-group + .section-group {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.teaching-memo-body .acc-grid {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.teaching-memo-body details.acc-item {
+  scroll-margin-top: 1.25rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.teaching-memo-body details.acc-item + details.acc-item {
+  border-top: 1px solid rgba(24, 18, 12, 0.06);
+}
+
+.teaching-memo-body .acc-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.75rem;
+  padding: 0.85rem 0.15rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: var(--radius-control);
+  transition: background 0.15s var(--ease-out);
+}
+
+.teaching-memo-body .acc-header:hover {
+  background: rgba(24, 18, 12, 0.03);
+}
+
+.teaching-memo-body .acc-header::-webkit-details-marker,
+.teaching-memo-body .acc-header::marker,
+.teaching-memo-body .sub-header::-webkit-details-marker,
+.teaching-memo-body .sub-header::marker,
+.teaching-memo-body [class*='-header']::-webkit-details-marker,
+.teaching-memo-body [class*='-header']::marker {
+  display: none;
+  content: '';
+}
+
+.teaching-memo-body .acc-num {
+  font-family: var(--font-input);
+  font-size: var(--text-fine);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--amber-deep);
+}
+
+.teaching-memo-body .acc-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: calc(1.08rem * var(--font-scale));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.teaching-memo-body .acc-header:hover .acc-title {
+  color: var(--amber-deep);
+}
+
+.teaching-memo-body .acc-icon,
+.teaching-memo-body .sub-icon,
+.teaching-memo-body [class*='-icon'] {
+  margin-left: auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(24, 18, 12, 0.05);
+  color: var(--amber-deep);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.2s var(--ease-out);
+  flex-shrink: 0;
+}
+
+.teaching-memo-body details[open] > summary .acc-icon,
+.teaching-memo-body details[open] > summary .sub-icon,
+.teaching-memo-body details.open > summary [class*='-icon'],
+.teaching-memo-body details[open] > summary [class*='-icon'] {
+  transform: rotate(45deg);
+}
+
+.teaching-memo-body .acc-panel {
+  min-width: 0;
+}
+
+.teaching-memo-body .acc-panel-inner {
+  padding: 0.15rem 0.15rem 1rem;
+  font-size: var(--text-body);
+  color: var(--ink-soft);
+  line-height: 1.7;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.teaching-memo-body .acc-panel-inner > :first-child {
+  margin-top: 0;
+}
+
+.teaching-memo-body .acc-panel-inner p {
+  margin: 0.55rem 0;
+}
+
+.teaching-memo-body .acc-panel-inner ul,
+.teaching-memo-body .acc-panel-inner ol {
+  margin: 0.55rem 0;
+  padding-left: 1.25em;
+}
+
+.teaching-memo-body .acc-panel-inner li {
+  margin: 0.25rem 0;
+}
+
+.teaching-memo-body .acc-panel-inner h4,
+.teaching-memo-body .acc-panel-inner h5 {
+  font-family: var(--font-display);
+  font-size: var(--text-ui);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 1.1rem 0 0.45rem;
+  padding-left: 0.55rem;
+  border-left: 3px solid var(--amber);
+}
+
+.teaching-memo-body .acc-panel-inner table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.85rem 0;
+  font-size: var(--text-caption);
+  table-layout: fixed;
+  max-width: 100%;
+}
+
+.teaching-memo-body .acc-panel-inner th,
+.teaching-memo-body .acc-panel-inner td {
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.65rem;
+  vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.teaching-memo-body .acc-panel-inner th {
+  background: rgba(24, 18, 12, 0.04);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.teaching-memo-body .acc-panel-inner img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75rem auto;
+  border-radius: var(--radius-control);
+}
+
+.teaching-memo-body .fs-note {
+  font-size: var(--text-fine);
+  color: var(--ink-faint);
+}
+
+/* Nested details */
+.teaching-memo-body details.sub-item,
+.teaching-memo-body details[class*='sub'][class*='-item'] {
+  margin: 0.45rem 0;
+  border: 1px solid rgba(24, 18, 12, 0.08);
+  border-radius: var(--radius-control);
+  background: rgba(255, 253, 249, 0.65);
+  overflow: hidden;
+}
+
+.teaching-memo-body .sub-header,
+.teaching-memo-body [class*='sub'][class*='-header'] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  list-style: none;
+}
+
+.teaching-memo-body .sub-header:hover,
+.teaching-memo-body [class*='sub'][class*='-header']:hover {
+  background: rgba(24, 18, 12, 0.03);
+}
+
+.teaching-memo-body .sub-title,
+.teaching-memo-body [class*='sub'][class*='-title'] {
+  flex: 1;
+  font-weight: 600;
+  font-size: var(--text-ui-md2);
+  color: var(--ink);
+}
+
+.teaching-memo-body .sub-panel-inner,
+.teaching-memo-body [class*='sub'][class*='-panel-inner'] {
+  padding: 0.15rem 0.85rem 0.85rem;
+}
+
+.teaching-memo-body mark {
+  background: rgba(196, 132, 58, 0.28);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 0.12em;
+}
+
+.teaching-memo-body mark.cms-hl-jump {
+  background: rgba(168, 95, 40, 0.45);
+  box-shadow: 0 0 0 3px rgba(168, 95, 40, 0.2);
+}
+
+.teaching-memo-search mark {
+  background: rgba(196, 132, 58, 0.28);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 0.1em;
+}
+
+@media (max-width: 900px) {
+  .teaching-memo-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .teaching-memo-toc {
+    position: static;
+    max-height: 14rem;
+  }
+}

@@ -18,16 +18,21 @@ export function OverviewPage() {
     getTeacherNamesForClass,
     students,
     classes,
+    searchQuery,
+    filteredStudents,
   } = useCampus()
 
-  const scopeStudents =
-    user?.role === 'admin' && selectedClassIds.length === 0
+  const searching = Boolean(searchQuery.trim())
+
+  const scopeStudents = searching
+    ? filteredStudents
+    : user?.role === 'admin' && selectedClassIds.length === 0
       ? students
       : user?.role === 'teacher'
         ? accessibleStudents
         : selectedStudents
 
-  const scopeClasses =
+  const baseClasses =
     user?.role === 'admin' && selectedClassIds.length === 0
       ? classes
       : user?.role === 'teacher'
@@ -37,6 +42,25 @@ export function OverviewPage() {
               ? true
               : selectedClassIds.includes(c.id),
           )
+
+  const matchClassIds = useMemo(() => {
+    if (!searching) return null
+    return new Set(filteredStudents.map((s) => s.classId))
+  }, [searching, filteredStudents])
+
+  const matchCountByClass = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!searching) return map
+    for (const s of filteredStudents) {
+      map.set(s.classId, (map.get(s.classId) ?? 0) + 1)
+    }
+    return map
+  }, [searching, filteredStudents])
+
+  const scopeClasses = useMemo(() => {
+    if (!matchClassIds) return baseClasses
+    return baseClasses.filter((c) => matchClassIds.has(c.id))
+  }, [baseClasses, matchClassIds])
 
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -48,6 +72,7 @@ export function OverviewPage() {
         cls,
         teacher: getTeacherNamesForClass(cls.id),
         count: roster.length,
+        hits: matchCountByClass.get(cls.id) ?? 0,
         progress: average(roster.map((s) => s.progress)),
         reading: average(roster.map((s) => s.readingScore)),
       }
@@ -74,7 +99,14 @@ export function OverviewPage() {
       return cmp * factor
     })
     return rows
-  }, [scopeClasses, students, getTeacherNamesForClass, sortKey, sortDir])
+  }, [
+    scopeClasses,
+    students,
+    getTeacherNamesForClass,
+    sortKey,
+    sortDir,
+    matchCountByClass,
+  ])
 
   const onSort = (key: SortKey, nextDir: SortDir) => {
     setSortKey(key)
@@ -83,19 +115,19 @@ export function OverviewPage() {
 
   const metrics = [
     {
-      label: '涵蓋班級',
+      label: searching ? '命中班級' : '涵蓋班級',
       value: String(scopeClasses.length),
     },
     {
-      label: '學生人數',
+      label: searching ? '命中學生' : '學生人數',
       value: String(scopeStudents.length),
     },
     {
-      label: '平均 CA',
+      label: searching ? '命中平均 CA' : '平均 CA',
       value: String(average(scopeStudents.map((s) => s.progress))),
     },
     {
-      label: '平均閱讀',
+      label: searching ? '命中平均閱讀' : '平均閱讀',
       value: String(average(scopeStudents.map((s) => s.readingScore))),
     },
   ]
@@ -105,9 +137,11 @@ export function OverviewPage() {
       <header className="page-header reveal-up">
         <h1>總覽</h1>
         <p>
-          {user?.role === 'admin'
-            ? '全校已分派班級的整體概況。'
-            : '你任教班級的平靜摘要。'}
+          {searching
+            ? `依「${searchQuery.trim()}」篩選班級與學生。`
+            : user?.role === 'admin'
+              ? '全校已分派班級的整體概況。'
+              : '你任教班級的平靜摘要。'}
         </p>
       </header>
 
@@ -171,16 +205,37 @@ export function OverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {sortedClasses.map((row) => (
-                <tr key={row.cls.id}>
-                  <td>{row.cls.name}</td>
-                  <td>{row.cls.grade}</td>
-                  <td>{row.teacher}</td>
-                  <td>{row.count}</td>
-                  <td>{row.progress}</td>
-                  <td>{row.reading}</td>
+              {sortedClasses.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    {searching
+                      ? '沒有符合搜尋的班級。'
+                      : '目前沒有可顯示的班級。'}
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                sortedClasses.map((row) => (
+                  <tr
+                    key={row.cls.id}
+                    className={row.hits > 0 ? 'overview-row-hit' : undefined}
+                  >
+                    <td>
+                      {row.cls.name}
+                      {row.hits > 0 ? (
+                        <span className="overview-hit-badge">
+                          {' '}
+                          {row.hits} 命中
+                        </span>
+                      ) : null}
+                    </td>
+                    <td>{row.cls.grade}</td>
+                    <td>{row.teacher}</td>
+                    <td>{row.count}</td>
+                    <td>{row.progress}</td>
+                    <td>{row.reading}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

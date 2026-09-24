@@ -58,6 +58,9 @@ const HomeworkAbsMailPage = lazy(() =>
 const ReadingPage = lazy(() =>
   import('./pages/ReadingPage').then((m) => ({ default: m.ReadingPage })),
 )
+const TeachingPage = lazy(() =>
+  import('./pages/TeachingPage').then((m) => ({ default: m.TeachingPage })),
+)
 const TowerPage = lazy(() =>
   import('./pages/TowerPage').then((m) => ({ default: m.TowerPage })),
 )
@@ -199,6 +202,14 @@ function AppRoutes() {
             element={
               <LazyRoute>
                 <ScopePage />
+              </LazyRoute>
+            }
+          />
+          <Route
+            path="/resources/teaching"
+            element={
+              <LazyRoute>
+                <TeachingPage />
               </LazyRoute>
             }
           />

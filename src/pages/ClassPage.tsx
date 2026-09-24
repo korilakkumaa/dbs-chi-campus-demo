@@ -65,7 +65,14 @@ export function ClassPage() {
     students,
     getClassName,
     getTeacherNamesForClass,
+    searchQuery,
+    filteredStudents,
   } = useCampus()
+
+  const matchIds = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    return new Set(filteredStudents.map((s) => s.id))
+  }, [searchQuery, filteredStudents])
 
   const pool = useMemo(() => {
     const form = accessibleClasses.filter(
@@ -102,6 +109,49 @@ export function ClassPage() {
         .sort((a, b) => sortClassesForDisplay(a, b, startYear)),
     [pool, grade, startYear],
   )
+
+  const displayClasses = useMemo(() => {
+    if (!matchIds) return active
+    return active.filter((cls) => {
+      const roster = rosterForChineseClass(
+        cls.id,
+        cls.name,
+        students,
+        startYear,
+      )
+      return roster.some((s) => matchIds.has(s.id))
+    })
+  }, [active, matchIds, students, startYear])
+
+  // When search hits another grade, jump the grade tabs to the first match.
+  useEffect(() => {
+    if (!matchIds || matchIds.size === 0) return
+    const hitInGrade = active.some((cls) => {
+      const roster = rosterForChineseClass(
+        cls.id,
+        cls.name,
+        students,
+        startYear,
+      )
+      return roster.some((s) => matchIds.has(s.id))
+    })
+    if (hitInGrade) return
+    for (const g of availableGrades) {
+      const has = pool.some((cls) => {
+        if (gradeNumberFromClassName(cls.name) !== g) return false
+        return rosterForChineseClass(
+          cls.id,
+          cls.name,
+          students,
+          startYear,
+        ).some((s) => matchIds.has(s.id))
+      })
+      if (has) {
+        setGrade(g)
+        return
+      }
+    }
+  }, [matchIds, active, availableGrades, pool, students, startYear])
 
   const openStudent = (studentId: string) => {
     navigate(
@@ -186,7 +236,7 @@ export function ClassPage() {
       )}
 
       <div className="class-grid class-grid-five">
-        {active.map((cls, i) => {
+        {displayClasses.map((cls, i) => {
           const roster = rosterForChineseClass(
             cls.id,
             cls.name,
@@ -195,6 +245,9 @@ export function ClassPage() {
           )
             .slice()
             .sort((a, b) => a.classNumber - b.classNumber)
+          const matchCount = matchIds
+            ? roster.filter((s) => matchIds.has(s.id)).length
+            : 0
           const avgP = average(roster.map((s) => s.progress))
           const avgR = average(roster.map((s) => s.readingScore))
           const avgA = average(roster.map((s) => s.correctRate))
@@ -203,7 +256,7 @@ export function ClassPage() {
           return (
             <GlassPanel
               key={cls.id}
-              className={`class-snapshot class-snapshot-link class-snapshot-compact reveal-up delay-${Math.min(i + 1, 3)}`}
+              className={`class-snapshot class-snapshot-link class-snapshot-compact reveal-up delay-${Math.min(i + 1, 3)}${matchCount > 0 ? ' class-snapshot-search-hit' : ''}`}
             >
               <div
                 className="class-snapshot-body"
@@ -220,7 +273,10 @@ export function ClassPage() {
               >
               <div className="snapshot-head">
                 <h2>{cls.name}</h2>
-                <p>{remedialNote ?? cls.grade}</p>
+                <p>
+                  {remedialNote ?? cls.grade}
+                  {matchCount > 0 ? ` · ${matchCount} 命中` : ''}
+                </p>
               </div>
               {user?.role === 'admin' ? (
                 <p className="snapshot-teacher">
@@ -246,7 +302,7 @@ export function ClassPage() {
                 </div>
               </dl>
               <div
-                className={`spark-row${denseSparks ? ' spark-row-dense' : ''}`}
+                className={`spark-row${denseSparks ? ' spark-row-dense' : ''}${matchIds ? ' spark-row-searching' : ''}`}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
@@ -254,11 +310,12 @@ export function ClassPage() {
                   const total = semesterWeightedTotal(s)
                   const semesterMax = semesterMaxForGrade(grade)
                   const heightPct = Math.max(8, (total / semesterMax) * 100)
+                  const isMatch = matchIds?.has(s.id) ?? false
                   return (
                   <button
                     key={s.id}
                     type="button"
-                    className="spark"
+                    className={`spark${matchIds ? (isMatch ? ' spark-match' : ' spark-dim') : ''}`}
                     style={{ height: `${heightPct}%` }}
                     data-tip={`${s.name}（${String(s.classNumber).padStart(2, '0')}）：總分 ${formatScore(total)}`}
                     aria-label={`開啟 ${s.name} 的個人檔案，總分 ${formatScore(total)}`}
@@ -274,9 +331,13 @@ export function ClassPage() {
             </GlassPanel>
           )
         })}
-        {active.length === 0 && (
+        {displayClasses.length === 0 && (
           <GlassPanel className="empty-panel">
-            <p>請於上方選擇一個或多個班級以查看概況。</p>
+            <p>
+              {matchIds
+                ? '此年級沒有符合搜尋的班級。試調整關鍵字或切換年級。'
+                : '請於上方選擇一個或多個班級以查看概況。'}
+            </p>
           </GlassPanel>
         )}
       </div>

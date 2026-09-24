@@ -457,6 +457,7 @@ export async function fetchCampusStudentsFromSupabase(
     return {
       id: s.student_no,
       name: s.name_zh,
+      nameEn: s.name_en?.trim() || undefined,
       classId: s.class_id,
       classNumber: s.class_number,
       teachingGroup: s.teaching_group || undefined,

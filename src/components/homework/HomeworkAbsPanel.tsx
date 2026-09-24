@@ -26,6 +26,8 @@ import type { Student } from '../../types'
 
 type Props = {
   students: Student[]
+  /** When set, only show abs items for these stored student_no values. */
+  restrictStudentNos?: Set<string> | null
 }
 
 type RowState = {
@@ -76,7 +78,7 @@ function resolveEmail(
   return studentEmailFromOfficialNo(item.studentNo)
 }
 
-export function HomeworkAbsPanel({ students }: Props) {
+export function HomeworkAbsPanel({ students, restrictStudentNos }: Props) {
   const { user } = useAuth()
   const teachingYear = latestTeacherWhitelistYear()
   const [items, setItems] = useState<HomeworkAbsItem[]>([])
@@ -147,12 +149,22 @@ export function HomeworkAbsPanel({ students }: Props) {
       .filter((item) => !dismissedIds.has(item.id))
       .filter((item) => !rowState[item.id]?.gone)
       .filter((item) => itemMatchesTeacherClasses(item, teacherClasses))
+      .filter((item) => {
+        if (!restrictStudentNos || restrictStudentNos.size === 0) return true
+        if (!item.studentNo) return false
+        if (restrictStudentNos.has(item.studentNo)) return true
+        const official = officialStudentNo(item.studentNo)
+        for (const no of restrictStudentNos) {
+          if (officialStudentNo(no) === official) return true
+        }
+        return false
+      })
       .sort((a, b) => {
         const g = a.groupLabel.localeCompare(b.groupLabel, 'zh-Hant')
         if (g !== 0) return g
         return a.assignmentName.localeCompare(b.assignmentName, 'zh-Hant')
       })
-  }, [items, dismissedIds, rowState, teacherClasses])
+  }, [items, dismissedIds, rowState, teacherClasses, restrictStudentNos])
 
   async function onTick(item: HomeworkAbsItem) {
     if (!user) return

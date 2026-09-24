@@ -380,6 +380,31 @@
   min-width: 0;
 }
 
+.home-teaching-hits {
+  font-weight: 500;
+  font-size: var(--text-compact);
+  color: var(--amber-deep);
+}
+
+.home-teaching-list li.home-teaching-hit {
+  background: rgba(184, 104, 42, 0.06);
+  margin: 0 -0.35rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  border-radius: var(--radius-control);
+}
+
+.overview-hit-badge {
+  font-size: var(--text-compact);
+  font-weight: 500;
+  color: var(--amber-deep);
+  white-space: nowrap;
+}
+
+.overview-row-hit td:first-child {
+  font-weight: 600;
+}
+
 .home-teaching-metrics {
   display: flex;
   flex-wrap: wrap;

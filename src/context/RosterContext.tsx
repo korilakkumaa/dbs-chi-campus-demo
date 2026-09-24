@@ -31,6 +31,7 @@ import {
   latestTeacherWhitelistYear,
   rosterForChineseClass,
 } from '../data/teacherWhitelist'
+import { filterStudentsByQuery } from '../lib/studentSearch'
 import { supabaseConfigured } from '../lib/supabase'
 import type { SchoolClass, Student, User } from '../types'
 import { useAuth } from './AuthContext'
@@ -334,19 +335,9 @@ export function RosterProvider({ children }: { children: ReactNode }) {
   }, [user, students, accessibleClasses, scoresAcademicYearStart])
 
   const filteredStudents = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return selectedStudents
-    const compact = q.replace(/\s/g, '')
-    // Search across all classes the teacher can access, not only currently selected ones.
-    return accessibleStudents.filter((s) => {
-      const className = classes.find((c) => c.id === s.classId)?.name ?? ''
-      return (
-        s.name.toLowerCase().includes(q) ||
-        className.toLowerCase().includes(q) ||
-        String(s.classNumber).includes(q) ||
-        `${className}${s.classNumber}`.toLowerCase().includes(compact)
-      )
-    })
+    // Empty query → currently selected classes; non-empty → all accessible.
+    if (!searchQuery.trim()) return selectedStudents
+    return filterStudentsByQuery(accessibleStudents, searchQuery, classes)
   }, [accessibleStudents, selectedStudents, searchQuery, classes])
 
   const taughtGradeNumbers = useMemo(() => {

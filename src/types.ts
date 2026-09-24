@@ -19,6 +19,8 @@ export interface SchoolClass {
 export interface Student {
   id: string
   name: string
+  /** English name from roster (optional). */
+  nameEn?: string
   classId: string
   classNumber: number
   /** Chinese teaching stream, e.g. 7R-LWT, 8R-YCN, G7 EC-WKL (2526). */

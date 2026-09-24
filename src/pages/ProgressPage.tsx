@@ -32,6 +32,8 @@ export function ProgressPage() {
     deleteCalendarEvent,
     students,
     scoresAcademicYearStart,
+    searchQuery,
+    filteredStudents,
   } = useCampus()
   const { teachingAccessibleClasses, teachingYearStart, selectClasses } =
     useRoster()
@@ -51,6 +53,16 @@ export function ProgressPage() {
     return [...grades].sort((a, b) => a - b)
   }, [myClasses])
 
+  const matchIds = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    return new Set(filteredStudents.map((s) => s.id))
+  }, [searchQuery, filteredStudents])
+
+  const matchStoredNos = useMemo(() => {
+    if (!matchIds) return null
+    return new Set(filteredStudents.map((s) => s.id))
+  }, [matchIds, filteredStudents])
+
   const classProgress = useMemo(
     () =>
       myClasses.map((cls) => {
@@ -61,17 +73,26 @@ export function ProgressPage() {
           scoresAcademicYearStart,
         )
         const empty = roster.length === 0
+        const hits = matchIds
+          ? roster.filter((s) => matchIds.has(s.id)).length
+          : 0
         return {
           cls,
           grade: gradeNumberFromClassName(cls.name),
           count: roster.length,
+          hits,
           ca: empty ? null : average(roster.map((s) => s.progress)),
           reading: empty ? null : average(roster.map((s) => s.readingScore)),
           writing: empty ? null : average(roster.map((s) => s.correctRate)),
         }
       }),
-    [myClasses, students, scoresAcademicYearStart],
+    [myClasses, students, scoresAcademicYearStart, matchIds],
   )
+
+  const visibleClassProgress = useMemo(() => {
+    if (!matchIds) return classProgress
+    return classProgress.filter((row) => row.hits > 0)
+  }, [classProgress, matchIds])
 
   const scoresLink = (classId: string) =>
     withScoresYearQuery(
@@ -136,14 +157,30 @@ export function ProgressPage() {
                 ? `（成績／名冊學年為 ${formatAcademicYearLabel(scoresAcademicYearStart)}）`
                 : ''}
             </p>
-            {classProgress.length === 0 ? (
-              <p className="home-placeholder-hint">此學年尚未有任教班別。</p>
+            {visibleClassProgress.length === 0 ? (
+              <p className="home-placeholder-hint">
+                {matchIds
+                  ? '沒有符合搜尋的任教班。'
+                  : '此學年尚未有任教班別。'}
+              </p>
             ) : (
               <ul className="home-teaching-list">
-                {classProgress.map(({ cls, grade, count, ca, reading, writing }) => (
-                  <li key={cls.id}>
+                {visibleClassProgress.map(
+                  ({ cls, grade, count, hits, ca, reading, writing }) => (
+                  <li
+                    key={cls.id}
+                    className={hits > 0 ? 'home-teaching-hit' : undefined}
+                  >
                     <div className="home-teaching-main">
-                      <span className="home-teaching-name">{cls.name}</span>
+                      <span className="home-teaching-name">
+                        {cls.name}
+                        {hits > 0 ? (
+                          <span className="home-teaching-hits">
+                            {' '}
+                            {hits} 命中
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="home-teaching-metrics">
                         <span>{count} 人</span>
                         {ca != null && <span>CA {formatScore(ca)}</span>}
@@ -165,14 +202,18 @@ export function ProgressPage() {
                       <Link to={timetableLink(grade)}>時間表</Link>
                     </span>
                   </li>
-                ))}
+                ),
+                )}
               </ul>
             )}
           </GlassPanel>
         </div>
 
         <GlassPanel className="home-col home-col-right home-col-abs">
-          <HomeworkAbsPanel students={students} />
+          <HomeworkAbsPanel
+            students={students}
+            restrictStudentNos={matchStoredNos}
+          />
         </GlassPanel>
       </div>
     </div>

@@ -1622,6 +1622,20 @@ tbody tr.table-row-link:focus-visible {
   transform-origin: bottom;
 }
 
+.spark-row-searching .spark-dim {
+  opacity: 0.22;
+}
+
+.spark-row-searching .spark-match {
+  opacity: 1;
+  box-shadow: 0 0 0 1.5px rgba(184, 104, 42, 0.55);
+}
+
+.spark-row-searching .spark-dim:hover,
+.spark-row-searching .spark-dim:focus-visible {
+  opacity: 0.55;
+}
+
 .spark::after {
   content: attr(data-tip);
   position: absolute;

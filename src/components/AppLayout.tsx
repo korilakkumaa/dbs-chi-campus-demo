@@ -51,11 +51,13 @@ export function AppLayout() {
             toolsOpen={toolsOpen}
             onToggleTools={() => setToolsOpen((o) => !o)}
           />
-          <div className="shell-search-row" hidden={!searchVisible}>
-            <div className="shell-search-card">
-              <StudentSearch />
+          {searchVisible ? (
+            <div className="shell-search-row">
+              <div className="shell-search-card">
+                <StudentSearch />
+              </div>
             </div>
-          </div>
+          ) : null}
         </header>
         <main className="page-stage">
           <Outlet />
