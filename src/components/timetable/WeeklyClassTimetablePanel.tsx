@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { useCampus } from '../../context/CampusContext'
 import {
   formatAcademicYearLabel,
@@ -14,6 +16,9 @@ import {
   EVENT_KIND_META,
 } from '../../data/calendarEvents'
 import {
+  classMineLessonHighlight,
+  classPeriodIncludesTeacher,
+  classPeriodTeacherTokens,
   classTimetableEntry,
   countClassWeekLessons,
   getClassDayTimetable,
@@ -22,6 +27,7 @@ import {
   listClassTimetableAcademicYearStarts,
   listClassTimetableGradeLabels,
 } from '../../data/classTimetable'
+import { normalizeClassCode } from '../../data/gradeChineseTimetable'
 import {
   defaultTimetableWeekMonday,
   timetableViewStartYear,
@@ -29,6 +35,7 @@ import {
   type DayPeriod,
   type DayTimetableResult,
 } from '../../data/teacherTimetable'
+import { teacherInitialFromUserId } from '../../data/teacherWhitelist'
 import type { CalendarEvent, CalendarEventKind } from '../../types'
 
 /** Skip daily fixed bookends — same every day, just noise in a week grid. */
@@ -206,7 +213,13 @@ function DayDateHeader({
 }
 
 /** Split streamed "A · B" cells into stacked lines for readability. */
-function SlotCell({ period }: { period: DayPeriod | undefined }) {
+function SlotCell({
+  period,
+  highlightInitial,
+}: {
+  period: DayPeriod | undefined
+  highlightInitial?: string | null
+}) {
   if (!period || period.type === 'break') {
     return <span className="personal-tt-cell-mute">—</span>
   }
@@ -218,6 +231,7 @@ function SlotCell({ period }: { period: DayPeriod | undefined }) {
   const teachers = period.group.split(/\s*·\s*/).map((s) => s.trim())
   const rooms = period.room.split(/\s*·\s*/).map((s) => s.trim())
   const count = Math.max(subjects.length, teachers.length, rooms.length, 1)
+  const want = highlightInitial?.trim().toUpperCase() ?? ''
 
   if (count <= 1) {
     return (
@@ -236,8 +250,14 @@ function SlotCell({ period }: { period: DayPeriod | undefined }) {
         const subject = subjects[i] ?? subjects[0] ?? ''
         const teacher = teachers[i] ?? ''
         const room = rooms[i] ?? ''
+        const isMine =
+          want.length > 0 &&
+          classPeriodTeacherTokens(teacher).includes(want)
         return (
-          <li key={`${subject}-${i}`} className="personal-tt-stack-item">
+          <li
+            key={`${subject}-${i}`}
+            className={`personal-tt-stack-item${isMine ? ' mine' : ''}`}
+          >
             <span className="personal-tt-stack-lesson">
               <strong>{subject}</strong>
               {(teacher || room) && (
@@ -264,6 +284,13 @@ export function WeeklyClassTimetablePanel({
   embedded?: boolean
 }) {
   const { calendarEvents } = useCampus()
+  const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const highlightInitial = useMemo(() => {
+    if (!user?.id || user.role === 'admin') return null
+    return teacherInitialFromUserId(user.id)
+  }, [user])
 
   const [weekMonday, setWeekMonday] = useState(() => defaultTimetableWeekMonday())
   const jumpDateRef = useRef<HTMLInputElement>(null)
@@ -299,8 +326,41 @@ export function WeeklyClassTimetablePanel({
     [viewStartYear],
   )
 
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const classFromQuery = searchParams.get('class')
+  const queryClassKey = useMemo(() => {
+    if (!classFromQuery) return null
+    return (
+      normalizeClassCode(classFromQuery) ??
+      (classFromQuery.trim() || null)
+    )
+  }, [classFromQuery])
+
+  const [selectedKey, setSelectedKey] = useState<string | null>(
+    () => queryClassKey,
+  )
   const [gradeFilter, setGradeFilter] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!queryClassKey) return
+    const meta = classes.find((c) => c.classKey === queryClassKey)
+    if (!meta) return
+    setSelectedKey(queryClassKey)
+    setGradeFilter(meta.gradeLabel)
+  }, [queryClassKey, classes])
+
+  const selectClass = (classKey: string) => {
+    setSelectedKey(classKey)
+    const meta = classes.find((c) => c.classKey === classKey)
+    if (meta) setGradeFilter(meta.gradeLabel)
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('class', classKey)
+        return p
+      },
+      { replace: true },
+    )
+  }
 
   const effectiveGrade = useMemo(() => {
     if (gradeFilter && gradeLabels.includes(gradeFilter)) return gradeFilter
@@ -367,6 +427,23 @@ export function WeeklyClassTimetablePanel({
     return countClassWeekLessons(effectiveClassKey, weekDates, calendarEvents)
   }, [effectiveClassKey, weekDates, calendarEvents])
 
+  const mineLessonCount = useMemo(() => {
+    if (!effectiveClassKey || !highlightInitial) return null
+    let count = 0
+    for (const iso of weekDates) {
+      const periods = getClassPeriodsOnDate(
+        effectiveClassKey,
+        iso,
+        calendarEvents,
+      )
+      if (!periods) continue
+      for (const p of periods) {
+        if (classPeriodIncludesTeacher(p, highlightInitial)) count += 1
+      }
+    }
+    return count
+  }, [effectiveClassKey, weekDates, calendarEvents, highlightInitial])
+
   const isCurrentWeek = weekMonday === mondayOfWeekIso(isoDateLocal())
 
   const weekYearLabel = useMemo(
@@ -403,6 +480,9 @@ export function WeeklyClassTimetablePanel({
   }
   if (lessonCount != null) {
     summaryParts.push(`本週 ${lessonCount} 節`)
+  }
+  if (mineLessonCount != null && mineLessonCount > 0) {
+    summaryParts.push(`您任教 ${mineLessonCount} 節`)
   }
 
   return (
@@ -468,7 +548,7 @@ export function WeeklyClassTimetablePanel({
                 onClick={() => {
                   setGradeFilter(g)
                   const first = classes.find((c) => c.gradeLabel === g)
-                  if (first) setSelectedKey(first.classKey)
+                  if (first) selectClass(first.classKey)
                 }}
               >
                 {g === 'CLP' ? 'CLP' : g}
@@ -499,7 +579,7 @@ export function WeeklyClassTimetablePanel({
                       .filter(Boolean)
                       .join(' · ')
                   }
-                  onClick={() => setSelectedKey(c.classKey)}
+                  onClick={() => selectClass(c.classKey)}
                 >
                   {c.displayLabel}
                 </button>
@@ -587,18 +667,42 @@ export function WeeklyClassTimetablePanel({
                           : undefined
                         const isFree = period?.type === 'free'
                         const isLesson = period?.type === 'lesson'
+                        const isMine =
+                          highlightInitial != null &&
+                          period != null &&
+                          classPeriodIncludesTeacher(period, highlightInitial)
+                        const hl =
+                          isMine && period?.type === 'lesson'
+                            ? classMineLessonHighlight(
+                                period,
+                                effectiveClassKey,
+                                highlightInitial,
+                              )
+                            : null
                         return (
                           <td
                             key={col.iso}
                             className={
                               isLesson
-                                ? 'personal-tt-td lesson'
+                                ? `personal-tt-td lesson${isMine ? ' mine' : ''}`
                                 : isFree
                                   ? 'personal-tt-td free'
                                   : 'personal-tt-td'
                             }
+                            style={
+                              hl
+                                ? ({
+                                    '--tt-accent': hl.accent,
+                                    '--tt-soft': hl.soft,
+                                    '--tt-text': hl.text,
+                                  } as CSSProperties)
+                                : undefined
+                            }
                           >
-                            <SlotCell period={period} />
+                            <SlotCell
+                              period={period}
+                              highlightInitial={highlightInitial}
+                            />
                           </td>
                         )
                       })}

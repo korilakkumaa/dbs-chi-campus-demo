@@ -9,8 +9,10 @@ import {
   academicYearWindowForIso,
   effectiveSchoolWeekday,
   isDateInAcademicYear,
+  lessonHighlight,
   weekdayLabel,
   type AcademicYearWindow,
+  type ClassHighlight,
   type DayPeriod,
   type DayTimetableResult,
   type SchoolWeekday,
@@ -230,6 +232,45 @@ export function countClassWeekLessons(
     count += periods.filter((p) => p.type === 'lesson').length
   }
   return count
+}
+
+/** Teacher initials stored in class-timetable `group` (may be streamed with ·). */
+export function classPeriodTeacherTokens(group: string): string[] {
+  return group
+    .split(/[,·/]/)
+    .map((s) => s.replace(/\s+/g, ' ').trim().toUpperCase())
+    .filter(Boolean)
+}
+
+/** Whether a class-timetable lesson lists this teacher initial. */
+export function classPeriodIncludesTeacher(
+  period: DayPeriod,
+  teacherInitial: string,
+): boolean {
+  if (period.type !== 'lesson') return false
+  const want = teacherInitial.trim().toUpperCase()
+  if (!want) return false
+  return classPeriodTeacherTokens(period.group).includes(want)
+}
+
+/**
+ * Highlight for the stream (or whole cell) taught by `teacherInitial`.
+ * Falls back to class × first subject when the initial is only co-listed.
+ */
+export function classMineLessonHighlight(
+  period: Extract<DayPeriod, { type: 'lesson' }>,
+  classKey: string,
+  teacherInitial: string,
+): ClassHighlight {
+  const want = teacherInitial.trim().toUpperCase()
+  const subjects = period.subject.split(/\s*·\s*/).map((s) => s.trim())
+  const teacherStreams = period.group.split(/\s*·\s*/).map((s) => s.trim())
+  const idx = teacherStreams.findIndex((stream) =>
+    classPeriodTeacherTokens(stream).includes(want),
+  )
+  const subject =
+    idx >= 0 ? (subjects[idx] ?? subjects[0] ?? period.subject) : period.subject
+  return lessonHighlight(classKey, subject)
 }
 
 export { weekdayLabel, formatAcademicYearLabel }

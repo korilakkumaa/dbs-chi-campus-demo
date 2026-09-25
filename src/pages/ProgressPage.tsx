@@ -11,6 +11,7 @@ import { formatAcademicYearLabel } from '../data/academicYear'
 import {
   defaultScoresAcademicYearStart,
 } from '../data/campusScoresYear'
+import { whitelistClassToCode } from '../data/gradeChineseTimetable'
 import {
   gradeNumberFromClassName,
   latestTeacherWhitelistYear,
@@ -78,7 +79,6 @@ export function ProgressPage() {
           : 0
         return {
           cls,
-          grade: gradeNumberFromClassName(cls.name),
           count: roster.length,
           hits,
           ca: empty ? null : average(roster.map((s) => s.progress)),
@@ -101,8 +101,12 @@ export function ProgressPage() {
       scoresDefaultStart,
     )
 
-  const timetableLink = (grade: number | null) =>
-    grade != null ? `/timetable/class?grade=${grade}` : '/timetable/class'
+  const timetableLink = (className: string) => {
+    const code = whitelistClassToCode(className)
+    return code
+      ? `/timetable/school?class=${encodeURIComponent(code)}`
+      : '/timetable/school'
+  }
 
   return (
     <div className="page progress-page home-page">
@@ -166,7 +170,7 @@ export function ProgressPage() {
             ) : (
               <ul className="home-teaching-list">
                 {visibleClassProgress.map(
-                  ({ cls, grade, count, hits, ca, reading, writing }) => (
+                  ({ cls, count, hits, ca, reading, writing }) => (
                   <li
                     key={cls.id}
                     className={hits > 0 ? 'home-teaching-hit' : undefined}
@@ -199,7 +203,7 @@ export function ProgressPage() {
                       >
                         分數
                       </Link>
-                      <Link to={timetableLink(grade)}>時間表</Link>
+                      <Link to={timetableLink(cls.name)}>時間表</Link>
                     </span>
                   </li>
                 ),

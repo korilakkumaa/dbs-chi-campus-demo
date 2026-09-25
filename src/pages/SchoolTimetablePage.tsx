@@ -29,7 +29,7 @@ export function SchoolTimetablePage() {
       <header className="page-header reveal-up">
         <h1>全校時間表</h1>
         <p>
-          各班每週課表（含分流堂次）；依校曆自動反映假期與調課。可按年級選擇班別。
+          各班每週課表（含分流堂次）；依校曆自動反映假期與調課。可按年級選擇班別；登入教師的任教節數會以色塊標示。
         </p>
       </header>
 

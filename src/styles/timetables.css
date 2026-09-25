@@ -947,12 +947,29 @@ html[data-text-size='large'] .class-tt-lesson-teacher {
   vertical-align: top;
 }
 
+.school-tt .personal-tt-td.lesson.mine {
+  background: var(--tt-soft, color-mix(in srgb, var(--ink) 3%, transparent));
+  box-shadow: inset 3px 0 0 var(--tt-accent, transparent);
+}
+
+.school-tt .personal-tt-td.lesson.mine .personal-tt-cell-group,
+.school-tt .personal-tt-td.lesson.mine .personal-tt-stack-lesson strong {
+  color: var(--tt-text, var(--ink));
+}
+
 .school-tt .personal-tt-cell-lesson {
   align-items: flex-start;
 }
 
 .school-tt-stream-stack {
   gap: 0.18rem;
+}
+
+.school-tt-stream-stack .personal-tt-stack-item.mine {
+  border-radius: 4px;
+  padding: 0.12rem 0.28rem;
+  margin: 0 -0.28rem;
+  background: color-mix(in srgb, var(--tt-soft, transparent) 70%, transparent);
 }
 
 .school-tt-stream-stack .personal-tt-stack-lesson {
