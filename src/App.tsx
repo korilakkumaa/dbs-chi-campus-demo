@@ -10,7 +10,6 @@ import { AppLayout } from './components/AppLayout'
 import { defaultPath, useAuth } from './context/AuthContext'
 import { canAccessAdminConsole, isStudent } from './lib/permissions'
 import { AuthBootScreen, LoginPage } from './pages/LoginPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { ProgressPage } from './pages/ProgressPage'
 
 const AdminPage = lazy(() =>
@@ -48,6 +47,11 @@ const ClassTimetablePage = lazy(() =>
 const PersonalTimetablePage = lazy(() =>
   import('./pages/PersonalTimetablePage').then((m) => ({
     default: m.PersonalTimetablePage,
+  })),
+)
+const SchoolTimetablePage = lazy(() =>
+  import('./pages/SchoolTimetablePage').then((m) => ({
+    default: m.SchoolTimetablePage,
   })),
 )
 const HomeworkAbsMailPage = lazy(() =>
@@ -157,11 +161,9 @@ function AppRoutes() {
           <Route
             path="/timetable/school"
             element={
-              <PlaceholderPage
-                title="全校時間表"
-                description="全校中國語文科的時間表總覽。"
-                upcoming
-              />
+              <LazyRoute>
+                <SchoolTimetablePage />
+              </LazyRoute>
             }
           />
           <Route

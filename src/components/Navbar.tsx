@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
     children: [
       { to: '/timetable', label: '個人', end: true },
       { to: '/timetable/class', label: '班級' },
-      { to: '/timetable/school', label: '全校', upcoming: true },
+      { to: '/timetable/school', label: '全校' },
     ],
   },
   {

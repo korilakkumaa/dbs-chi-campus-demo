@@ -27,6 +27,7 @@
     "sync:prior-scores:2627:sql": "tsx scripts/sync-prior-scores-to-2627.ts --sql",
     "generate:timetables": "tsx scripts/generate-teacher-timetables.ts --year 2026",
     "generate:timetables:2526": "tsx scripts/generate-teacher-timetables.ts --year 2025",
+    "generate:class-timetables": "tsx scripts/generate-class-timetables.ts --year 2026",
     "import:assessment-duty": "tsx scripts/import-assessment-duty.ts",
     "sync:homework-abs": "tsx scripts/sync-homework-abs.ts",
     "process:homework-abs-mail": "tsx scripts/process-homework-abs-emails.ts",
