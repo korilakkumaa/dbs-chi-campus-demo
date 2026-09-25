@@ -782,6 +782,7 @@
     justify-self: stretch;
     justify-content: flex-start;
     flex-wrap: wrap;
+    max-width: 100%;
   }
 
   .nav-user .subject-buttons,
@@ -796,6 +797,11 @@
     align-items: flex-start;
     max-width: 100%;
     flex: 1 1 auto;
+  }
+
+  .nav-user .notif-bell {
+    /* Keep bell with text-size / logout on the trailing edge when wrapping. */
+    margin-left: auto;
   }
 }
 
@@ -1019,6 +1025,7 @@
     flex-wrap: wrap;
     grid-column: 1 / -1;
     order: 2;
+    max-width: 100%;
   }
 
   .nav-user .class-picker {

@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNotifications } from '../../context/NotificationsContext'
 import type { SystemNotification } from '../../data/systemNotifications'
+
+const PANEL_MARGIN = 12
+const PANEL_GAP = 8
+const PANEL_MAX_WIDTH = 352
 
 function formatCreatedAt(iso: string): string {
   const d = new Date(iso)
@@ -22,11 +26,54 @@ function calendarLinkFor(n: SystemNotification): string {
   return date ? `/calendar?date=${encodeURIComponent(date)}` : '/calendar'
 }
 
+type PanelPos = { top: number; left: number; width: number; maxHeight: number }
+
+function computePanelPos(anchor: DOMRect): PanelPos {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const width = Math.min(PANEL_MAX_WIDTH, Math.max(200, vw - PANEL_MARGIN * 2))
+  let left = anchor.right - width
+  if (left < PANEL_MARGIN) left = PANEL_MARGIN
+  if (left + width > vw - PANEL_MARGIN) {
+    left = Math.max(PANEL_MARGIN, vw - PANEL_MARGIN - width)
+  }
+
+  const spaceBelow = vh - anchor.bottom - PANEL_GAP - PANEL_MARGIN
+  const spaceAbove = anchor.top - PANEL_GAP - PANEL_MARGIN
+  const preferBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove
+  const maxHeight = Math.min(
+    384,
+    Math.max(120, preferBelow ? spaceBelow : spaceAbove),
+  )
+  const top = preferBelow
+    ? anchor.bottom + PANEL_GAP
+    : Math.max(PANEL_MARGIN, anchor.top - PANEL_GAP - maxHeight)
+
+  return { top, left, width, maxHeight }
+}
+
 export function NotificationBell() {
   const { notifications, unreadCount, markRead, markAllRead } =
     useNotifications()
   const [open, setOpen] = useState(false)
+  const [panelPos, setPanelPos] = useState<PanelPos | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const reposition = () => {
+    const btn = btnRef.current
+    if (!btn) return
+    setPanelPos(computePanelPos(btn.getBoundingClientRect()))
+  }
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelPos(null)
+      return
+    }
+    reposition()
+  }, [open, notifications.length, unreadCount])
 
   useEffect(() => {
     if (!open) return
@@ -36,17 +83,23 @@ export function NotificationBell() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
+    const onReposition = () => reposition()
     document.addEventListener('mousedown', onPointer)
     document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
     return () => {
       document.removeEventListener('mousedown', onPointer)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
     }
   }, [open])
 
   return (
     <div className="notif-bell" ref={rootRef}>
       <button
+        ref={btnRef}
         type="button"
         className={`notif-bell-btn${open ? ' open' : ''}${
           unreadCount > 0 ? ' has-unread' : ''
@@ -59,7 +112,18 @@ export function NotificationBell() {
             : '系統通知'
         }
         title="系統通知"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (open) {
+            setOpen(false)
+            return
+          }
+          if (btnRef.current) {
+            setPanelPos(
+              computePanelPos(btnRef.current.getBoundingClientRect()),
+            )
+          }
+          setOpen(true)
+        }}
       >
         <svg viewBox="0 0 24 24" aria-hidden className="notif-bell-icon">
           <path
@@ -74,11 +138,18 @@ export function NotificationBell() {
         ) : null}
       </button>
 
-      {open ? (
+      {open && panelPos ? (
         <div
+          ref={panelRef}
           className="notif-panel glass"
           role="dialog"
           aria-label="系統通知"
+          style={{
+            top: panelPos.top,
+            left: panelPos.left,
+            width: panelPos.width,
+            maxHeight: panelPos.maxHeight,
+          }}
         >
           <div className="notif-panel-head">
             <h2 className="notif-panel-title">系統通知</h2>
