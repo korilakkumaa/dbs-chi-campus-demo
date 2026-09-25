@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useCampus } from '../../context/CampusContext'
 import {
   formatAcademicYearLabel,
@@ -14,7 +14,6 @@ import {
   EVENT_KIND_META,
 } from '../../data/calendarEvents'
 import {
-  classLessonHighlight,
   classTimetableEntry,
   countClassWeekLessons,
   getClassDayTimetable,
@@ -588,13 +587,6 @@ export function WeeklyClassTimetablePanel({
                           : undefined
                         const isFree = period?.type === 'free'
                         const isLesson = period?.type === 'lesson'
-                        const hl =
-                          isLesson && period.type === 'lesson'
-                            ? classLessonHighlight(
-                                effectiveClassKey,
-                                period.subject,
-                              )
-                            : null
                         return (
                           <td
                             key={col.iso}
@@ -604,15 +596,6 @@ export function WeeklyClassTimetablePanel({
                                 : isFree
                                   ? 'personal-tt-td free'
                                   : 'personal-tt-td'
-                            }
-                            style={
-                              hl
-                                ? ({
-                                    '--tt-accent': hl.accent,
-                                    '--tt-soft': hl.soft,
-                                    '--tt-text': hl.text,
-                                  } as CSSProperties)
-                                : undefined
                             }
                           >
                             <SlotCell period={period} />

@@ -9,10 +9,8 @@ import {
   academicYearWindowForIso,
   effectiveSchoolWeekday,
   isDateInAcademicYear,
-  lessonHighlight,
   weekdayLabel,
   type AcademicYearWindow,
-  type ClassHighlight,
   type DayPeriod,
   type DayTimetableResult,
   type SchoolWeekday,
@@ -126,19 +124,6 @@ export function listClassTimetableGradeLabels(
     if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb
     return a.localeCompare(b, 'en')
   })
-}
-
-/**
- * Highlight for a school-class cell.
- * Prefer Chinese-family swatches when subject starts with CHIN / CHIS / PTH / EC;
- * otherwise hash by subject so neighbouring cells stay distinct.
- */
-export function classLessonHighlight(
-  classKey: string,
-  subject: string,
-): ClassHighlight {
-  const firstSubject = subject.split(/\s*·\s*/)[0]?.trim() ?? subject
-  return lessonHighlight(classKey, firstSubject)
 }
 
 function schoolWideDayMark(
