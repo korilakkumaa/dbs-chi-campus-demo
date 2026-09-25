@@ -31,6 +31,7 @@ import {
   tombstoneSharedCalendarEvent,
   upsertSharedCalendarEvent,
 } from '../data/supabaseCalendar'
+import { notifyTeachersOfCalendarEvent } from '../data/systemNotifications'
 import { academicYearStartFromIso } from '../data/academicYear'
 import { calendarGradeAudienceMatchesUser } from '../data/campusSubjects'
 import type {
@@ -42,6 +43,54 @@ import type {
 } from '../types'
 import { useAuth } from './AuthContext'
 import { useRoster } from './RosterContext'
+
+function shouldNotifyCalendarCreate(
+  user: User | null | undefined,
+  event: CalendarEvent,
+): boolean {
+  if (!user || user.role !== 'admin') return false
+  if (event.audience.type === 'personal') return false
+  if (!event.title.trim()) return false
+  return true
+}
+
+function notifyCreatedEvents(
+  user: User,
+  events: CalendarEvent[],
+  allClasses: SchoolClass[],
+): void {
+  const shared = events.filter((event) => shouldNotifyCalendarCreate(user, event))
+  if (shared.length === 0) return
+
+  // Group by title + kind + audience + year so multi-day batches become one notice.
+  const groups = new Map<string, CalendarEvent[]>()
+  for (const event of shared) {
+    const key = [
+      event.title,
+      event.kind,
+      event.schoolYearStart ?? '',
+      JSON.stringify(event.audience),
+    ].join('\0')
+    const list = groups.get(key)
+    if (list) list.push(event)
+    else groups.set(key, [event])
+  }
+
+  for (const group of groups.values()) {
+    const first = group[0]
+    void notifyTeachersOfCalendarEvent({
+      title: first.title,
+      dates: group.map((e) => e.date),
+      kind: first.kind,
+      audience: first.audience,
+      eventIds: group.map((e) => e.id),
+      createdBy: user.id,
+      schoolYearStart:
+        first.schoolYearStart ?? academicYearStartFromIso(first.date),
+      allClasses,
+    })
+  }
+}
 
 export interface CalendarCampusContextValue {
   /** All events visible to the signed-in user (continuous across school years). */
@@ -123,6 +172,7 @@ export function CalendarCampusProvider({ children }: { children: ReactNode }) {
     teachingAccessibleClasses,
     teachingYearStart,
   } = useRoster()
+  const notifyClasses = classes
 
   const [allCalendarEvents, setAllCalendarEvents] = useState<CalendarEvent[]>(
     () => assembleCalendarEvents(user?.id),
@@ -211,7 +261,9 @@ export function CalendarCampusProvider({ children }: { children: ReactNode }) {
         const next = [...allCalendarEvents, event]
         setAllCalendarEvents(next)
         persistCalendarState(next, user.id, user.role)
-        void upsertSharedCalendarEvent(event)
+        void upsertSharedCalendarEvent(event).then((ok) => {
+          if (ok) notifyCreatedEvents(user, [event], notifyClasses)
+        })
         return event.id
       },
       addCalendarEvents: (inputs) => {
@@ -245,6 +297,13 @@ export function CalendarCampusProvider({ children }: { children: ReactNode }) {
           if (results.some((ok) => !ok)) {
             console.warn(
               'campus calendar multi upsert: some events failed to reach Supabase',
+            )
+          }
+          if (results.some((ok) => ok)) {
+            notifyCreatedEvents(
+              user,
+              created.filter((_, i) => results[i]),
+              notifyClasses,
             )
           }
         })
@@ -338,11 +397,18 @@ export function CalendarCampusProvider({ children }: { children: ReactNode }) {
               'campus calendar batch upsert: some events failed to reach Supabase',
             )
           }
+          if (results.some((ok) => ok)) {
+            notifyCreatedEvents(
+              user,
+              created.filter((_, i) => results[i]),
+              notifyClasses,
+            )
+          }
         })
         return created.length
       },
     }),
-    [calendarEvents, allCalendarEvents, user],
+    [calendarEvents, allCalendarEvents, user, notifyClasses],
   )
 
   return (

@@ -28,7 +28,7 @@ export function CalendarDayStatusPanel({
   selectedDates,
   onClearSelection,
 }: Props) {
-  const { teachers, addCalendarEventsBatch } = useCampus()
+  const { teachers, addCalendarEvents } = useCampus()
 
   const [dayStatusKind, setDayStatusKind] =
     useState<(typeof DAY_STATUS_KINDS)[number]>('holiday')
@@ -78,14 +78,15 @@ export function CalendarDayStatusPanel({
     }
 
     let total = 0
-    for (const iso of sortedDates) {
-      total += addCalendarEventsBatch({
+    const createdIds = addCalendarEvents(
+      sortedDates.map((iso) => ({
         title: resolvedTitle,
         date: iso,
         kind: activeKind,
         audience,
-      })
-    }
+      })),
+    )
+    total = createdIds.length
 
     if (total === 0) {
       setNotice('未能套用所選日期。')

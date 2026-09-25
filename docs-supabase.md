@@ -105,6 +105,7 @@ npm run import:streaming:2627
 1. 在 SQL Editor 執行 [`supabase/migrations/20260824120000_campus_calendar_events.sql`](supabase/migrations/20260824120000_campus_calendar_events.sql)
 2. 管理員在「詳細日曆」新增、改標題或刪除的**全校活動**會寫入 `campus_calendar_events`，教師重新整理（或即時推送）後即可看到。
 3. 教師自己點課節新增的私人備註會同步至 Supabase（依 `audience.ownerId`），供 iCal 訂閱與 Google 同步使用。
+4. **系統通知**：執行 [`supabase/migrations/20260925120000_system_notifications.sql`](supabase/migrations/20260925120000_system_notifications.sql)。管理員新增有標題的共享日曆事件後，會依對象（全校／級別／指定教師）寫入 `system_notifications`；相關教師導覽列鈴鐺可看到事件名稱與日期。
 
 ## 3d. 出卷／職責／測考範圍（admin 編輯）
 

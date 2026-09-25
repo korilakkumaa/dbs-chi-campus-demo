@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { CampusProvider } from '../context/CampusContext'
+import { NotificationsProvider } from '../context/NotificationsContext'
 import { isStudent } from '../lib/permissions'
 import { AuthBootScreen } from '../pages/LoginPage'
 import { Navbar } from './Navbar'
@@ -43,26 +44,28 @@ export function AppLayout() {
 
   return (
     <CampusProvider>
-      <div className={`app-shell${toolsOpen ? ' tools-open' : ''}`}>
-        <div className="atmosphere" aria-hidden />
-        <ToolsSidebar open={toolsOpen} onClose={() => setToolsOpen(false)} />
-        <header className="shell-chrome">
-          <Navbar
-            toolsOpen={toolsOpen}
-            onToggleTools={() => setToolsOpen((o) => !o)}
-          />
-          {searchVisible ? (
-            <div className="shell-search-row">
-              <div className="shell-search-card">
-                <StudentSearch />
+      <NotificationsProvider>
+        <div className={`app-shell${toolsOpen ? ' tools-open' : ''}`}>
+          <div className="atmosphere" aria-hidden />
+          <ToolsSidebar open={toolsOpen} onClose={() => setToolsOpen(false)} />
+          <header className="shell-chrome">
+            <Navbar
+              toolsOpen={toolsOpen}
+              onToggleTools={() => setToolsOpen((o) => !o)}
+            />
+            {searchVisible ? (
+              <div className="shell-search-row">
+                <div className="shell-search-card">
+                  <StudentSearch />
+                </div>
               </div>
-            </div>
-          ) : null}
-        </header>
-        <main className="page-stage">
-          <Outlet />
-        </main>
-      </div>
+            ) : null}
+          </header>
+          <main className="page-stage">
+            <Outlet />
+          </main>
+        </div>
+      </NotificationsProvider>
     </CampusProvider>
   )
 }

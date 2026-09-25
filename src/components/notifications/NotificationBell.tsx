@@ -1,0 +1,128 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useNotifications } from '../../context/NotificationsContext'
+import type { SystemNotification } from '../../data/systemNotifications'
+
+function formatCreatedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${mm}/${dd} ${hh}:${mi}`
+}
+
+function calendarLinkFor(n: SystemNotification): string {
+  const dates = n.payload.dates
+  const date =
+    Array.isArray(dates) && typeof dates[0] === 'string'
+      ? dates[0]
+      : undefined
+  return date ? `/calendar?date=${encodeURIComponent(date)}` : '/calendar'
+}
+
+export function NotificationBell() {
+  const { notifications, unreadCount, markRead, markAllRead } =
+    useNotifications()
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="notif-bell" ref={rootRef}>
+      <button
+        type="button"
+        className={`notif-bell-btn${open ? ' open' : ''}${
+          unreadCount > 0 ? ' has-unread' : ''
+        }`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={
+          unreadCount > 0
+            ? `系統通知，${unreadCount} 則未讀`
+            : '系統通知'
+        }
+        title="系統通知"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden className="notif-bell-icon">
+          <path
+            fill="currentColor"
+            d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm8-6V11a8 8 0 1 0-16 0v5l-2 2v1h20v-1l-2-2Z"
+          />
+        </svg>
+        {unreadCount > 0 ? (
+          <span className="notif-bell-count" aria-hidden>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        ) : null}
+      </button>
+
+      {open ? (
+        <div
+          className="notif-panel glass"
+          role="dialog"
+          aria-label="系統通知"
+        >
+          <div className="notif-panel-head">
+            <h2 className="notif-panel-title">系統通知</h2>
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                className="notif-panel-action"
+                onClick={() => markAllRead()}
+              >
+                全部已讀
+              </button>
+            ) : null}
+          </div>
+          {notifications.length === 0 ? (
+            <p className="notif-empty">暫無通知</p>
+          ) : (
+            <ul className="notif-list">
+              {notifications.map((n) => (
+                <li
+                  key={n.id}
+                  className={`notif-item${n.readAt ? '' : ' unread'}`}
+                >
+                  <Link
+                    to={calendarLinkFor(n)}
+                    className="notif-item-link"
+                    onClick={() => {
+                      if (!n.readAt) markRead(n.id)
+                      setOpen(false)
+                    }}
+                  >
+                    <span className="notif-item-title">{n.title}</span>
+                    {n.body ? (
+                      <span className="notif-item-body">{n.body}</span>
+                    ) : null}
+                    <span className="notif-item-meta">
+                      新日曆事件 · {formatCreatedAt(n.createdAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}

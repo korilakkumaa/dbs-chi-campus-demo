@@ -11,6 +11,7 @@ import {
 } from 'react'
 import crest from '../assets/dbs-crest.png'
 import { TextSizeControl } from './TextSizeControl'
+import { NotificationBell } from './notifications/NotificationBell'
 
 type NavChild = {
   to: string
@@ -483,6 +484,7 @@ function StaffNavbar({
 
       <div className="nav-user">
         <SubjectButtons />
+        <NotificationBell />
         <TextSizeControl />
         <LogoutButton onClick={logout} />
       </div>
