@@ -1,0 +1,16 @@
+---
+description: After finishing app changes, commit and push to GitHub Pages without waiting for an explicit push request.
+alwaysApply: true
+---
+
+# Auto commit & push
+
+When a coding task that changes the site is done (UI, data, scripts, styles):
+
+1. Commit the relevant source changes (exclude `supabase/.temp/` and secrets).
+2. Run `npm run build` so `docs/` stays in sync for GitHub Pages; include `docs/` in the same commit when the build succeeds.
+3. Push to `origin` on the current branch.
+
+Do **not** wait for the user to say “push” / 「推上 GitHub」 unless they asked only for a local change, or the push would be destructive (force-push, rewrite history).
+
+If commit or push fails, fix what you can and report the blocker briefly.
