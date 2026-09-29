@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { Component, lazy, Suspense, type ReactNode } from 'react'
 import {
   Navigate,
   Outlet,
@@ -77,8 +77,39 @@ function RouteFallback() {
   )
 }
 
+class LazyRouteErrorBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <div className="route-fallback" role="alert">
+        <p>無法載入此頁面。請重新整理後再試。</p>
+        <button
+          type="button"
+          className="route-fallback-retry"
+          onClick={() => window.location.reload()}
+        >
+          重新整理
+        </button>
+      </div>
+    )
+  }
+}
+
 function LazyRoute({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+  return (
+    <LazyRouteErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+    </LazyRouteErrorBoundary>
+  )
 }
 
 function HomeRedirect() {

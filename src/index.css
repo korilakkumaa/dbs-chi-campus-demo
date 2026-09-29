@@ -17,6 +17,16 @@
   color: var(--muted, #5a6570);
   font-size: 0.95rem;
 }
+.route-fallback-retry {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--muted, #5a6570) 45%, transparent);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
 .async-status {
   margin: 0;
   color: var(--muted, #5a6570);
