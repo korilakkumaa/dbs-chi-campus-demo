@@ -46,6 +46,10 @@ function displayStudentNo(item: HomeworkAbsItem): string {
   return officialStudentNo(item.studentNo)
 }
 
+function followUpLabel(raw: string): string {
+  return raw.trim().toLowerCase() === 'late' ? '遲交' : '缺席'
+}
+
 function enrichName(item: HomeworkAbsItem, students: Student[]): string {
   if (item.studentName.trim()) return item.studentName.trim()
   if (!item.studentNo) return '—'
@@ -237,9 +241,9 @@ export function HomeworkAbsPanel({ students, restrictStudentNos }: Props) {
     <div className="homework-abs-panel">
       <div className="homework-abs-head">
         <div>
-          <h2 className="homework-abs-title">欠交習作</h2>
+          <h2 className="homework-abs-title">欠交／遲交習作</h2>
           <p className="homework-abs-sub">
-            依白名單組別顯示 · 剔＝立刻提醒 · 交叉＝永久略過
+            依白名單組別顯示缺席與遲交 · 剔＝立刻提醒 · 交叉＝永久略過
           </p>
         </div>
         <Link className="homework-abs-mail-link" to="/progress/abs-mail">
@@ -273,7 +277,7 @@ export function HomeworkAbsPanel({ students, restrictStudentNos }: Props) {
                     {enrichName(item, students)}
                   </p>
                   <p className="homework-abs-assignment">
-                    {item.assignmentName}
+                    {followUpLabel(item.absRaw)} · {item.assignmentName}
                   </p>
                   {state?.message && (
                     <p className="homework-abs-msg">{state.message}</p>

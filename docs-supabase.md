@@ -199,7 +199,7 @@ supabase functions deploy calendar-sync-google --no-verify-jwt
 ## 3d. 欠交習作提醒（首頁右欄）
 
 1. 在 SQL Editor 執行 [`supabase/migrations/20260825120000_homework_abs.sql`](supabase/migrations/20260825120000_homework_abs.sql)
-2. 將 Google Sheet「發佈至網頁」為 CSV，或準備本機 CSV，欄位需含：學生班別、學生組別、任教老師 INITIAL、習作名稱、ABS（大小寫皆可）；建議另加學生編號／學號／姓名以便對名冊。
+2. 在入分檔貼上 [`scripts/google-apps/export-homework-abs.gs`](scripts/google-apps/export-homework-abs.gs)，用選單「欠交通知 → 產生欠交橫表」。將該工作表「發佈至網頁」為 CSV。欄位為：學生班別、學生組別、任教老師INITIAL、習作名稱、ABS（`abs` 或缺席、`late` 或遲交）、學生編號、學號、姓名。
 3. 在 `.env.local` 設定 `HOMEWORK_ABS_SHEET_CSV_URL`（或 `HOMEWORK_ABS_SHEET_CSV_PATH`）、`SUPABASE_SERVICE_ROLE_KEY`，以及寄信用的 `RESEND_API_KEY`、`HOMEWORK_ABS_FROM_EMAIL`。
 4. 同步（建議每三天跑一次，可用 cron / GitHub Actions）：
 

@@ -11,7 +11,7 @@
  *   學生組別 / 組別 / group
  *   任教老師 / INITIAL / teacher
  *   習作名稱 / 習作 / assignment
- *   ABS / 狀態 / status          (value "abs", case-insensitive)
+ *   ABS / 狀態 / status          (value "abs" or "late", case-insensitive)
  *   學生編號 / STID / student_no (optional but preferred)
  *   學號 / class_number          (optional)
  *   姓名 / name                  (optional)

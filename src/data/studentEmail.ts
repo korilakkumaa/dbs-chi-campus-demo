@@ -17,6 +17,8 @@ export function studentEmailFromStoredNo(storedStudentNo: string): string | null
   return studentEmailFromOfficialNo(officialStudentNo(storedStudentNo))
 }
 
+/** Sheet status that should enter the reminder list: 缺席 abs, or 遲交 late. */
 export function isAbsMarker(raw: string): boolean {
-  return raw.trim().toLowerCase() === 'abs'
+  const s = raw.trim().toLowerCase()
+  return s === 'abs' || s === 'late'
 }
